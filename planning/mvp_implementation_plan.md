@@ -465,41 +465,75 @@ Build a working simulation with:
 - Implement proper error handling
 - Keep simulation state isolated and resettable
 
-### Step 3.2: Metrics Collection (1.5 hours)
+**✅ COMPLETED - Step 3.1: Main Simulation Engine**
+
+**Implementation Summary**:
+- Successfully created `src/core/port_simulation.py` with `PortSimulation` class
+- Integrated `ShipManager`, `BerthManager`, and `ContainerHandler` modules
+- Implemented ship arrival process with configurable inter-arrival times
+- Added comprehensive metrics tracking (waiting times, berth utilization, throughput)
+- Created ship processing workflow with proper berth allocation and release
+- Added simulation control methods (run, reset, get_status, generate_report)
+
+**Testing Results**:
+- Created comprehensive test suite in `tests/test_port_simulation.py`
+- All 18 tests passing, covering initialization, metrics, ship generation, simulation runs, error handling
+- Integration with existing modules verified - all 82 tests across project passing
+
+**Key Implementation Details**:
+- Ship generation with realistic container counts and TEU sizes based on ship type
+- Berth allocation using `find_available_berth` with ship size and type compatibility
+- Proper SimPy process management for concurrent ship processing
+- Statistics collection for queue efficiency, processing efficiency, and berth utilization
+- Error handling for edge cases (no berths available, invalid configurations)
+
+**Key Learnings**:
+- SimPy process coordination requires careful handling of berth allocation as regular methods vs processes
+- Ship object requires all mandatory fields (name, size_teu) for proper initialization
+- BerthManager.berths is a dictionary with berth_id keys, not a list of berth objects
+- Proper TEU estimation needed for realistic berth allocation based on container counts
+- Metrics collection should handle both empty and populated states gracefully
+
+### Step 3.2: Metrics Collection ✅ **COMPLETED** (1.5 hours)
 **Goal**: Track key performance indicators
 
-**Actions**:
-1. Create `src/utils/metrics_collector.py`:
-   ```python
-   """
-   Metrics Collection for Hong Kong Port Digital Twin
-   
-   This module tracks and calculates key performance indicators
-   for port operations analysis.
-   """
-   
-   from dataclasses import dataclass, field
-   from typing import List, Dict
-   import pandas as pd
-   
-   @dataclass
-   class SimulationMetrics:
-       """Container for all simulation metrics"""
-       ship_waiting_times: List[float] = field(default_factory=list)
-       berth_utilization: Dict[int, float] = field(default_factory=dict)
-       container_throughput: List[int] = field(default_factory=list)
-       queue_lengths: List[int] = field(default_factory=list)
-       
-   class MetricsCollector:
-       """Collects and analyzes simulation metrics"""
-       
-       def __init__(self):
-           self.metrics = SimulationMetrics()
-           
-       def record_ship_waiting_time(self, ship_id: str, waiting_time: float):
-           """Record how long a ship waited for berth"""
-           # Implementation...
-   ```
+**Status**: Successfully implemented and tested
+
+**Implementation Summary**:
+- ✅ Created `src/utils/metrics_collector.py` with comprehensive metrics collection
+- ✅ Implemented `SimulationMetrics` dataclass for data storage
+- ✅ Built `MetricsCollector` class with full KPI calculation suite
+- ✅ Added data validation and error handling
+- ✅ Implemented pandas DataFrame export functionality
+- ✅ Created comprehensive test suite (28 tests passing)
+
+**Key Features Implemented**:
+1. **Data Collection Methods**:
+   - Ship waiting times, berth utilization, container throughput
+   - Queue lengths, processing times, ship arrival/departure events
+   - Berth assignment tracking with timestamps
+
+2. **KPI Calculations**:
+   - Average/maximum waiting times and queue lengths
+   - Berth utilization rates (individual and average)
+   - Ship arrival/departure rates per hour
+   - Total container throughput and processing times
+
+3. **Analysis & Export**:
+   - Comprehensive performance summary generation
+   - Pandas DataFrame export for advanced analysis
+   - Metrics reset functionality for multiple simulation runs
+
+**Testing Results**: ✅ All 28 tests passing
+- Comprehensive edge case coverage
+- Input validation testing
+- Performance summary generation
+- DataFrame export functionality
+
+**Key Technical Details**:
+- Fixed Python falsy value handling for `start_time = 0.0`
+- Implemented robust input validation
+- Created flexible export system for data analysis integration
 
 ### Step 3.3: Simulation Control (1.5 hours)
 **Goal**: Add start/stop/reset functionality
@@ -541,31 +575,31 @@ Build a working simulation with:
 
 ## Phase 4: Basic Dashboard (Week 4)
 
-### Step 4.1: Visualization Utilities (2 hours)
+### Step 4.1: Visualization Utilities (2 hours) ✅ COMPLETED
 **Goal**: Create reusable visualization functions
 
 **Actions**:
-1. Create `src/utils/visualization.py`:
-   ```python
-   """
-   Visualization Utilities for Hong Kong Port Digital Twin
-   
-   This module provides reusable functions for creating charts and graphs
-   to visualize port operations and simulation results.
-   """
-   
-   import plotly.graph_objects as go
-   import plotly.express as px
-   import pandas as pd
-   
-   def create_port_layout_chart(berths_data: pd.DataFrame):
-       """Create visual representation of port layout"""
-       # Implementation...
-       
-   def create_ship_queue_chart(queue_data: List):
-       """Visualize ship waiting queue"""
-       # Implementation...
-   ```
+1. ✅ Created `src/utils/visualization.py` with comprehensive visualization functions:
+   - `create_port_layout_chart()`: Interactive scatter plot for berth positions
+   - `create_ship_queue_chart()`: Bar chart for ship waiting queue
+   - `create_berth_utilization_chart()`: Bar chart with color-coded utilization
+   - `create_throughput_timeline()`: Line chart for container throughput over time
+   - `create_waiting_time_distribution()`: Histogram for ship waiting times
+   - `create_kpi_summary_chart()`: Multi-metric KPI dashboard
+
+2. ✅ Created comprehensive test suite `tests/test_visualization.py` with 19 tests
+   - All functions tested with basic, empty, and edge case scenarios
+   - Integration tests to ensure all functions return valid Plotly figures
+   - Color coding and data validation tests
+
+**Lessons Learned**:
+- Plotly provides excellent interactive charts suitable for port visualization
+- Empty data handling is crucial for robust visualization functions
+- Color coding enhances user understanding (red/yellow/green for utilization)
+- Comprehensive testing ensures reliability across different data scenarios
+- All 149 tests pass, confirming good integration with existing codebase
+
+**Testing Results**: ✅ 19/19 visualization tests passed, 149/149 total tests passed
 
 ### Step 4.2: Streamlit Dashboard (3 hours)
 **Goal**: Create interactive web interface
