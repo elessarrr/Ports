@@ -581,6 +581,13 @@ class DataStorage:
 2. 📋 AI-powered optimization recommendations
 3. 📋 Mobile app for port stakeholders
 4. 📋 Integration with global shipping databases
+5. 🤖 **LLM Chatbot Integration** - AI-powered natural language interface for data queries
+   - Basic data queries ("How many ships are waiting?", "What's the berth utilization?")
+   - Text-based data interpretation and operational summaries
+   - Chart and graph analysis using vision-enabled LLMs
+   - Real-time insights and trend analysis through conversational interface
+   - Implementation: OpenAI/Anthropic API + Streamlit chat component
+   - Complexity: Medium (2-4 weeks), Cost: $50-200/month
 
 ### Technical Challenges & Solutions
 
