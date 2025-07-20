@@ -35,13 +35,13 @@ def create_port_layout_chart(berths_data: pd.DataFrame) -> go.Figure:
     x_positions = list(range(len(berths_data)))
     y_positions = [0] * len(berths_data)
     
-    for _, berth in berths_data.iterrows():
+    for idx, berth in berths_data.iterrows():
         color = color_map.get(berth['berth_type'], 'gray')
         symbol = 'square' if berth.get('is_occupied', False) else 'circle'
         
         fig.add_trace(go.Scatter(
-            x=[x_positions[berth['berth_id'] - 1]],
-            y=[y_positions[berth['berth_id'] - 1]],
+            x=[x_positions[idx]],
+            y=[y_positions[idx]],
             mode='markers+text',
             marker=dict(
                 size=20 + berth['crane_count'] * 5,  # Size based on crane count
@@ -318,8 +318,15 @@ def create_kpi_summary_chart(kpi_data: Dict) -> go.Figure:
     y_pos = 0.4
     for i, (kpi_name, value) in enumerate(kpis.items()):
         if kpi_name != 'Avg Berth Utilization (%)':
+            # Ensure value is numeric for formatting
+            try:
+                numeric_value = float(value)
+                formatted_value = f"{numeric_value:.1f}"
+            except (ValueError, TypeError):
+                formatted_value = str(value)
+            
             fig.add_annotation(
-                text=f"<b>{kpi_name}</b><br>{value:.1f}",
+                text=f"<b>{kpi_name}</b><br>{formatted_value}",
                 xref="paper", yref="paper",
                 x=0.75, y=y_pos - i * 0.08,
                 xanchor='center', yanchor='middle',
