@@ -324,3 +324,316 @@ hk_port_digital_twin/
 - NumPy/SciPy for optimization algorithms
 
 This plan provides a clear roadmap for building a robust Hong Kong Port Digital Twin that can serve as an impressive conference demo while being technically sound and maintainable.
+
+## Features Backlog
+
+### Data Integration Strategy
+Given the analysis of available data sources, most Hong Kong port data comes in file formats (PDFs, Excel, CSV, XML) rather than robust APIs. Our approach will focus on creating a comprehensive data pipeline that can process these diverse formats into a unified dataset.
+
+### Priority 1: Historical Data Foundation (Weeks 1-3)
+
+#### 1.1 Monthly Shipment Volume Modeling 📊
+**Goal**: Create historical and predictive models for container throughput
+
+**Data Sources**:
+- Marine Department monthly/quarterly PDFs on container throughput
+- Government Open Data Portal CSV files on port cargo statistics
+- Historical vessel arrival/departure data
+
+**Implementation**:
+- **PDF Data Extraction Pipeline**: Use `pdfplumber` or `tabula-py` to extract tables from Marine Department PDFs
+- **Excel/CSV Processing**: Automated ingestion of government data files
+- **Time Series Database**: Store monthly TEU (Twenty-foot Equivalent Unit) data from 2015-2024
+- **Predictive Modeling**: Use seasonal ARIMA or Prophet models to forecast future volumes
+- **Visualization**: Interactive charts showing historical trends and predictions
+
+**Features**:
+- Monthly container throughput dashboard (2015-present)
+- Seasonal trend analysis (peak vs. off-peak periods)
+- Year-over-year growth comparisons
+- 6-12 month volume forecasting
+- Impact analysis of external events (COVID-19, trade wars, etc.)
+
+#### 1.2 Vessel Traffic Pattern Analysis 🚢
+**Goal**: Understand and model vessel arrival patterns
+
+**Data Sources**:
+- Vessel arrivals by ship type and ocean/river (quarterly PDFs)
+- Average time in port statistics
+- Vessel arrivals by main berthing location
+
+**Implementation**:
+- **Pattern Recognition**: Identify peak arrival times, seasonal variations
+- **Ship Type Classification**: Analyze different vessel categories (container, bulk, tanker)
+- **Berth Utilization Modeling**: Map vessel types to preferred berths
+- **Queue Time Analysis**: Model waiting times based on historical data
+
+**Features**:
+- Vessel arrival heatmaps by time of day/week/month
+- Ship type distribution analysis
+- Berth occupancy patterns
+- Average turnaround time by vessel category
+
+#### 1.3 Port Performance Benchmarking 📈
+**Goal**: Create comprehensive port efficiency metrics
+
+**Data Sources**:
+- Port cargo throughput by seaborne/river cargo
+- Statistics on ocean vessels calling container terminals
+- Cross-boundary ferry terminal statistics
+
+**Implementation**:
+- **KPI Dashboard**: Port efficiency indicators (TEU per hour, vessel turnaround time)
+- **Comparative Analysis**: Hong Kong vs. other major Asian ports
+- **Efficiency Trends**: Track performance improvements over time
+
+### Priority 2: Real-Time Integration (Weeks 4-6)
+
+#### 2.1 Live Data Aggregation System 🔄
+**Goal**: Create a unified system to process multiple data formats in near real-time
+
+**Implementation Strategy**:
+- **File Monitoring**: Watch for new PDF/Excel releases from government sources
+- **Automated Processing**: Scheduled jobs to extract and process new data
+- **Data Validation**: Cross-reference multiple sources for accuracy
+- **Change Detection**: Alert system for significant data updates
+
+**Features**:
+- Automated data refresh when new government reports are published
+- Data quality monitoring and anomaly detection
+- Multi-source data reconciliation
+- Real-time status indicators for data freshness
+
+#### 2.2 MarineTraffic Visual Integration 🗺️
+**Goal**: Enhance dashboard with live vessel tracking (already implemented)
+
+**Current Status**: ✅ IMPLEMENTED
+- Live map embedding in dashboard
+- Real-time vessel positions around Hong Kong
+- Interactive controls for map customization
+
+**Future Enhancements**:
+- Vessel identification and tracking
+- Route prediction based on AIS data
+- Integration with historical arrival data
+
+### Priority 3: Advanced Analytics (Weeks 7-8)
+
+#### 3.1 Predictive Port Congestion Model 🚨
+**Goal**: Predict port congestion based on multiple factors
+
+**Data Inputs**:
+- Historical vessel arrival patterns
+- Seasonal cargo volume trends
+- Weather data integration
+- Special events calendar (holidays, typhoons)
+
+**Implementation**:
+- **Machine Learning Model**: Random Forest or XGBoost for congestion prediction
+- **Feature Engineering**: Combine vessel schedules, cargo volumes, weather
+- **Alert System**: Early warning for potential bottlenecks
+
+**Features**:
+- 7-day congestion forecast
+- Berth availability predictions
+- Optimal arrival time recommendations
+- Capacity utilization alerts
+
+#### 3.2 Supply Chain Impact Analysis 🌐
+**Goal**: Model broader supply chain implications
+
+**Data Sources**:
+- Port cargo throughput by Greater Bay Area cities
+- Cross-boundary ferry statistics
+- Container transshipment data
+
+**Implementation**:
+- **Network Analysis**: Map cargo flows between Hong Kong and mainland China
+- **Disruption Modeling**: Simulate impact of port delays on supply chains
+- **Alternative Route Analysis**: Identify backup options during congestion
+
+**Features**:
+- Supply chain flow visualization
+- Disruption impact calculator
+- Alternative port recommendations
+- Economic impact estimates
+
+### Priority 4: Scenario Modeling (Weeks 9-10)
+
+#### 4.1 "What-If" Scenario Engine 🎯
+**Goal**: Allow users to model different operational scenarios
+
+**Scenarios**:
+- **Typhoon Impact**: Reduced operations during severe weather
+- **Peak Season Surge**: Chinese New Year, Christmas shipping rush
+- **Infrastructure Expansion**: Adding new berths or terminals
+- **Trade Policy Changes**: Impact of tariffs or trade agreements
+- **Pandemic Response**: Reduced capacity and health protocols
+- **U.S. Tariff Impact (April 2025)**: Analysis of global tariff effects on shipment volumes
+
+**Implementation**:
+- **Parameter Adjustment Interface**: Sliders for capacity, demand, processing times
+- **Monte Carlo Simulation**: Run multiple scenarios with uncertainty
+- **Comparative Analysis**: Side-by-side scenario comparison
+
+**Features**:
+- Interactive scenario builder
+- Risk assessment for different conditions
+- Optimization recommendations
+- Cost-benefit analysis for improvements
+
+#### 4.2 Investment Planning Tool 💰
+**Goal**: Support port development decisions
+
+**Analysis Types**:
+- **Capacity Expansion ROI**: New berth construction analysis
+- **Technology Upgrades**: Automation impact modeling
+- **Environmental Compliance**: Green port initiative costs/benefits
+- **Competitive Positioning**: Market share analysis
+
+#### 4.3 Trade Policy Impact Analysis 🌍
+**Goal**: Analyze the impact of major trade policy changes on Hong Kong port operations
+
+**Focus Area: U.S. Global Tariffs (April 2025)**
+**Data Sources**:
+- Historical quarterly container throughput data (2015-2024)
+- Trade route analysis (U.S.-Asia cargo flows)
+- Comparative data from competing ports (Singapore, Shanghai, Shenzhen)
+- Economic indicators and trade statistics
+
+**Implementation**:
+- **Before/After Analysis**: Compare Q2 2025 volumes against historical Q2 averages
+- **Trade Route Mapping**: Visualize cargo flow changes from traditional U.S.-bound routes
+- **Alternative Route Analysis**: Model cargo redirection to other destinations
+- **Economic Impact Calculator**: Estimate revenue and employment effects
+- **Recovery Timeline Modeling**: Predict when volumes might normalize
+
+**Features**:
+- **Quarterly Comparison Dashboard**: Q2 2025 vs. historical Q2 performance
+- **Trade Flow Visualization**: Interactive maps showing route changes
+- **Volume Impact Metrics**: Percentage changes by cargo type and destination
+- **Competitive Analysis**: Hong Kong vs. other Asian ports during tariff period
+- **Scenario Modeling**: "What if tariffs are reduced/removed" analysis
+- **Economic Ripple Effects**: Impact on port employment, revenue, and regional economy
+
+**Key Metrics to Track**:
+- Total TEU volume change (Q2 2025 vs. Q2 2024)
+- U.S.-bound cargo percentage shift
+- Alternative destination growth (Europe, Southeast Asia, domestic China)
+- Container dwell time changes
+- Vessel call frequency variations
+- Port revenue impact assessment
+
+**Visualization Components**:
+- **Time Series Charts**: Monthly volume trends with tariff implementation marker
+- **Heat Maps**: Geographic distribution of cargo destination changes
+- **Comparative Bar Charts**: Hong Kong vs. competitor ports performance
+- **Sankey Diagrams**: Trade flow redistribution patterns
+- **Economic Impact Gauges**: Revenue and employment effect indicators
+
+### Data Processing Pipeline Architecture
+
+#### Stage 1: Data Ingestion
+```python
+# Automated file processing system
+class DataIngestionPipeline:
+    def process_pdf_reports(self, source_url)
+    def extract_excel_data(self, file_path)
+    def parse_xml_feeds(self, xml_content)
+    def validate_data_quality(self, dataset)
+```
+
+#### Stage 2: Data Transformation
+```python
+# Standardize different data formats
+class DataTransformer:
+    def normalize_vessel_data(self, raw_data)
+    def calculate_derived_metrics(self, base_data)
+    def handle_missing_values(self, dataset)
+    def create_time_series(self, historical_data)
+```
+
+#### Stage 3: Data Storage
+```python
+# Efficient storage for different data types
+class DataStorage:
+    def store_time_series(self, data)  # InfluxDB or TimescaleDB
+    def cache_processed_data(self, data)  # Redis for fast access
+    def archive_raw_files(self, files)  # S3 or local storage
+```
+
+### Implementation Priorities
+
+#### Must-Have (Conference Demo)
+1. ✅ Historical container throughput visualization
+2. ✅ Live vessel tracking map
+3. 📋 Monthly volume prediction model
+4. 📋 Basic scenario comparison tool
+
+#### Should-Have (Post-Conference)
+1. 📋 Automated data pipeline for government sources
+2. 📋 Advanced congestion prediction
+3. 📋 Supply chain impact analysis
+4. 📋 Investment planning tools
+
+#### Could-Have (Future Versions)
+1. 📋 Real-time API integrations with terminal operators
+2. 📋 AI-powered optimization recommendations
+3. 📋 Mobile app for port stakeholders
+4. 📋 Integration with global shipping databases
+
+### Technical Challenges & Solutions
+
+#### Challenge 1: PDF Data Extraction
+**Problem**: Government data in PDF format is hard to process
+**Solution**: 
+- Use `pdfplumber` for table extraction
+- Implement OCR fallback for scanned documents
+- Create validation rules for extracted data
+- Manual review process for critical data
+
+#### Challenge 2: Data Inconsistency
+**Problem**: Different sources use different formats and definitions
+**Solution**:
+- Create data mapping dictionaries
+- Implement data reconciliation algorithms
+- Use multiple sources for cross-validation
+- Flag discrepancies for manual review
+
+#### Challenge 3: Real-Time Updates
+**Problem**: Government data is published irregularly
+**Solution**:
+- Implement web scraping for new file detection
+- Create notification system for data updates
+- Use interpolation for missing recent data
+- Provide data freshness indicators
+
+#### Challenge 4: Limited API Access
+**Problem**: Most data sources don't provide APIs
+**Solution**:
+- Build custom APIs on top of processed data
+- Create data export functionality
+- Implement caching for performance
+- Design for eventual API integration
+
+### Success Metrics
+
+#### Data Quality
+- **Completeness**: >95% of expected data points available
+- **Accuracy**: <5% variance from official sources
+- **Timeliness**: Data updated within 24 hours of source publication
+- **Consistency**: Cross-source validation passes >90% of checks
+
+#### User Engagement
+- **Dashboard Usage**: Daily active users
+- **Feature Adoption**: Percentage using advanced features
+- **Scenario Runs**: Number of what-if analyses performed
+- **Data Downloads**: API/export usage statistics
+
+#### Business Impact
+- **Decision Support**: Number of planning decisions informed
+- **Efficiency Gains**: Measurable improvements in port operations
+- **Cost Savings**: Quantified benefits from optimization
+- **Stakeholder Satisfaction**: User feedback scores
+
+This comprehensive features backlog addresses the reality of working with diverse data formats while building valuable analytical capabilities for Hong Kong port stakeholders.

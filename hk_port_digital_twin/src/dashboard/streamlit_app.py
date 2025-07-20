@@ -25,6 +25,7 @@ from src.utils.visualization import (
 )
 from src.core.port_simulation import PortSimulation
 from src.core.simulation_controller import SimulationController
+from src.dashboard.marine_traffic_integration import MarineTrafficIntegration
 from config.settings import SIMULATION_CONFIG, PORT_CONFIG, SHIP_TYPES
 
 
@@ -182,7 +183,7 @@ def main():
         st.rerun()
     
     # Main dashboard layout
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "🚢 Ships & Berths", "📈 Analytics", "⚙️ Settings"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Overview", "🚢 Ships & Berths", "📈 Analytics", "🌊 Live Map", "⚙️ Settings"])
     
     with tab1:
         st.subheader("Port Overview")
@@ -256,6 +257,93 @@ def main():
             st.plotly_chart(fig_waiting, use_container_width=True)
     
     with tab4:
+        st.subheader("🌊 Live Maritime Traffic")
+        st.markdown("Real-time vessel tracking around Hong Kong waters")
+        
+        # Initialize MarineTraffic integration
+        marine_traffic = MarineTrafficIntegration()
+        
+        # Display integration options
+        col1, col2 = st.columns([3, 1])
+        
+        with col2:
+            st.subheader("Map Options")
+            
+            # Map type selection
+            map_type = st.selectbox(
+                "Map Type",
+                ["Satellite", "Terrain", "Basic"],
+                index=0
+            )
+            
+            # Zoom level
+            zoom_level = st.slider("Zoom Level", 8, 15, 11)
+            
+            # Show vessel types
+            show_cargo = st.checkbox("Cargo Ships", True)
+            show_tanker = st.checkbox("Tankers", True)
+            show_passenger = st.checkbox("Passenger Ships", True)
+            
+            # Refresh button
+            if st.button("🔄 Refresh Map"):
+                st.rerun()
+            
+            # Information box
+            st.info(
+                "💡 **Note**: This is a live map integration with MarineTraffic. "
+                "Vessel data is updated in real-time and shows actual ships "
+                "in Hong Kong waters."
+            )
+            
+            # API status (if available)
+            if marine_traffic.has_api_key():
+                st.success("✅ API Connected")
+                
+                # Show some sample API data
+                st.subheader("Live Data Sample")
+                try:
+                    sample_data = marine_traffic.get_vessels_in_area(
+                        22.25, 22.35, 114.1, 114.2, limit=5
+                    )
+                    if sample_data:
+                        for vessel in sample_data[:3]:  # Show first 3 vessels
+                            st.text(f"🚢 {vessel.get('name', 'Unknown')}")
+                            st.text(f"   Type: {vessel.get('type', 'N/A')}")
+                            st.text(f"   Speed: {vessel.get('speed', 'N/A')} knots")
+                            st.text("---")
+                except Exception as e:
+                    st.warning(f"API Error: {str(e)}")
+            else:
+                st.warning("⚠️ API Key Required")
+                st.text("Set MARINETRAFFIC_API_KEY in .env for live data")
+        
+        with col1:
+            # Display the embedded map
+            map_html = marine_traffic.get_embedded_map(
+                center_lat=22.3,
+                center_lon=114.15,
+                zoom=zoom_level,
+                map_type=map_type.lower()
+            )
+            
+            # Embed the map
+            st.components.v1.html(map_html, height=600)
+            
+            # Additional information
+            st.markdown(
+                "**Live Maritime Traffic around Hong Kong**\n\n"
+                "This map shows real-time vessel positions, including:"
+            )
+            
+            col_info1, col_info2, col_info3 = st.columns(3)
+            with col_info1:
+                st.markdown("🚢 **Container Ships**\nCargo vessels carrying containers")
+            with col_info2:
+                st.markdown("🛢️ **Tankers**\nOil and chemical tankers")
+            with col_info3:
+                st.markdown("🚢 **Other Vessels**\nPassenger ships, tugs, etc.")
+    
+    with tab5:
         st.subheader("Configuration")
         
         col1, col2 = st.columns(2)
