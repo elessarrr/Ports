@@ -577,11 +577,20 @@ class DataStorage:
 4. 📋 Investment planning tools
 
 #### Could-Have (Future Versions)
-1. 📋 Real-time API integrations with terminal operators
-2. 📋 AI-powered optimization recommendations
-3. 📋 Mobile app for port stakeholders
-4. 📋 Integration with global shipping databases
-5. 🤖 **LLM Chatbot Integration** - AI-powered natural language interface for data queries
+1. 🚢 **Real-Time Vessel Data Integration** - Live dashboard using government XML feed
+   - Real-time ship queue from actual arriving vessels (updates every 20 minutes)
+   - Live berth occupancy tracking from vessel location data
+   - Arrival pattern analysis and predictive modeling
+   - Shipping agent/operator performance analytics
+   - Historical arrival trend analysis for seasonal patterns
+   - Implementation: XML parser + file monitoring + dashboard integration
+   - Complexity: Medium (2-4 weeks), Cost: Free (government data source)
+   - Value: Impressive live operations dashboard, moves from simulation to reality-based analytics
+2. 📋 Real-time API integrations with terminal operators
+3. 📋 AI-powered optimization recommendations
+4. 📋 Mobile app for port stakeholders
+5. 📋 Integration with global shipping databases
+6. 🤖 **LLM Chatbot Integration** - AI-powered natural language interface for data queries
    - Basic data queries ("How many ships are waiting?", "What's the berth utilization?")
    - Text-based data interpretation and operational summaries
    - Chart and graph analysis using vision-enabled LLMs

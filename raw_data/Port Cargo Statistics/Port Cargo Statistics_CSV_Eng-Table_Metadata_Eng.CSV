@@ -1,0 +1,62 @@
+﻿Table,Metadata,Description
+1,Table title,"Port cargo throughput by shipment type, 2014 to 2023"
+1,Note,Figures may not add up to the total due to rounding. 
+1,Unit,The unit of port_cargo_throughput_2014 is thousand tonnes.
+1,Unit,The unit of port_cargo_throughput_2015 is thousand tonnes.
+1,Unit,The unit of port_cargo_throughput_2016 is thousand tonnes.
+1,Unit,The unit of port_cargo_throughput_2017 is thousand tonnes.
+1,Unit,The unit of port_cargo_throughput_2018 is thousand tonnes.
+1,Unit,The unit of port_cargo_throughput_2019 is thousand tonnes.
+1,Unit,The unit of port_cargo_throughput_2020 is thousand tonnes.
+1,Unit,The unit of port_cargo_throughput_2021 is thousand tonnes.
+1,Unit,The unit of port_cargo_throughput_2022 is thousand tonnes.
+1,Unit,The unit of port_cargo_throughput_2023 is thousand tonnes.
+2,Table title,"Port cargo throughput by seaborne/river, 2014 and 2019 to 2023"
+2,Note,Figures may not add up to the total due to rounding. 
+2,Unit,The unit of port_cargo_throughput_2014 is thousand tonnes.
+2,Unit,The unit of port_cargo_throughput_2019 is thousand tonnes.
+2,Unit,The unit of port_cargo_throughput_2020 is thousand tonnes.
+2,Unit,The unit of port_cargo_throughput_2021 is thousand tonnes.
+2,Unit,The unit of port_cargo_throughput_2022 is thousand tonnes.
+2,Unit,The unit of port_cargo_throughput_2023 is thousand tonnes.
+3,Table title,"Port cargo throughput by country/territory, 2014 and 2023"
+3,Note,Figures may not add up to the total due to rounding. 
+3,Unit,The unit of direct_shipment_cargo_2014 is thousand tonnes.
+3,Unit,The unit of direct_shipment_cargo_2023 is thousand tonnes.
+3,Unit,The unit of transhipment_cargo_2014 is thousand tonnes.
+3,Unit,The unit of transhipment_cargo_2023 is thousand tonnes.
+3,Unit,The unit of overall_2014 is thousand tonnes.
+3,Unit,The unit of overall_2023 is thousand tonnes.
+4,Table title,"Port cargo movements between Hong Kong and the mainland of China, 2014 and 2019 to 2023"
+4,Note,"""-""        Denotes not applicable."
+4,Unit,The unit of port_cargo_movements_2014 is thousand tonnes.
+4,Unit,The unit of port_cargo_movements_2019 is thousand tonnes.
+4,Unit,The unit of port_cargo_movements_2020 is thousand tonnes.
+4,Unit,The unit of port_cargo_movements_2021 is thousand tonnes.
+4,Unit,The unit of port_cargo_movements_2022 is thousand tonnes.
+4,Unit,The unit of port_cargo_movements_2023 is thousand tonnes.
+5,Table title,"Port cargo throughput by commodity section, 2014 and 2023"
+5,Note,Figures may not add up to the total due to rounding. 
+5,Note,§ Denotes percentage share less than 0.05%.
+5,Unit,The unit of cargo_discharged_2014 is thousand tonnes.
+5,Unit,The unit of cargo_discharged_2023 is thousand tonnes.
+5,Unit,The unit of cargo_loaded_2014 is thousand tonnes.
+5,Unit,The unit of cargo_loaded_2023 is thousand tonnes.
+5,Unit,The unit of cargo_overall_2014 is thousand tonnes.
+5,Unit,The unit of cargo_overall_2023 is thousand tonnes.
+6,Table title,"Port cargo throughput by cargo type, 2014 and 2023"
+6,Note,Figures may not add up to the total due to rounding. 
+6,Unit,The unit of cargo_discharged_2014 is thousand tonnes.
+6,Unit,The unit of cargo_discharged_2023 is thousand tonnes.
+6,Unit,The unit of cargo_loaded_2014 is thousand tonnes.
+6,Unit,The unit of cargo_loaded_2023 is thousand tonnes.
+6,Unit,The unit of cargo_overall_2014 is thousand tonnes.
+6,Unit,The unit of cargo_overall_2023 is thousand tonnes.
+7,Table title,"Port cargo throughput by cargo handling location, 2014 and 2023"
+7,Note,Figures may not add up to the total due to rounding. 
+7,Unit,The unit of cargo_discharged_2014 is thousand tonnes.
+7,Unit,The unit of cargo_discharged_2023 is thousand tonnes.
+7,Unit,The unit of cargo_loaded_2014 is thousand tonnes.
+7,Unit,The unit of cargo_loaded_2023 is thousand tonnes.
+7,Unit,The unit of cargo_overall_2014 is thousand tonnes.
+7,Unit,The unit of cargo_overall_2023 is thousand tonnes.

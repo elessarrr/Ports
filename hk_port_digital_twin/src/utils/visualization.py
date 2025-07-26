@@ -182,31 +182,79 @@ def create_berth_utilization_chart(utilization_data: Dict[int, float]) -> go.Fig
 
 
 def create_throughput_timeline(throughput_data: pd.DataFrame) -> go.Figure:
-    """Create timeline chart showing container throughput over time
+    """Create timeline chart showing container throughput over time with seaborne/river breakdown
     
     Args:
-        throughput_data: DataFrame with columns 'time' and 'containers_processed'
+        throughput_data: DataFrame with columns 'time', 'seaborne_teus', 'river_teus', 'total_teus'
+                        OR legacy format with 'time' and 'containers_processed'
     
     Returns:
-        Plotly figure showing throughput timeline
+        Plotly figure showing throughput timeline with breakdown
     """
     fig = go.Figure()
     
-    fig.add_trace(go.Scatter(
-        x=throughput_data['time'],
-        y=throughput_data['containers_processed'],
-        mode='lines+markers',
-        name='Container Throughput',
-        line=dict(color='blue', width=2),
-        marker=dict(size=6)
-    ))
+    # Check if we have the new format with seaborne/river breakdown
+    if 'seaborne_teus' in throughput_data.columns and 'river_teus' in throughput_data.columns:
+        # Add seaborne throughput line
+        fig.add_trace(go.Scatter(
+            x=throughput_data['time'],
+            y=throughput_data['seaborne_teus'],
+            mode='lines+markers',
+            name='Seaborne TEUs',
+            line=dict(color='blue', width=2),
+            marker=dict(size=6)
+        ))
+        
+        # Add river throughput line
+        fig.add_trace(go.Scatter(
+            x=throughput_data['time'],
+            y=throughput_data['river_teus'],
+            mode='lines+markers',
+            name='River TEUs',
+            line=dict(color='green', width=2),
+            marker=dict(size=6)
+        ))
+        
+        # Add total throughput line if available
+        if 'total_teus' in throughput_data.columns:
+            fig.add_trace(go.Scatter(
+                x=throughput_data['time'],
+                y=throughput_data['total_teus'],
+                mode='lines+markers',
+                name='Total TEUs',
+                line=dict(color='red', width=3, dash='dash'),
+                marker=dict(size=8)
+            ))
+        
+        title = "Container Throughput Over Time (Real Data - Seaborne vs River)"
+        yaxis_title = "TEUs (Twenty-foot Equivalent Units)"
+    else:
+        # Fallback to legacy format
+        fig.add_trace(go.Scatter(
+            x=throughput_data['time'],
+            y=throughput_data['containers_processed'],
+            mode='lines+markers',
+            name='Container Throughput',
+            line=dict(color='blue', width=2),
+            marker=dict(size=6)
+        ))
+        
+        title = "Container Throughput Over Time"
+        yaxis_title = "Containers Processed"
     
     fig.update_layout(
-        title="Container Throughput Over Time",
-        xaxis_title="Time (hours)",
-        yaxis_title="Containers Processed",
+        title=title,
+        xaxis_title="Time",
+        yaxis_title=yaxis_title,
         height=400,
-        hovermode='x unified'
+        hovermode='x unified',
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
     )
     
     return fig

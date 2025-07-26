@@ -81,12 +81,15 @@ class TestPortSimulation:
         # Check that at least some ships are generated
         assert len(ships) == 20
         
-        # Check container ships have higher container counts
+        # Check container ships have realistic container counts based on new config
         container_ships = [s for s in ships if s.ship_type == 'container']
         if container_ships:
             for ship in container_ships:
-                assert ship.containers_to_unload >= 50
-                assert ship.containers_to_load >= 30
+                # Updated to match new realistic ranges from SHIP_TYPES config
+                assert ship.containers_to_unload >= 10  # Minimum realistic range
+                assert ship.containers_to_load >= 5    # Minimum realistic range
+                assert ship.containers_to_unload <= 24000  # Maximum ULCV capacity
+                assert ship.containers_to_load <= 20000    # Reasonable max load
                 
     def test_short_simulation_run(self):
         """Test running a short simulation"""
@@ -263,10 +266,18 @@ class TestPortSimulation:
         
     def test_config_integration(self):
         """Test that configuration is properly integrated"""
-        # Check that berth configuration is passed correctly
+        # Check that berth configuration is passed correctly (test config has 2 berths)
         assert len(self.simulation.berth_manager.berths) == 2
         
-        # Check berth details
+        # Check berth details from test config
         berth_ids = list(self.simulation.berth_manager.berths.keys())
         assert 1 in berth_ids
         assert 2 in berth_ids
+        
+        # Verify berth properties match test config
+        berth_1 = self.simulation.berth_manager.berths[1]
+        berth_2 = self.simulation.berth_manager.berths[2]
+        assert berth_1.name == 'Test Berth 1'
+        assert berth_2.name == 'Test Berth 2'
+        assert berth_1.berth_type == 'container'
+        assert berth_2.berth_type == 'mixed'

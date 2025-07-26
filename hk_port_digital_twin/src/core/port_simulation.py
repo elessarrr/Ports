@@ -18,7 +18,7 @@ from typing import Dict, List, Optional
 
 # Add project root to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from config.settings import SIMULATION_CONFIG, SHIP_TYPES
+from config.settings import SIMULATION_CONFIG, SHIP_TYPES, BERTH_CONFIGS
 from src.core.ship_manager import ShipManager, Ship
 from src.core.berth_manager import BerthManager
 from src.core.container_handler import ContainerHandler
@@ -42,7 +42,9 @@ class PortSimulation:
         
         # Initialize all managers
         self.ship_manager = ShipManager(self.env)
-        self.berth_manager = BerthManager(self.env, config.get('berths', []))
+        # Use berth config from parameter if provided, otherwise use settings
+        berth_config = config.get('berths', BERTH_CONFIGS)
+        self.berth_manager = BerthManager(self.env, berth_config)
         self.container_handler = ContainerHandler(self.env)
         
         # Simulation state
@@ -178,28 +180,43 @@ class PortSimulation:
     def _generate_random_ship(self, ship_id: str) -> Ship:
         """Generate a random ship with realistic characteristics
         
+        Uses probability-based ship type selection and realistic size distributions
+        based on Hong Kong Port's actual vessel characteristics.
+        
         Args:
             ship_id: Unique identifier for the ship
             
         Returns:
             Ship object with random but realistic properties
         """
-        # Randomly select ship type
-        ship_type = random.choice(list(SHIP_TYPES.keys()))
+        # Select ship type based on arrival probabilities
+        ship_types = list(SHIP_TYPES.keys())
+        probabilities = [SHIP_TYPES[ship_type]['arrival_probability'] for ship_type in ship_types]
+        ship_type = random.choices(ship_types, weights=probabilities)[0]
         
-        # Generate realistic container counts and size based on ship type
+        ship_config = SHIP_TYPES[ship_type]
+        
+        # Generate realistic size from typical sizes
+        if 'typical_sizes' in ship_config:
+            size_teu = random.choice(ship_config['typical_sizes'])
+        else:
+            size_teu = random.randint(ship_config['min_size'], ship_config['max_size'])
+        
+        # Generate container counts based on ship type and size
         if ship_type == 'container':
-            containers_to_unload = random.randint(50, 500)
-            containers_to_load = random.randint(30, 400)
-            size_teu = random.randint(1000, 20000)
+            # Container ships: higher container counts, proportional to size
+            base_containers = size_teu // 50  # Rough containers per TEU capacity
+            containers_to_unload = random.randint(int(base_containers * 0.3), int(base_containers * 0.8))
+            containers_to_load = random.randint(int(base_containers * 0.2), int(base_containers * 0.7))
         elif ship_type == 'bulk':
+            # Bulk carriers: fewer containers, more bulk cargo
             containers_to_unload = random.randint(10, 100)
             containers_to_load = random.randint(5, 80)
-            size_teu = random.randint(5000, 30000)
-        else:
-            containers_to_unload = random.randint(20, 200)
-            containers_to_load = random.randint(15, 150)
-            size_teu = random.randint(2000, 15000)
+        else:  # mixed
+            # Mixed cargo: moderate container counts
+            base_containers = size_teu // 80  # Lower container density for mixed cargo
+            containers_to_unload = random.randint(int(base_containers * 0.2), int(base_containers * 0.6))
+            containers_to_load = random.randint(int(base_containers * 0.1), int(base_containers * 0.5))
             
         return Ship(
             ship_id=ship_id,
@@ -303,9 +320,10 @@ class PortSimulation:
         self.ships_processed = 0
         self.total_ships_generated = 0
         
-        # Reset all managers
+        # Reset all managers using same config logic as constructor
         self.ship_manager = ShipManager(self.env)
-        self.berth_manager = BerthManager(self.env, self.config.get('berths', []))
+        berth_config = self.config.get('berths', BERTH_CONFIGS)
+        self.berth_manager = BerthManager(self.env, berth_config)
         self.container_handler = ContainerHandler(self.env)
         
         # Reset metrics

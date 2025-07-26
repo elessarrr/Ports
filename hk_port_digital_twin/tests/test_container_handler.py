@@ -53,8 +53,8 @@ class TestContainerHandler:
         assert self.handler.env == self.env
         assert 'container' in self.handler.processing_rates
         assert 'bulk' in self.handler.processing_rates
-        assert self.handler.processing_rates['container'] == 100
-        assert self.handler.processing_rates['bulk'] == 200
+        assert self.handler.processing_rates['container'] == 120
+        assert self.handler.processing_rates['bulk'] == 250
         assert self.handler.processing_history == []
         
     def test_calculate_processing_time_container_ship(self):
@@ -67,10 +67,10 @@ class TestContainerHandler:
             crane_count=4
         )
         
-        # Expected: 800 containers / 100 rate = 8 hours base
+        # Expected: 800 containers / 120 rate = 6.67 hours base
         # With 4 cranes: efficiency = 4 * 0.8 = 3.2
-        # Final time: 8 / 3.2 = 2.5 hours
-        expected_time = 800 / 100 / (4 * 0.8)
+        # Final time: 6.67 / 3.2 = 2.08 hours
+        expected_time = 800 / 120 / (4 * 0.8)
         assert abs(time - expected_time) < 0.01
         
     def test_calculate_processing_time_bulk_ship(self):
@@ -82,10 +82,10 @@ class TestContainerHandler:
             crane_count=2
         )
         
-        # Expected: 1500 containers / 200 rate = 7.5 hours base
+        # Expected: 1500 containers / 250 rate = 6 hours base
         # With 2 cranes: efficiency = 2 * 0.8 = 1.6
-        # Final time: 7.5 / 1.6 = 4.6875 hours
-        expected_time = 1500 / 200 / (2 * 0.8)
+        # Final time: 6 / 1.6 = 3.75 hours
+        expected_time = 1500 / 250 / (2 * 0.8)
         assert abs(time - expected_time) < 0.01
         
     def test_calculate_processing_time_many_cranes(self):
@@ -97,10 +97,10 @@ class TestContainerHandler:
             crane_count=6
         )
         
-        # Expected: 800 containers / 100 rate = 8 hours base
+        # Expected: 800 containers / 120 rate = 6.67 hours base
         # With 6 cranes: efficiency = 4 * 0.8 + 2 * 0.3 = 3.2 + 0.6 = 3.8
-        # Final time: 8 / 3.8 ≈ 2.105 hours
-        expected_time = 800 / 100 / (4 * 0.8 + 2 * 0.3)
+        # Final time: 6.67 / 3.8 ≈ 1.75 hours
+        expected_time = 800 / 120 / (4 * 0.8 + 2 * 0.3)
         assert abs(time - expected_time) < 0.01
         
     def test_calculate_processing_time_zero_containers(self):
