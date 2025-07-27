@@ -1826,7 +1826,7 @@ def validate_data_quality() -> Dict[str, any]:
         
         # Validate cargo statistics
         cargo_stats = load_port_cargo_statistics()
-        if cargo_stats:
+        if cargo_stats and not all(df.empty for df in cargo_stats.values()):
             validation_results['cargo_statistics'] = _validate_cargo_data(cargo_stats)
         
         # Validate vessel arrivals data

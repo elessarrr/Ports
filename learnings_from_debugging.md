@@ -70,6 +70,58 @@ df = df.sort_values('arrival_time', na_position='last')
 
 ---
 
+## Additional Insights
+- Always verify syntax after making structural changes to code
+- Use `py_compile` for quick syntax validation before running applications
+- Orphaned exception blocks often result from incomplete refactoring or copy-paste errors
+- Regular code reviews can help catch such structural issues early
+
+---
+
+## Port Cargo Statistics Data Structure Mismatch Fix
+
+**Date:** 2025-01-27  
+**Issue:** Port Cargo Statistics tab showing "Cargo statistics analysis not available" and "Analysis Status: Failed"
+
+### Problem
+The Streamlit dashboard was expecting cargo analysis data in a specific dictionary format with keys like `shipment_type_analysis` and `transport_mode_analysis`, but the actual data loader was returning a different structure with keys like `time_series_data`, `forecasts`, `trend_analysis`, etc.
+
+### Investigation
+1. **Debug Script Analysis**: Created `debug_cargo_keys.py` to inspect the actual data structure returned by `get_enhanced_cargo_analysis()`
+2. **Data Structure Discovery**: Found that the data loader returns:
+   - `time_series_data`: Contains `shipment_types` and `transport_modes` DataFrames
+   - `forecasts`: Forecast data for different categories
+   - `trend_analysis`: Trend analysis results
+   - `efficiency_metrics`: Performance metrics
+   - `data_summary`: Summary information
+
+### Root Cause
+Mismatch between expected data structure in Streamlit UI and actual data structure returned by data loader functions.
+
+### Solution
+1. **Updated Shipment Type Analysis Tab**: Modified to use `time_series_data['shipment_types']` DataFrame instead of expecting `shipment_type_analysis` dictionary
+2. **Updated Transport Mode Analysis Tab**: Modified to use `time_series_data['transport_modes']` DataFrame instead of expecting `transport_mode_analysis` dictionary
+3. **Fixed Time Series Analysis Tab**: Updated to work with DataFrame structure instead of dictionary format
+4. **Data Access Pattern**: Changed from dictionary key access to DataFrame column access:
+   - `latest_data['Direct shipment cargo']` instead of `shipment_data['direct_shipment_2023']`
+   - `latest_data['Waterborne']`, `latest_data['Seaborne']`, `latest_data['River']` for transport modes
+
+### Files Modified
+- `hk_port_digital_twin/src/dashboard/streamlit_app.py`: Updated cargo statistics tabs to use correct data structure
+
+### Learnings
+- Always verify the actual data structure returned by functions before building UI components
+- Use debug scripts to inspect complex data structures during development
+- Ensure consistency between data loader outputs and UI expectations
+- Test data loading functions independently to isolate issues
+
+### Additional Insights
+- Data structure mismatches are common when UI and backend are developed separately
+- Debug scripts are invaluable for understanding complex data flows
+- Always validate data structure assumptions with actual function outputs
+
+---
+
 ## Debugging Session 2: AI Optimization Layer Test Failures
 
 **Date**: July 26, 2025
@@ -125,5 +177,42 @@ Initial test run for AI optimization layer failed with 10 test failures:
 - All 33 tests now passing
 - Complete test coverage for AI optimization layer
 - Successful integration of optimization algorithms, predictive models, and decision support
+
+---
+
+## Debugging Session 3: Plotly Module Import Error
+
+**Date**: January 27, 2025
+**Component**: Streamlit Dashboard (`streamlit_app.py`)
+
+### Problem Description
+Streamlit application failed to start with `ModuleNotFoundError: No module named 'plotly'` error when trying to import plotly.graph_objects.
+
+### Investigation Process
+1. **Error Analysis**: Examined the error traceback showing import failure at line 4 of `streamlit_app.py`
+2. **Requirements Check**: Verified that `plotly>=5.15.0` was listed in `requirements.txt`
+3. **Dependency Installation**: Confirmed that dependencies needed to be installed in the current environment
+
+### Root Cause
+The required dependencies listed in `requirements.txt` were not installed in the current Python environment, causing the import to fail even though plotly was properly specified as a dependency.
+
+### Solution
+1. **Install Dependencies**: Ran `pip install -r hk_port_digital_twin/requirements.txt` to install all required packages
+2. **Verify Installation**: Confirmed plotly and other dependencies were successfully installed
+3. **Test Application**: Started Streamlit app on port 8509 to verify the fix
+
+### Prevention
+1. **Environment Setup**: Always run `pip install -r requirements.txt` when setting up a new development environment
+2. **Dependency Documentation**: Include installation instructions in project README
+3. **Virtual Environment**: Use virtual environments to isolate project dependencies
+4. **CI/CD Integration**: Include dependency installation in automated testing pipelines
+
+### Code Changes
+No code changes required - this was an environment setup issue.
+
+### Results
+- Streamlit application now starts successfully on http://localhost:8509
+- All dashboard components including cargo statistics are accessible
+- Plotly visualizations render correctly
 
 ---
