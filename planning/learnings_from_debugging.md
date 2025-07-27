@@ -2,7 +2,6 @@
 
 # How to document
 
-
 ## AI IDE Debug Summary Logging Prompt
 
 ### High-Level Instruction  
@@ -90,6 +89,18 @@ Every time you fix a coding error, document the debugging process and key learni
 - Implementing data validation or schema checking could prevent such mismatches in production.
 - Environment dependency issues can be avoided by using proper dependency management and testing in the target deployment environment.
 
+## Adding Data Export Functionality to Streamlit Dashboard
+
+- **Caused by:** Missing implementation of data export functionality that was specified in the Week 4 plan as part of Interactive Features. The comprehensive dashboard was complete except for this planned feature.
+- **How fixed:** Added a dedicated "Data Export" section in the Analytics tab with support for both CSV (individual data types) and JSON (complete dataset) formats. Implemented using Streamlit's download_button with timestamp-based file naming and proper error handling.
+- **Learnings/Takeaway:** Always verify that all planned features from project documentation are actually implemented. Create comprehensive feature checklists and implement features incrementally with immediate testing. Consider user workflows when designing export interfaces - different users prefer different formats (CSV for analysis, JSON for integration).
+- **Date fixed:** 2025-01-06
+
+**Additional Insight:**
+- Export functionality should be easily discoverable and well-organized in the UI
+- New features require corresponding tests to ensure reliability
+- Timestamp-based file naming prevents download conflicts for users
+
 ## ModuleNotFoundError for plotly in pipx Environment
 
 - **Caused by:** Streamlit was installed via pipx, which creates an isolated virtual environment. When the application tried to import plotly, it wasn't available in the pipx streamlit environment, even though it was installed in the system Python environment.
@@ -117,3 +128,15 @@ Every time you fix a coding error, document the debugging process and key learni
 - **How fixed:** Implemented robust error handling in data_loader.py, added file existence checks, improved data type conversion with fallbacks, and added informative error messages for debugging.
 - **Learnings/Takeaway:** Always implement comprehensive error handling for file I/O operations. Use try-catch blocks with specific exception handling for different failure modes (file not found, parsing errors, data type issues). Provide clear error messages that help identify the root cause.
 - **Date fixed:** 2025-01-06
+
+## Dashboard Tests Failing with Real Data Integration
+
+- **Caused by:** Dashboard tests were failing when `load_sample_data()` was updated to use real container throughput data instead of sample data. Tests expected specific column names (`containers_processed`, `ships_processed`) and exact row counts (25), but real data had different structure (`seaborne_teus`, `river_teus`, `total_teus`) with 53 rows and NaN values.
+- **How fixed:** Modified tests to adaptively check for real data columns first, then fall back to sample data structure. Changed from exact row count assertions to minimum count requirements. Added `.dropna()` handling for NaN-safe comparisons and supported both float and int data types.
+- **Learnings/Takeaway:** Write tests that can handle both sample and production data structures. Use flexible assertions that accommodate data variations (NaN values, different row counts, column names). Always test with actual data sources to catch integration issues early.
+- **Date fixed:** 2025-01-06
+
+**Additional Insight:**
+- Real-world data often contains missing values, irregular intervals, and unexpected structures that require robust handling.
+- When migrating from sample to real data, update tests incrementally to maintain confidence in functionality.
+- Defensive programming practices like `.dropna()`, type checking, and flexible comparisons improve test reliability.

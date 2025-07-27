@@ -136,6 +136,67 @@ class ContainerHandler:
         print(f"Time {self.env.now:.1f}: Completed container processing for ship {ship.ship_id} "
               f"at berth {berth.berth_id}")
               
+    def process_ship_with_cranes(self, ship, berth, allocated_cranes: int):
+        """Simulate container loading/unloading process with specific crane allocation
+        
+        This is a SimPy process that simulates the time required to
+        load and unload containers from a ship at a berth using AI-optimized
+        crane allocation.
+        
+        Args:
+            ship: Ship object with container information
+            berth: Berth object with crane information
+            allocated_cranes: Number of cranes allocated by AI optimization
+            
+        Yields:
+            SimPy timeout event for the processing duration
+        """
+        # Use AI-allocated crane count instead of berth's default
+        effective_crane_count = min(allocated_cranes, berth.crane_count)  # Can't exceed berth capacity
+        
+        # Calculate processing time with AI-optimized crane allocation
+        processing_time = self.calculate_processing_time(
+            ship.ship_type,
+            ship.containers_to_unload,
+            ship.containers_to_load,
+            effective_crane_count
+        )
+        
+        # Record start of processing
+        start_time = self.env.now
+        
+        # Log processing start with AI optimization info
+        print(f"Time {self.env.now:.1f}: Starting AI-optimized container processing for ship {ship.ship_id} "
+              f"at berth {berth.berth_id} with {effective_crane_count} cranes (estimated {processing_time:.1f} hours)")
+        
+        # Simulate the processing time
+        yield self.env.timeout(processing_time)
+        
+        # Record completion
+        end_time = self.env.now
+        
+        # Store processing record for metrics with AI optimization flag
+        processing_record = {
+            'ship_id': ship.ship_id,
+            'ship_type': ship.ship_type,
+            'berth_id': berth.berth_id,
+            'containers_unloaded': ship.containers_to_unload,
+            'containers_loaded': ship.containers_to_load,
+            'crane_count': effective_crane_count,
+            'ai_optimized': True,
+            'allocated_cranes': allocated_cranes,
+            'berth_max_cranes': berth.crane_count,
+            'start_time': start_time,
+            'end_time': end_time,
+            'processing_time': processing_time,
+            'actual_time': end_time - start_time
+        }
+        self.processing_history.append(processing_record)
+        
+        # Log processing completion
+        print(f"Time {self.env.now:.1f}: Completed AI-optimized container processing for ship {ship.ship_id} "
+              f"at berth {berth.berth_id} using {effective_crane_count} cranes")
+              
     def get_processing_statistics(self) -> Dict:
         """Get statistics about container processing operations
         

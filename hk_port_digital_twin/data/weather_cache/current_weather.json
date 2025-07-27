@@ -1,0 +1,11 @@
+{
+  "timestamp": "2025-07-27T12:33:12.699466",
+  "temperature": 32.0,
+  "humidity": 71.0,
+  "wind_speed": 10.0,
+  "wind_direction": "N",
+  "visibility": 10.0,
+  "weather_description": "Current conditions",
+  "impact_score": 0.0,
+  "operational_status": "normal"
+}

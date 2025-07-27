@@ -59,7 +59,9 @@ class TestPortSimulation:
             'ships_processed': 0,
             'total_waiting_time': 0,
             'simulation_start_time': 0,
-            'simulation_end_time': 0
+            'simulation_end_time': 0,
+            'ai_optimizations_performed': 0,
+            'optimization_time_saved': 0
         }
         assert self.simulation.metrics == expected_metrics
         
@@ -68,7 +70,7 @@ class TestPortSimulation:
         ship = self.simulation._generate_random_ship("TEST_SHIP_001")
         
         assert ship.ship_id == "TEST_SHIP_001"
-        assert ship.ship_type in ['container', 'bulk', 'tanker']
+        assert ship.ship_type in ['container', 'bulk', 'tanker', 'mixed']
         assert ship.containers_to_unload >= 0
         assert ship.containers_to_load >= 0
         assert ship.arrival_time == self.simulation.env.now
@@ -85,11 +87,13 @@ class TestPortSimulation:
         container_ships = [s for s in ships if s.ship_type == 'container']
         if container_ships:
             for ship in container_ships:
-                # Updated to match new realistic ranges from SHIP_TYPES config
-                assert ship.containers_to_unload >= 10  # Minimum realistic range
-                assert ship.containers_to_load >= 5    # Minimum realistic range
-                assert ship.containers_to_unload <= 24000  # Maximum ULCV capacity
-                assert ship.containers_to_load <= 20000    # Reasonable max load
+                # Updated to match actual generation logic:
+                # Smallest ship: 1500 TEU -> base_containers = 30 -> min = int(30 * 0.3) = 9
+                # Largest ship: 24000 TEU -> base_containers = 480 -> max = int(480 * 0.8) = 384
+                assert ship.containers_to_unload >= 9   # Minimum for 1500 TEU ship
+                assert ship.containers_to_load >= 6     # Minimum for 1500 TEU ship (30 * 0.2 = 6)
+                assert ship.containers_to_unload <= 384  # Maximum for 24000 TEU ship
+                assert ship.containers_to_load <= 336    # Maximum for 24000 TEU ship (480 * 0.7 = 336)
                 
     def test_short_simulation_run(self):
         """Test running a short simulation"""
