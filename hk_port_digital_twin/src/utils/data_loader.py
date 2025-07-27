@@ -130,8 +130,12 @@ def load_annual_container_throughput() -> pd.DataFrame:
         logger.error(f"Error loading annual container throughput data: {e}")
         return pd.DataFrame()
 
-def load_port_cargo_statistics() -> Dict[str, pd.DataFrame]:
+def load_port_cargo_statistics(focus_tables: Optional[List[str]] = None) -> Dict[str, pd.DataFrame]:
     """Load port cargo statistics from multiple CSV files.
+    
+    Args:
+        focus_tables: Optional list of specific table names to load (e.g., ['Table_1_Eng', 'Table_2_Eng'])
+                     If None, loads all available tables
     
     Returns:
         Dict[str, pd.DataFrame]: Dictionary of cargo statistics by table
@@ -144,6 +148,10 @@ def load_port_cargo_statistics() -> Dict[str, pd.DataFrame]:
         
         for csv_file in csv_files:
             table_name = csv_file.stem.replace("Port Cargo Statistics_CSV_Eng-", "")
+            
+            # Skip if focus_tables is specified and this table is not in the list
+            if focus_tables and table_name not in focus_tables:
+                continue
             
             try:
                 df = pd.read_csv(csv_file)
@@ -163,6 +171,306 @@ def load_port_cargo_statistics() -> Dict[str, pd.DataFrame]:
         
     except Exception as e:
         logger.error(f"Error loading port cargo statistics: {e}")
+        return {}
+
+def load_focused_cargo_statistics() -> Dict[str, pd.DataFrame]:
+    """Load only Tables 1 & 2 for focused time series analysis.
+    
+    Returns:
+        Dict[str, pd.DataFrame]: Dictionary containing only Table_1_Eng and Table_2_Eng
+    """
+    return load_port_cargo_statistics(focus_tables=['Table_1_Eng', 'Table_2_Eng'])
+
+def get_time_series_data(cargo_stats: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
+    """Extract and format time series data from Tables 1 & 2.
+    
+    Args:
+        cargo_stats: Dictionary containing cargo statistics DataFrames
+        
+    Returns:
+        Dict[str, pd.DataFrame]: Time series data formatted for analysis and visualization
+    """
+    time_series = {}
+    
+    try:
+        # Process Table 1 - Shipment Types (2014-2023)
+        if 'Table_1_Eng' in cargo_stats:
+            df1 = cargo_stats['Table_1_Eng']
+            
+            # Extract throughput columns (years 2014-2023)
+            throughput_cols = [col for col in df1.columns if 'Port_cargo_throughput_' in col and not 'percentage' in col and not 'rate_of_change' in col]
+            
+            # Create time series DataFrame
+            years = [int(col.split('_')[-1]) for col in throughput_cols]
+            
+            shipment_ts = pd.DataFrame(index=years)
+            for _, row in df1.iterrows():
+                shipment_type = row.iloc[0]  # First column is shipment type
+                values = [row[col] for col in throughput_cols]
+                shipment_ts[shipment_type] = values
+            
+            shipment_ts.index.name = 'Year'
+            time_series['shipment_types'] = shipment_ts
+            
+        # Process Table 2 - Transport Modes (2014, 2019-2023)
+        if 'Table_2_Eng' in cargo_stats:
+            df2 = cargo_stats['Table_2_Eng']
+            
+            # Extract throughput columns
+            throughput_cols = [col for col in df2.columns if 'Port_cargo_throughput_' in col and not 'percentage' in col and not 'rate_of_change' in col]
+            
+            # Create time series DataFrame
+            years = [int(col.split('_')[-1]) for col in throughput_cols]
+            
+            transport_ts = pd.DataFrame(index=years)
+            for _, row in df2.iterrows():
+                transport_mode = row.iloc[0]  # First column is transport mode
+                values = [row[col] for col in throughput_cols]
+                transport_ts[transport_mode] = values
+            
+            transport_ts.index.name = 'Year'
+            time_series['transport_modes'] = transport_ts
+            
+        logger.info(f"Generated time series data for {len(time_series)} categories")
+        return time_series
+        
+    except Exception as e:
+        logger.error(f"Error generating time series data: {e}")
+        return {}
+
+def forecast_cargo_throughput(time_series_data: Dict[str, pd.DataFrame], forecast_years: int = 3) -> Dict[str, Dict]:
+    """Generate forecasts for cargo throughput using linear regression.
+    
+    Args:
+        time_series_data: Time series data from get_time_series_data()
+        forecast_years: Number of years to forecast ahead
+        
+    Returns:
+        Dict: Forecasts and model metrics for each category
+    """
+    forecasts = {}
+    
+    try:
+        for category, df in time_series_data.items():
+            category_forecasts = {}
+            
+            for column in df.columns:
+                # Get non-null values
+                series = df[column].dropna()
+                
+                if len(series) < 3:  # Need at least 3 points for meaningful forecast
+                    continue
+                    
+                # Prepare data for linear regression
+                X = np.array(series.index).reshape(-1, 1)
+                y = series.values
+                
+                # Fit linear regression model
+                model = LinearRegression()
+                model.fit(X, y)
+                
+                # Generate forecasts
+                last_year = series.index.max()
+                future_years = np.array(range(last_year + 1, last_year + forecast_years + 1)).reshape(-1, 1)
+                predictions = model.predict(future_years)
+                
+                # Calculate model metrics
+                y_pred = model.predict(X)
+                mae = mean_absolute_error(y, y_pred)
+                mse = mean_squared_error(y, y_pred)
+                rmse = np.sqrt(mse)
+                
+                # Calculate R-squared
+                r2 = model.score(X, y)
+                
+                category_forecasts[column] = {
+                    'historical_data': series.to_dict(),
+                    'forecast_years': future_years.flatten().tolist(),
+                    'forecast_values': predictions.tolist(),
+                    'trend_slope': model.coef_[0],
+                    'model_metrics': {
+                        'mae': mae,
+                        'rmse': rmse,
+                        'r2': r2
+                    }
+                }
+            
+            forecasts[category] = category_forecasts
+            
+        logger.info(f"Generated forecasts for {len(forecasts)} categories")
+        return forecasts
+        
+    except Exception as e:
+        logger.error(f"Error generating forecasts: {e}")
+        return {}
+
+def get_enhanced_cargo_analysis() -> Dict[str, any]:
+    """Enhanced cargo analysis focusing on Tables 1 & 2 with time series insights.
+    
+    Returns:
+        Dict: Comprehensive analysis including trends, forecasts, and insights
+    """
+    try:
+        # Load focused data
+        cargo_stats = load_focused_cargo_statistics()
+        
+        if not cargo_stats:
+            logger.warning("No focused cargo statistics data available")
+            return {}
+        
+        # Generate time series data
+        time_series = get_time_series_data(cargo_stats)
+        
+        # Generate forecasts
+        forecasts = forecast_cargo_throughput(time_series, forecast_years=3)
+        
+        # Calculate trend analysis
+        trends = _analyze_trends(time_series)
+        
+        # Calculate efficiency metrics
+        efficiency_metrics = _calculate_focused_efficiency_metrics(cargo_stats)
+        
+        analysis = {
+            'time_series_data': time_series,
+            'forecasts': forecasts,
+            'trend_analysis': trends,
+            'efficiency_metrics': efficiency_metrics,
+            'data_summary': {
+                'tables_processed': len(cargo_stats),
+                'analysis_timestamp': datetime.now().isoformat(),
+                'forecast_horizon': '3 years'
+            }
+        }
+        
+        logger.info("Completed enhanced cargo analysis with forecasting")
+        return analysis
+        
+    except Exception as e:
+        logger.error(f"Error in enhanced cargo analysis: {e}")
+        return {}
+
+def _analyze_trends(time_series_data: Dict[str, pd.DataFrame]) -> Dict[str, Dict]:
+    """Analyze trends in time series data.
+    
+    Args:
+        time_series_data: Time series data from get_time_series_data()
+        
+    Returns:
+        Dict: Trend analysis for each category and metric
+    """
+    trends = {}
+    
+    try:
+        for category, df in time_series_data.items():
+            category_trends = {}
+            
+            for column in df.columns:
+                series = df[column].dropna()
+                
+                if len(series) < 2:
+                    continue
+                    
+                # Calculate trend metrics
+                first_value = series.iloc[0]
+                last_value = series.iloc[-1]
+                total_change = last_value - first_value
+                percent_change = (total_change / first_value) * 100 if first_value != 0 else 0
+                
+                # Calculate average annual growth rate
+                years_span = series.index.max() - series.index.min()
+                if years_span > 0:
+                    cagr = ((last_value / first_value) ** (1 / years_span) - 1) * 100 if first_value > 0 else 0
+                else:
+                    cagr = 0
+                
+                # Determine trend direction
+                if percent_change > 5:
+                    trend_direction = 'increasing'
+                elif percent_change < -5:
+                    trend_direction = 'decreasing'
+                else:
+                    trend_direction = 'stable'
+                
+                category_trends[column] = {
+                    'total_change': total_change,
+                    'percent_change': percent_change,
+                    'cagr': cagr,
+                    'trend_direction': trend_direction,
+                    'first_value': first_value,
+                    'last_value': last_value,
+                    'years_span': years_span
+                }
+            
+            trends[category] = category_trends
+            
+        return trends
+        
+    except Exception as e:
+        logger.error(f"Error analyzing trends: {e}")
+        return {}
+
+def _calculate_focused_efficiency_metrics(cargo_stats: Dict[str, pd.DataFrame]) -> Dict[str, any]:
+    """Calculate efficiency metrics focused on Tables 1 & 2.
+    
+    Args:
+        cargo_stats: Cargo statistics data
+        
+    Returns:
+        Dict: Focused efficiency metrics
+    """
+    try:
+        metrics = {}
+        
+        # Analyze shipment efficiency (Table 1)
+        if 'Table_1_Eng' in cargo_stats:
+            df1 = cargo_stats['Table_1_Eng']
+            
+            # Get 2023 data (latest year)
+            latest_throughput_col = 'Port_cargo_throughput_2023'
+            latest_percentage_col = 'Port_cargo_throughput_percentage_distribution_2023'
+            
+            if latest_throughput_col in df1.columns:
+                # Calculate transhipment ratio
+                tranship_row = df1[df1.iloc[:, 0].str.contains('Transhipment', na=False)]
+                direct_row = df1[df1.iloc[:, 0].str.contains('Direct', na=False)]
+                
+                if not tranship_row.empty and not direct_row.empty:
+                    tranship_pct = tranship_row[latest_percentage_col].iloc[0]
+                    direct_pct = direct_row[latest_percentage_col].iloc[0]
+                    
+                    metrics['shipment_efficiency'] = {
+                        'transhipment_ratio': tranship_pct,
+                        'direct_shipment_ratio': direct_pct,
+                        'transhipment_dominance': tranship_pct > direct_pct
+                    }
+        
+        # Analyze transport efficiency (Table 2)
+        if 'Table_2_Eng' in cargo_stats:
+            df2 = cargo_stats['Table_2_Eng']
+            
+            # Get 2023 data
+            latest_throughput_col = 'Port_cargo_throughput_2023'
+            latest_percentage_col = 'Port_cargo_throughput_percentage_distribution_2023'
+            
+            if latest_throughput_col in df2.columns:
+                # Calculate modal split
+                seaborne_row = df2[df2.iloc[:, 0].str.contains('Seaborne', na=False)]
+                river_row = df2[df2.iloc[:, 0].str.contains('River', na=False)]
+                
+                if not seaborne_row.empty and not river_row.empty:
+                    seaborne_pct = seaborne_row[latest_percentage_col].iloc[0]
+                    river_pct = river_row[latest_percentage_col].iloc[0]
+                    
+                    metrics['transport_efficiency'] = {
+                        'seaborne_ratio': seaborne_pct,
+                        'river_ratio': river_pct,
+                        'modal_balance': abs(seaborne_pct - river_pct)
+                    }
+        
+        return metrics
+        
+    except Exception as e:
+        logger.error(f"Error calculating focused efficiency metrics: {e}")
         return {}
 
 def _clean_cargo_statistics_data(df: pd.DataFrame, table_name: str) -> pd.DataFrame:

@@ -38,7 +38,11 @@ from src.utils.data_loader import (
     load_vessel_arrivals, 
     get_vessel_queue_analysis,
     get_real_time_manager,
-    RealTimeDataConfig
+    RealTimeDataConfig,
+    load_focused_cargo_statistics,
+    get_time_series_data,
+    forecast_cargo_throughput,
+    get_enhanced_cargo_analysis
 )
 
 # Import weather integration
@@ -591,12 +595,19 @@ def main():
     
     with tab4:
         st.subheader("📦 Port Cargo Statistics")
-        st.markdown("Comprehensive analysis of Hong Kong port cargo throughput data")
+        st.markdown("Comprehensive analysis of Hong Kong port cargo throughput data with time series analysis and forecasting")
         
-        # Load cargo breakdown analysis
+        # Load enhanced cargo analysis
         try:
-            with st.spinner("Loading cargo statistics..."):
-                cargo_analysis = get_cargo_breakdown_analysis()
+            with st.spinner("Loading enhanced cargo statistics..."):
+                # Load focused data (Tables 1 & 2)
+                focused_data = load_focused_cargo_statistics()
+                
+                # Get enhanced analysis with forecasting
+                cargo_analysis = get_enhanced_cargo_analysis()
+                
+                # Get time series data for visualization
+                time_series_data = get_time_series_data(focused_data)
             
             # Display data summary
             st.subheader("📊 Data Summary")
@@ -614,7 +625,9 @@ def main():
                 st.metric("Analysis Date", timestamp[:10] if timestamp else datetime.now().strftime("%Y-%m-%d"))
             
             # Create tabs for different analysis sections
-            cargo_tab1, cargo_tab2, cargo_tab3, cargo_tab4 = st.tabs(["📊 Shipment Types", "🚢 Transport Modes", "📦 Cargo Types", "📍 Locations"])
+            cargo_tab1, cargo_tab2, cargo_tab3, cargo_tab4, cargo_tab5, cargo_tab6 = st.tabs([
+                "📊 Shipment Types", "🚢 Transport Modes", "📈 Time Series", "🔮 Forecasting", "📦 Cargo Types", "📍 Locations"
+            ])
             
             with cargo_tab1:
                 st.subheader("Shipment Type Analysis")
@@ -667,6 +680,208 @@ def main():
                     st.info("No transport mode analysis data available")
             
             with cargo_tab3:
+                st.subheader("Time Series Analysis")
+                
+                if time_series_data:
+                    # Display time series charts
+                    import plotly.graph_objects as go
+                    from plotly.subplots import make_subplots
+                    
+                    # Create subplots for different metrics
+                    fig = make_subplots(
+                        rows=2, cols=2,
+                        subplot_titles=(
+                            'Direct Shipment Trends', 'Transhipment Trends',
+                            'Seaborne Transport Trends', 'River Transport Trends'
+                        ),
+                        specs=[[{"secondary_y": False}, {"secondary_y": False}],
+                               [{"secondary_y": False}, {"secondary_y": False}]]
+                    )
+                    
+                    # Extract time series data
+                    shipment_ts = time_series_data.get('shipment_types', {})
+                    transport_ts = time_series_data.get('transport_modes', {})
+                    
+                    if shipment_ts:
+                        years = list(shipment_ts.get('years', []))
+                        direct_values = list(shipment_ts.get('direct_shipment', []))
+                        tranship_values = list(shipment_ts.get('transhipment', []))
+                        
+                        # Direct shipment trend
+                        fig.add_trace(
+                            go.Scatter(x=years, y=direct_values, mode='lines+markers',
+                                     name='Direct Shipment', line=dict(color='blue')),
+                            row=1, col=1
+                        )
+                        
+                        # Transhipment trend
+                        fig.add_trace(
+                            go.Scatter(x=years, y=tranship_values, mode='lines+markers',
+                                     name='Transhipment', line=dict(color='red')),
+                            row=1, col=2
+                        )
+                    
+                    if transport_ts:
+                        years = list(transport_ts.get('years', []))
+                        seaborne_values = list(transport_ts.get('seaborne', []))
+                        river_values = list(transport_ts.get('river', []))
+                        
+                        # Seaborne transport trend
+                        fig.add_trace(
+                            go.Scatter(x=years, y=seaborne_values, mode='lines+markers',
+                                     name='Seaborne', line=dict(color='green')),
+                            row=2, col=1
+                        )
+                        
+                        # River transport trend
+                        fig.add_trace(
+                            go.Scatter(x=years, y=river_values, mode='lines+markers',
+                                     name='River', line=dict(color='orange')),
+                            row=2, col=2
+                        )
+                    
+                    fig.update_layout(
+                        height=600,
+                        title_text="Port Cargo Time Series Analysis (2014-2023)",
+                        showlegend=False
+                    )
+                    
+                    fig.update_xaxes(title_text="Year")
+                    fig.update_yaxes(title_text="Throughput (000 tonnes)")
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Display trend analysis
+                    trends = cargo_analysis.get('trend_analysis', {})
+                    if trends:
+                        st.subheader("📈 Trend Analysis")
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            st.write("**Shipment Type Trends**")
+                            shipment_trends = trends.get('shipment_types', {})
+                            if shipment_trends:
+                                for trend_type, trend_data in shipment_trends.items():
+                                    if isinstance(trend_data, dict) and 'slope' in trend_data:
+                                        direction = "📈" if trend_data['slope'] > 0 else "📉" if trend_data['slope'] < 0 else "➡️"
+                                        st.write(f"{direction} {trend_type.replace('_', ' ').title()}: {trend_data['slope']:.2f}K tonnes/year")
+                        
+                        with col2:
+                            st.write("**Transport Mode Trends**")
+                            transport_trends = trends.get('transport_modes', {})
+                            if transport_trends:
+                                for trend_type, trend_data in transport_trends.items():
+                                    if isinstance(trend_data, dict) and 'slope' in trend_data:
+                                        direction = "📈" if trend_data['slope'] > 0 else "📉" if trend_data['slope'] < 0 else "➡️"
+                                        st.write(f"{direction} {trend_type.replace('_', ' ').title()}: {trend_data['slope']:.2f}K tonnes/year")
+                else:
+                    st.info("No time series data available")
+            
+            with cargo_tab4:
+                st.subheader("Forecasting Analysis")
+                
+                forecasts = cargo_analysis.get('forecasts', {})
+                if forecasts:
+                    # Display forecast charts
+                    import plotly.graph_objects as go
+                    
+                    st.write("**2024-2026 Cargo Throughput Forecasts**")
+                    
+                    # Create forecast visualization
+                    fig = go.Figure()
+                    
+                    # Historical data and forecasts for different categories
+                    forecast_categories = ['direct_shipment', 'transhipment', 'seaborne', 'river']
+                    colors = ['blue', 'red', 'green', 'orange']
+                    
+                    for i, category in enumerate(forecast_categories):
+                        if category in forecasts:
+                            forecast_data = forecasts[category]
+                            
+                            # Historical years (2014-2023)
+                            hist_years = forecast_data.get('historical_years', [])
+                            hist_values = forecast_data.get('historical_values', [])
+                            
+                            # Forecast years (2024-2026)
+                            forecast_years = forecast_data.get('forecast_years', [])
+                            forecast_values = forecast_data.get('forecast_values', [])
+                            
+                            # Add historical data
+                            fig.add_trace(go.Scatter(
+                                x=hist_years,
+                                y=hist_values,
+                                mode='lines+markers',
+                                name=f'{category.replace("_", " ").title()} (Historical)',
+                                line=dict(color=colors[i])
+                            ))
+                            
+                            # Add forecast data
+                            fig.add_trace(go.Scatter(
+                                x=forecast_years,
+                                y=forecast_values,
+                                mode='lines+markers',
+                                name=f'{category.replace("_", " ").title()} (Forecast)',
+                                line=dict(color=colors[i], dash='dash')
+                            ))
+                    
+                    fig.update_layout(
+                        title="Port Cargo Throughput: Historical Data & Forecasts",
+                        xaxis_title="Year",
+                        yaxis_title="Throughput (000 tonnes)",
+                        height=500
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Display forecast metrics
+                    st.subheader("🎯 Forecast Metrics")
+                    
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.write("**2024 Forecasts**")
+                        for category in forecast_categories:
+                            if category in forecasts and 'forecast_values' in forecasts[category]:
+                                forecast_2024 = forecasts[category]['forecast_values'][0] if forecasts[category]['forecast_values'] else 0
+                                st.metric(f"{category.replace('_', ' ').title()}", f"{forecast_2024:,.0f}K tonnes")
+                    
+                    with col2:
+                        st.write("**2025 Forecasts**")
+                        for category in forecast_categories:
+                            if category in forecasts and 'forecast_values' in forecasts[category]:
+                                forecast_2025 = forecasts[category]['forecast_values'][1] if len(forecasts[category]['forecast_values']) > 1 else 0
+                                st.metric(f"{category.replace('_', ' ').title()}", f"{forecast_2025:,.0f}K tonnes")
+                    
+                    with col3:
+                        st.write("**2026 Forecasts**")
+                        for category in forecast_categories:
+                            if category in forecasts and 'forecast_values' in forecasts[category]:
+                                forecast_2026 = forecasts[category]['forecast_values'][2] if len(forecasts[category]['forecast_values']) > 2 else 0
+                                st.metric(f"{category.replace('_', ' ').title()}", f"{forecast_2026:,.0f}K tonnes")
+                    
+                    # Model performance metrics
+                    st.subheader("📊 Model Performance")
+                    model_metrics = cargo_analysis.get('model_performance', {})
+                    if model_metrics:
+                        perf_col1, perf_col2 = st.columns(2)
+                        
+                        with perf_col1:
+                            st.write("**R² Scores (Model Accuracy)**")
+                            for category in forecast_categories:
+                                if category in model_metrics and 'r2_score' in model_metrics[category]:
+                                    r2_score = model_metrics[category]['r2_score']
+                                    st.write(f"{category.replace('_', ' ').title()}: {r2_score:.3f}")
+                        
+                        with perf_col2:
+                            st.write("**Mean Absolute Error**")
+                            for category in forecast_categories:
+                                if category in model_metrics and 'mae' in model_metrics[category]:
+                                    mae = model_metrics[category]['mae']
+                                    st.write(f"{category.replace('_', ' ').title()}: {mae:.1f}K tonnes")
+                else:
+                    st.info("No forecasting data available")
+            
+            with cargo_tab5:
                  st.subheader("Cargo Type Analysis")
                  cargo_type_data = cargo_analysis.get('cargo_type_analysis', {})
                  
@@ -689,7 +904,7 @@ def main():
                  else:
                      st.info("No cargo type analysis data available")
             
-            with cargo_tab4:
+            with cargo_tab6:
                  st.subheader("Handling Location Analysis")
                  location_data = cargo_analysis.get('location_analysis', {})
                  
