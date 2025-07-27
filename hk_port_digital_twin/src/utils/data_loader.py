@@ -518,6 +518,7 @@ def _clean_cargo_statistics_data(df: pd.DataFrame, table_name: str) -> pd.DataFr
         return df
 
 def load_vessel_arrivals() -> pd.DataFrame:
+    logger.info(f"Attempting to load vessel arrivals from: {VESSEL_ARRIVALS_XML}")
     """Load and process real-time vessel arrival data from XML.
     
     Returns:
@@ -526,7 +527,11 @@ def load_vessel_arrivals() -> pd.DataFrame:
     try:
         # Check if XML file exists
         if not VESSEL_ARRIVALS_XML.exists():
-            logger.warning(f"Vessel arrivals XML file not found: {VESSEL_ARRIVALS_XML}")
+            logger.error(f"Vessel arrivals XML file does not exist at {VESSEL_ARRIVALS_XML}")
+            return pd.DataFrame()
+        
+        if VESSEL_ARRIVALS_XML.stat().st_size == 0:
+            logger.warning(f"Vessel arrivals data file is empty: {VESSEL_ARRIVALS_XML}")
             return pd.DataFrame()
         
         # Read and clean XML content (skip comment lines)
@@ -545,8 +550,10 @@ def load_vessel_arrivals() -> pd.DataFrame:
         # Join the cleaned lines
         content = '\n'.join(xml_lines)
         
+        logger.info("Parsing vessel arrivals XML file...")
         # Parse cleaned XML content
         root = ET.fromstring(content)
+        logger.info("Successfully parsed vessel arrivals XML file.")
         
         # Extract vessel data
         vessels = []
@@ -1251,6 +1258,8 @@ def get_real_time_manager(config: Optional[RealTimeDataConfig] = None) -> RealTi
     global _real_time_manager
     if _real_time_manager is None:
         _real_time_manager = RealTimeDataManager(config)
+        _real_time_manager.start_real_time_updates()
+        logger.info("Real-time data manager created and background updates started.")
     return _real_time_manager
 
 def get_cargo_breakdown_analysis() -> Dict[str, any]:
@@ -1930,23 +1939,67 @@ def _validate_cargo_data(cargo_stats: Dict[str, pd.DataFrame]) -> Dict[str, any]
 def _validate_vessel_data(vessel_data: pd.DataFrame) -> Dict[str, any]:
     """Validate vessel arrivals data quality."""
     try:
+        if not isinstance(vessel_data, pd.DataFrame) or vessel_data.empty:
+            logger.warning("Vessel data is not a valid DataFrame or is empty.")
+            return {'status': 'invalid_input', 'valid': False, 'message': 'Input is not a valid DataFrame or is empty.'}
+
         validation = {
+            'valid': True,
             'records_count': len(vessel_data),
-            'unique_vessels': vessel_data['vessel_name'].nunique() if 'vessel_name' in vessel_data.columns else 0,
-            'date_range': f"{vessel_data['arrival_time'].min()} to {vessel_data['arrival_time'].max()}" if 'arrival_time' in vessel_data.columns else 'unknown',
-            'missing_values': vessel_data.isnull().sum().to_dict(),
-            'data_completeness': (1 - vessel_data.isnull().sum().sum() / vessel_data.size) * 100 if vessel_data.size > 0 else 0
+            'unique_vessels': 0,
+            'date_range': 'unknown',
+            'missing_values': {},
+            'data_completeness': 0,
+            'duplicate_records': 0
         }
+
+        # Basic column checks
+        required_columns = ['vessel_name', 'arrival_time']
+        missing_columns = [col for col in required_columns if col not in vessel_data.columns]
+        if missing_columns:
+            validation['valid'] = False
+            validation['message'] = f"Missing required columns: {', '.join(missing_columns)}"
+            logger.error(f"Vessel data validation failed: {validation['message']}")
+            return validation
+
+        validation['missing_values'] = vessel_data.isnull().sum().to_dict()
+        validation['data_completeness'] = (1 - vessel_data.isnull().sum().sum() / vessel_data.size) * 100 if vessel_data.size > 0 else 0
+        validation['unique_vessels'] = vessel_data['vessel_name'].nunique()
         
-        # Check for duplicate vessels
-        if 'vessel_name' in vessel_data.columns and 'arrival_time' in vessel_data.columns:
-            duplicates = vessel_data.duplicated(subset=['vessel_name', 'arrival_time']).sum()
-            validation['duplicate_records'] = int(duplicates)
-        
+        # Time validation
+        try:
+            # Ensure arrival_time is in datetime format
+            if not pd.api.types.is_datetime64_any_dtype(vessel_data['arrival_time']):
+                vessel_data['arrival_time'] = pd.to_datetime(vessel_data['arrival_time'], errors='coerce')
+            
+            if vessel_data['arrival_time'].isnull().any():
+                validation['valid'] = False
+                validation['message'] = 'arrival_time contains null values after conversion.'
+                logger.error(f"Vessel data validation failed: {validation['message']}")
+                return validation
+
+            validation['date_range'] = f"{vessel_data['arrival_time'].min()} to {vessel_data['arrival_time'].max()}"
+        except Exception as time_e:
+            validation['valid'] = False
+            validation['message'] = f"Error processing arrival_time: {time_e}"
+            logger.error(f"Vessel data validation failed: {validation['message']}")
+            return validation
+
+        # Duplicate check
+        duplicates = vessel_data.duplicated(subset=['vessel_name', 'arrival_time']).sum()
+        validation['duplicate_records'] = int(duplicates)
+
+        if duplicates > 0:
+            validation['message'] = f"Found {duplicates} duplicate records."
+
         return validation
+
     except Exception as e:
-        logger.error(f"Error validating vessel data: {e}")
-        return {'status': 'error', 'error': str(e)}
+        logger.error(f"Critical error in _validate_vessel_data: {e}", exc_info=True)
+        logger.debug(f"Vessel data columns: {vessel_data.columns}")
+        logger.debug(f"Vessel data dtypes: {vessel_data.dtypes}")
+        logger.debug(f"Vessel data head: \n{vessel_data.head()}")
+        return {'status': 'error', 'valid': False, 'error': str(e)}
 
 def _validate_weather_data() -> Dict[str, any]:
     """Validate weather data availability and quality."""

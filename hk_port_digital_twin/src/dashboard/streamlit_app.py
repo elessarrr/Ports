@@ -1,209 +1,21 @@
+import sys
+import os
 import streamlit as st
 import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
-import plotly.express as px
-import time
 from datetime import datetime, timedelta
-import xml.etree.ElementTree as ET
-import os
-import sys
-from pathlib import Path
+import logging
 
-# Add src directory to Python path for imports
-src_path = Path(__file__).parent.parent
-if str(src_path) not in sys.path:
-    sys.path.insert(0, str(src_path))
+# Add the project root to the Python path to allow absolute imports
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
-# Try to import weather integration
-try:
-    from utils.weather_integration import HKObservatoryIntegration
-except ImportError:
-    HKObservatoryIntegration = None
+from hk_port_digital_twin.src.utils.data_loader import RealTimeDataConfig, get_real_time_manager
+from hk_port_digital_twin.config.settings import SIMULATION_CONFIG
+from hk_port_digital_twin.src.core.port_simulation import PortSimulation
 
-# Try to import data loader functions
-try:
-    from utils.data_loader import (
-        load_container_throughput,
-        RealTimeDataConfig,
-        get_real_time_manager,
-        get_vessel_queue_analysis,
-        load_focused_cargo_statistics,
-        get_enhanced_cargo_analysis,
-        get_time_series_data
-    )
-except ImportError as e:
-    print(f"Import error for data_loader: {e}")
-    load_container_throughput = None
-    RealTimeDataConfig = None
-    get_real_time_manager = None
-    get_vessel_queue_analysis = None
-    load_focused_cargo_statistics = None
-    get_enhanced_cargo_analysis = None
-    get_time_series_data = None
-
-# Try to import simulation components
-try:
-    from simulation.port_simulation import PortSimulation
-    from simulation.simulation_controller import SimulationController
-    from simulation.berth_manager import BerthManager
-    import simpy
-except ImportError as e:
-    print(f"Import error for simulation: {e}")
-    PortSimulation = None
-    SimulationController = None
-    BerthManager = None
-    simpy = None
-
-# Try to import visualization functions
-try:
-    from utils.visualization import (
-        create_port_layout_chart,
-        create_ship_queue_chart,
-        create_berth_utilization_chart,
-        create_throughput_timeline,
-        create_waiting_time_distribution
-    )
-except ImportError as e:
-    print(f"Import error for visualization: {e}")
-    create_port_layout_chart = None
-    create_ship_queue_chart = None
-    create_berth_utilization_chart = None
-    create_throughput_timeline = None
-    create_waiting_time_distribution = None
-
-# Try to import MarineTraffic integration
-try:
-    from marine_traffic_integration import MarineTrafficIntegration
-except ImportError:
-    MarineTrafficIntegration = None
-
-PORT_CONFIG = {
-    'total_berths': 10,
-    'berth_types': ['container', 'container', 'container', 'container', 'bulk', 'bulk', 'mixed', 'mixed'],
-    'crane_count': [4, 3, 4, 2, 2, 2, 3, 3],
-    'max_capacity_teu': [5000, 4000, 5000, 3000, 6000, 6000, 4500, 4500],
-    'is_occupied': [True, False, True, False, True, False, True, False]
-}
-
-
-SHIP_TYPES = {
-    'container': [f'SHIP_{i:03d}' for i in range(1, 21)],
-    'bulk': [f'SHIP_{i:03d}' for i in range(1, 21)],
-    'mixed': [f'SHIP_{i:03d}' for i in range(1, 21)]
-}
-
-
-SIMULATION_CONFIG = {
-    'default_duration': 24,
-    'ship_arrival_rate': 0.5
-}
-
-
-def create_kpi_summary_chart(kpi_dict):
-    """Create KPI summary chart"""
-    fig = go.Figure()
-    
-    # Add historical data and forecasts for different categories
-    forecast_categories = ['direct_shipment', 'transhipment', 'seaborne', 'river']
-    colors = ['blue', 'red', 'green', 'orange']
-    
-    for i, category in enumerate(forecast_categories):
-        if category in kpi_dict:
-            forecast_data = kpi_dict[category]
-            
-            # Historical years (2014-2023)
-            hist_years = forecast_data.get('historical_years', [])
-            hist_values = forecast_data.get('historical_values', [])
-            
-            # Forecast years (2024-2026)
-            forecast_years = forecast_data.get('forecast_years', [])
-            forecast_values = forecast_data.get('forecast_values', [])
-            
-            # Add historical data
-            fig.add_trace(go.Scatter(
-                x=hist_years,
-                y=hist_values,
-                mode='lines+markers',
-                name=f'{category.replace("_", " ").title()} (Historical)',
-                line=dict(color=colors[i])
-            ))
-            
-            # Add forecast data
-            fig.add_trace(go.Scatter(
-                x=forecast_years,
-                y=forecast_values,
-                mode='lines+markers',
-                name=f'{category.replace("_", " ").title()} (Forecast)',
-                line=dict(color=colors[i], dash='dash')
-            ))
-    
-    fig.update_layout(
-        title="Port Cargo Throughput: Historical Data & Forecasts",
-        xaxis_title="Year",
-        yaxis_title="Throughput (000 tonnes)",
-        height=500
-    )
-    
-    st.plotly_chart(fig, use_container_width=True, key="kpi_summary_chart")
-    
-    # Display forecast metrics
-    st.subheader("🎯 Forecast Metrics")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.write("**2024 Forecasts**")
-        for category in forecast_categories:
-            if category in kpi_dict and 'forecast_values' in kpi_dict[category]:
-                forecast_2024 = kpi_dict[category]['forecast_values'][0] if kpi_dict[category]['forecast_values'] else 0
-                st.metric(f"{category.replace('_', ' ').title()}", f"{forecast_2024:,.0f}K tonnes")
-    
-    with col2:
-        st.write("**2025 Forecasts**")
-        for category in forecast_categories:
-            if category in kpi_dict and 'forecast_values' in kpi_dict[category]:
-                forecast_2025 = kpi_dict[category]['forecast_values'][1] if len(kpi_dict[category]['forecast_values']) > 1 else 0
-                st.metric(f"{category.replace('_', ' ').title()}", f"{forecast_2025:,.0f}K tonnes")
-    
-    with col3:
-        st.write("**2026 Forecasts**")
-        for category in forecast_categories:
-            if category in kpi_dict and 'forecast_values' in kpi_dict[category]:
-                forecast_2026 = kpi_dict[category]['forecast_values'][2] if len(kpi_dict[category]['forecast_values']) > 2 else 0
-                st.metric(f"{category.replace('_', ' ').title()}", f"{forecast_2026:,.0f}K tonnes")
-    
-    # Model performance metrics
-    st.subheader("📊 Model Performance")
-    model_metrics = kpi_dict.get('model_performance', {})
-    if model_metrics:
-        perf_col1, perf_col2 = st.columns(2)
-        
-        with perf_col1:
-            st.write("**R² Scores (Model Accuracy)**")
-            for category in forecast_categories:
-                if category in model_metrics and 'r2_score' in model_metrics[category]:
-                    r2_score = model_metrics[category]['r2_score']
-                    st.write(f"{category.replace('_', ' ').title()}: {r2_score:.3f}")
-        
-        with perf_col2:
-            st.write("**Mean Absolute Error**")
-            for category in forecast_categories:
-                if category in model_metrics and 'mae' in model_metrics[category]:
-                    mae = model_metrics[category]['mae']
-                    st.write(f"{category.replace('_', ' ').title()}: {mae:.1f}K tonnes")
-
-
-
-
-
-
-
-
-
-
-
-
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(threadName)s - %(message)s')
 
 
 def load_sample_data():
@@ -345,6 +157,7 @@ def get_real_berth_data():
 
 def initialize_session_state():
     """Initialize Streamlit session state variables"""
+    logging.info("Initializing session state...")
     if 'simulation_running' not in st.session_state:
         st.session_state.simulation_running = False
     if 'simulation_controller' not in st.session_state:
@@ -360,7 +173,7 @@ def initialize_session_state():
                 config = RealTimeDataConfig(
                     enable_weather_integration=True,
                     enable_file_monitoring=True,
-                    vessel_update_interval=300,   # 5 minutes
+                    vessel_update_interval=15,   # 15 seconds
                     weather_update_interval=300,  # 5 minutes
                     auto_reload_on_file_change=True,
                     cache_duration=60             # 1 minute
@@ -804,38 +617,39 @@ def main():
         with col4:
             timestamp = cargo_analysis.get('data_summary', {}).get('analysis_timestamp', datetime.now().isoformat())
             st.metric("Analysis Date", timestamp[:10] if timestamp else datetime.now().strftime("%Y-%m-%d"))
-            
-            # Create tabs for different analysis sections
-            cargo_tab1, cargo_tab2, cargo_tab3, cargo_tab4, cargo_tab5, cargo_tab6 = st.tabs([
-                "📊 Shipment Types", "🚢 Transport Modes", "📈 Time Series", "🔮 Forecasting", "📦 Cargo Types", "📍 Locations"
-            ])
-            
-            with cargo_tab1:
+
+        # Create tabs for different analysis sections
+        cargo_tab1, cargo_tab2, cargo_tab3, cargo_tab4, cargo_tab5, cargo_tab6 = st.tabs([
+            "📊 Shipment Types", "🚢 Transport Modes", "📈 Time Series", "🔮 Forecasting", "📦 Cargo Types", "📍 Locations"
+        ])
+
+        with cargo_tab1:
+            # Center the whole tab content
+            main_col1, main_col2, main_col3 = st.columns([0.1, 0.8, 0.1])
+            with main_col2:
                 st.subheader("Shipment Type Analysis")
                 
                 # Get shipment type data from time series
                 shipment_ts = time_series_data.get('shipment_types', pd.DataFrame())
                 
                 if not shipment_ts.empty:
+                    # Get latest year data (2023)
+                    latest_data = shipment_ts.loc[2023] if 2023 in shipment_ts.index else shipment_ts.iloc[-1]
+                    total = latest_data['Overall']
+                    direct_pct = (latest_data['Direct shipment cargo'] / total) * 100
+                    tranship_pct = (latest_data['Transhipment cargo'] / total) * 100
+
                     col1, col2 = st.columns(2)
                     
                     with col1:
                         st.write("**2023 Throughput Data**")
-                        # Get latest year data (2023)
-                        latest_data = shipment_ts.loc[2023] if 2023 in shipment_ts.index else shipment_ts.iloc[-1]
-                        
                         breakdown_data = {
                             'Direct Shipment': latest_data['Direct shipment cargo'],
                             'Transhipment': latest_data['Transhipment cargo']
                         }
                         breakdown_df = pd.DataFrame(list(breakdown_data.items()),
-                                                  columns=['Shipment Type', 'Throughput (000 tonnes)'])
+                                                    columns=['Shipment Type', 'Throughput (000 tonnes)'])
                         st.dataframe(breakdown_df, use_container_width=True)
-                        
-                        # Calculate percentages
-                        total = latest_data['Overall']
-                        direct_pct = (latest_data['Direct shipment cargo'] / total) * 100
-                        tranship_pct = (latest_data['Transhipment cargo'] / total) * 100
                     
                     with col2:
                         st.write("**Percentage Distribution**")
@@ -877,107 +691,103 @@ def main():
                         margin=dict(l=50, r=50, t=50, b=50)  # Center the chart
                     )
                     
-                    # Center the chart
-                    chart_col1, chart_col2, chart_col3 = st.columns([0.1, 0.8, 0.1])
-                    with chart_col2:
-                        st.plotly_chart(fig, use_container_width=True, key="shipment_trends_chart")
-                    
+                    st.plotly_chart(fig, use_container_width=True, key="shipment_trends_chart")
                 else:
                     st.info("No shipment type analysis data available.")
                     st.warning("Please ensure the Port Cargo Statistics CSV files are available in the raw_data directory.")
+
+        with cargo_tab2:
+            st.subheader("Transport Mode Analysis")
             
-            with cargo_tab2:
-                st.subheader("Transport Mode Analysis")
-                
-                # Get transport mode data from time series
-                transport_ts = time_series_data.get('transport_modes', pd.DataFrame())
-                
-                if not transport_ts.empty:
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        st.write("**2023 Transport Data**")
-                        # Get latest year data (2023)
-                        latest_data = transport_ts.loc[2023] if 2023 in transport_ts.index else transport_ts.iloc[-1]
-                        
-                        transport_breakdown = {
-                            'Waterborne': latest_data['Waterborne'],
-                            'Seaborne': latest_data['Seaborne'],
-                            'River': latest_data['River']
-                        }
-                        transport_df = pd.DataFrame(list(transport_breakdown.items()), 
-                                                  columns=['Transport Mode', 'Throughput (000 tonnes)'])
-                        st.dataframe(transport_df, use_container_width=True)
-                        
-                        # Calculate percentages
-                        total = sum(transport_breakdown.values())
-                        waterborne_pct = (latest_data['Waterborne'] / total) * 100
-                        seaborne_pct = (latest_data['Seaborne'] / total) * 100
-                        river_pct = (latest_data['River'] / total) * 100
-                    
-                    with col2:
-                        st.write("**Modal Split Percentage**")
-                        st.metric("Waterborne", f"{waterborne_pct:.1f}%")
-                        st.metric("Seaborne", f"{seaborne_pct:.1f}%")
-                        st.metric("River", f"{river_pct:.1f}%")
-                        
-                    # Show time series chart
-                    st.write("**Historical Trends**")
-                    chart_data = transport_ts[['Waterborne', 'Seaborne', 'River']]
-                    
-                    # Create plotly chart for better control over formatting
-                    import plotly.graph_objects as go
-                    fig = go.Figure()
-                    
-                    # Ensure years are integers
-                    years = [int(year) for year in chart_data.index]
-                    
-                    fig.add_trace(go.Scatter(
-                        x=years,
-                        y=chart_data['Waterborne'],
-                        mode='lines+markers',
-                        name='Waterborne',
-                        line=dict(color='purple')
-                    ))
-                    
-                    fig.add_trace(go.Scatter(
-                        x=years,
-                        y=chart_data['Seaborne'],
-                        mode='lines+markers',
-                        name='Seaborne',
-                        line=dict(color='green')
-                    ))
-                    
-                    fig.add_trace(go.Scatter(
-                        x=years,
-                        y=chart_data['River'],
-                        mode='lines+markers',
-                        name='River',
-                        line=dict(color='orange')
-                    ))
-                    
-                    fig.update_layout(
-                        xaxis_title="Year",
-                        yaxis_title="Throughput (000 tonnes)",
-                        height=400,
-                        xaxis=dict(tickmode='linear', dtick=1),  # Force integer years
-                        margin=dict(l=50, r=50, t=50, b=50)  # Center the chart
-                    )
-                    
-                    # Center the chart
-                    chart_col1, chart_col2, chart_col3 = st.columns([0.1, 0.8, 0.1])
-                    with chart_col2:
-                        st.plotly_chart(fig, use_container_width=True, key="transport_trends_chart")
-                    
-                else:
-                    st.info("No transport mode analysis data available")
-                    st.warning("Please ensure the Port Cargo Statistics CSV files are available in the raw_data directory.")
+            # Get transport mode data from time series
+            transport_ts = time_series_data.get('transport_modes', pd.DataFrame())
             
-            with cargo_tab3:
-                st.subheader("Time Series Analysis")
+            if not transport_ts.empty:
+                col1, col2 = st.columns(2)
                 
-                if time_series_data:
-                    # Display time series charts
+                with col1:
+                    st.write("**2023 Transport Data**")
+                    # Get latest year data (2023)
+                    latest_data = transport_ts.loc[2023] if 2023 in transport_ts.index else transport_ts.iloc[-1]
+                    
+                    transport_breakdown = {
+                        'Waterborne': latest_data['Waterborne'],
+                        'Seaborne': latest_data['Seaborne'],
+                        'River': latest_data['River']
+                    }
+                    transport_df = pd.DataFrame(list(transport_breakdown.items()), 
+                                                columns=['Transport Mode', 'Throughput (000 tonnes)'])
+                    st.dataframe(transport_df, use_container_width=True)
+                    
+                    # Calculate percentages
+                    total = sum(transport_breakdown.values())
+                    waterborne_pct = (latest_data['Waterborne'] / total) * 100
+                    seaborne_pct = (latest_data['Seaborne'] / total) * 100
+                    river_pct = (latest_data['River'] / total) * 100
+                
+                with col2:
+                    st.write("**Modal Split Percentage**")
+                    st.metric("Waterborne", f"{waterborne_pct:.1f}%")
+                    st.metric("Seaborne", f"{seaborne_pct:.1f}%")
+                    st.metric("River", f"{river_pct:.1f}%")
+                    
+                # Show time series chart
+                st.write("**Historical Trends**")
+                chart_data = transport_ts[['Waterborne', 'Seaborne', 'River']]
+                
+                # Create plotly chart for better control over formatting
+                import plotly.graph_objects as go
+                fig = go.Figure()
+                
+                # Ensure years are integers
+                years = [int(year) for year in chart_data.index]
+                
+                fig.add_trace(go.Scatter(
+                    x=years,
+                    y=chart_data['Waterborne'],
+                    mode='lines+markers',
+                    name='Waterborne',
+                    line=dict(color='purple')
+                ))
+                
+                fig.add_trace(go.Scatter(
+                    x=years,
+                    y=chart_data['Seaborne'],
+                    mode='lines+markers',
+                    name='Seaborne',
+                    line=dict(color='green')
+                ))
+                
+                fig.add_trace(go.Scatter(
+                    x=years,
+                    y=chart_data['River'],
+                    mode='lines+markers',
+                    name='River',
+                    line=dict(color='orange')
+                ))
+                
+                fig.update_layout(
+                    xaxis_title="Year",
+                    yaxis_title="Throughput (000 tonnes)",
+                    height=400,
+                    xaxis=dict(tickmode='linear', dtick=1),  # Force integer years
+                    margin=dict(l=50, r=50, t=50, b=50)  # Center the chart
+                )
+                
+                # Center the chart
+                chart_col1, chart_col2, chart_col3 = st.columns([0.1, 0.8, 0.1])
+                with chart_col2:
+                    st.plotly_chart(fig, use_container_width=True, key="transport_trends_chart")
+                
+            else:
+                st.info("No transport mode analysis data available")
+                st.warning("Please ensure the Port Cargo Statistics CSV files are available in the raw_data directory.")
+
+        with cargo_tab3:
+            st.subheader("Time Series Analysis")
+            
+            if time_series_data:
+                # Display time series charts
                     import plotly.graph_objects as go
                     from plotly.subplots import make_subplots
                     
@@ -1082,55 +892,55 @@ def main():
                                     if isinstance(trend_data, dict) and 'slope' in trend_data:
                                         direction = "📈" if trend_data['slope'] > 0 else "📉" if trend_data['slope'] < 0 else "➡️"
                                         st.write(f"{direction} {trend_type.replace('_', ' ').title()}: {trend_data['slope']:.2f}K tonnes/year")
-                else:
-                    st.info("No time series data available")
+                    else:
+                        st.info("No trend data available")
+
+        with cargo_tab4:
+            st.subheader("Forecasting Analysis")
             
-            with cargo_tab4:
-                st.subheader("Forecasting Analysis")
+            forecasts = cargo_analysis.get('forecasts', {})
+            if forecasts:
+                # Display forecast charts
+                import plotly.graph_objects as go
                 
-                forecasts = cargo_analysis.get('forecasts', {})
-                if forecasts:
-                    # Display forecast charts
-                    import plotly.graph_objects as go
-                    
-                    st.write("**2024-2026 Cargo Throughput Forecasts**")
-                    
-                    # Create forecast visualization
-                    fig = go.Figure()
-                    
-                    # Historical data and forecasts for different categories
-                    forecast_categories = ['direct_shipment', 'transhipment', 'seaborne', 'river']
-                    colors = ['blue', 'red', 'green', 'orange']
-                    
-                    for i, category in enumerate(forecast_categories):
-                        if category in forecasts:
-                            forecast_data = forecasts[category]
-                            
-                            # Historical years (2014-2023) - ensure integers
-                            hist_years = [int(year) for year in forecast_data.get('historical_years', [])]
-                            hist_values = forecast_data.get('historical_values', [])
-                            
-                            # Forecast years (2024-2026) - ensure integers
-                            forecast_years = [int(year) for year in forecast_data.get('forecast_years', [])]
-                            forecast_values = forecast_data.get('forecast_values', [])
-                            
-                            # Add historical data
-                            fig.add_trace(go.Scatter(
-                                x=hist_years,
-                                y=hist_values,
-                                mode='lines+markers',
-                                name=f'{category.replace("_", " ").title()} (Historical)',
-                                line=dict(color=colors[i])
-                            ))
-                            
-                            # Add forecast data
-                            fig.add_trace(go.Scatter(
-                                x=forecast_years,
-                                y=forecast_values,
-                                mode='lines+markers',
-                                name=f'{category.replace("_", " ").title()} (Forecast)',
-                                line=dict(color=colors[i], dash='dash')
-                            ))
+                st.write("**2024-2026 Cargo Throughput Forecasts**")
+                
+                # Create forecast visualization
+                fig = go.Figure()
+                
+                # Historical data and forecasts for different categories
+                forecast_categories = ['direct_shipment', 'transhipment', 'seaborne', 'river']
+                colors = ['blue', 'red', 'green', 'orange']
+                
+                for i, category in enumerate(forecast_categories):
+                    if category in forecasts:
+                        forecast_data = forecasts[category]
+                        
+                        # Historical years (2014-2023) - ensure integers
+                        hist_years = [int(year) for year in forecast_data.get('historical_years', [])]
+                        hist_values = forecast_data.get('historical_values', [])
+                        
+                        # Forecast years (2024-2026) - ensure integers
+                        forecast_years = [int(year) for year in forecast_data.get('forecast_years', [])]
+                        forecast_values = forecast_data.get('forecast_values', [])
+                        
+                        # Add historical data
+                        fig.add_trace(go.Scatter(
+                            x=hist_years,
+                            y=hist_values,
+                            mode='lines+markers',
+                            name=f'{category.replace("_", " ").title()} (Historical)',
+                            line=dict(color=colors[i])
+                        ))
+                        
+                        # Add forecast data
+                        fig.add_trace(go.Scatter(
+                            x=forecast_years,
+                            y=forecast_values,
+                            mode='lines+markers',
+                            name=f'{category.replace("_", " ").title()} (Forecast)',
+                            line=dict(color=colors[i], dash='dash')
+                        ))
                     
                     fig.update_layout(
                         title="Port Cargo Throughput: Historical Data & Forecasts",
@@ -1193,53 +1003,59 @@ def main():
                                     st.write(f"{category.replace('_', ' ').title()}: {mae:.1f}K tonnes")
                 else:
                     st.info("No forecasting data available")
-            
-            with cargo_tab5:
-                 st.subheader("Cargo Type Analysis")
-                 cargo_type_data = cargo_analysis.get('cargo_type_analysis', {})
-                 
-                 if cargo_type_data:
-                     if 'top_cargo_types' in cargo_type_data:
-                         st.write("**Top Cargo Types (2023)**")
-                         cargo_types_list = cargo_type_data['top_cargo_types']
-                         if cargo_types_list:
-                             cargo_df = pd.DataFrame(cargo_types_list)
-                             cargo_df.columns = ['Cargo Type', 'Throughput (000 tonnes)']
-                             st.dataframe(cargo_df, use_container_width=True)
-                     
-                     col1, col2 = st.columns(2)
-                     with col1:
-                         if 'total_cargo_types' in cargo_type_data:
-                             st.metric("Total Cargo Types", cargo_type_data['total_cargo_types'])
-                     with col2:
-                         if 'total_throughput' in cargo_type_data:
-                             st.metric("Total Throughput", f"{cargo_type_data['total_throughput']:,.0f}K tonnes")
-                 else:
-                     st.info("No cargo type analysis data available")
-            
-            with cargo_tab6:
-                 st.subheader("Handling Location Analysis")
-                 location_data = cargo_analysis.get('location_analysis', {})
-                 
-                 if location_data:
-                     if 'top_locations' in location_data:
-                         st.write("**Top Handling Locations (2023)**")
-                         locations_list = location_data['top_locations']
-                         if locations_list:
-                             location_df = pd.DataFrame(locations_list)
-                             location_df.columns = ['Handling Location', 'Throughput (000 tonnes)']
-                             st.dataframe(location_df, use_container_width=True)
-                     
-                     col1, col2 = st.columns(2)
-                     with col1:
-                         if 'total_locations' in location_data:
-                             st.metric("Total Locations", location_data['total_locations'])
-                     with col2:
-                         if 'total_throughput' in location_data:
-                             st.metric("Total Throughput", f"{location_data['total_throughput']:,.0f}K tonnes")
-                 else:
-                     st.info("No location analysis data available")
-            
+
+        with cargo_tab5:
+            st.subheader("Cargo Type Analysis")
+            cargo_type_data = cargo_analysis.get('cargo_type_analysis', {})
+
+            if cargo_type_data:
+                st.write("**Top Cargo Types (2023)**")
+                if 'top_cargo_types' in cargo_type_data and cargo_type_data['top_cargo_types']:
+                    cargo_df = pd.DataFrame(cargo_type_data['top_cargo_types'])
+                    cargo_df.columns = ['Cargo Type', 'Throughput (000 tonnes)']
+                    
+                    # Center the dataframe
+                    df_col1, df_col2, df_col3 = st.columns([0.1, 0.8, 0.1])
+                    with df_col2:
+                        st.dataframe(cargo_df, use_container_width=True)
+                    with df_col2:
+                        st.dataframe(cargo_df, use_container_width=True)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if 'total_cargo_types' in cargo_type_data:
+                        st.metric("Total Cargo Types", cargo_type_data['total_cargo_types'])
+                with col2:
+                    if 'total_throughput' in cargo_type_data:
+                        st.metric("Total Throughput", f"{cargo_type_data['total_throughput']:,.0f}K tonnes")
+            else:
+                st.info("No cargo type analysis data available")
+
+        with cargo_tab6:
+            st.subheader("Handling Location Analysis")
+            location_data = cargo_analysis.get('location_analysis', {})
+
+            if location_data:
+                st.write("**Top Handling Locations (2023)**")
+                if 'top_locations' in location_data and location_data['top_locations']:
+                    location_df = pd.DataFrame(location_data['top_locations'])
+                    location_df.columns = ['Handling Location', 'Throughput (000 tonnes)']
+                    
+                    # Center the dataframe
+                    df_col1, df_col2, df_col3 = st.columns([0.1, 0.8, 0.1])
+                    with df_col2:
+                        st.dataframe(location_df, use_container_width=True)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if 'total_locations' in location_data:
+                        st.metric("Total Locations", location_data['total_locations'])
+                with col2:
+                    if 'total_throughput' in location_data:
+                        st.metric("Total Throughput", f"{location_data['total_throughput']:,.0f}K tonnes")
+            else:
+                st.info("No location analysis data available")
+
             # Efficiency Metrics Section
             st.subheader("📈 Port Efficiency Metrics")
             efficiency_data = cargo_analysis.get('efficiency_metrics', {})
@@ -1279,7 +1095,7 @@ def main():
                         st.write(f"✅ {section}")
             else:
                 st.info("No analysis summary available")
-    
+
     with tab5:
         st.subheader("🌊 Live Maritime Traffic")
         st.markdown("Real-time vessel tracking around Hong Kong waters")
@@ -1385,7 +1201,7 @@ def main():
                 # Display vessel queue analysis summary
                 st.subheader("📊 Current Vessel Status")
                 
-                col1, col2, col3, col4 = st.columns(4)
+                col1, col2, col3 = st.columns(3)
                 with col1:
                     active_vessels = vessel_analysis.get('current_status', {}).get('active_vessels', 0)
                     st.metric("Active Vessels", active_vessels)
@@ -1399,13 +1215,6 @@ def main():
                         st.metric("Analysis Time", time_str)
                     else:
                         st.metric("Analysis Time", "N/A")
-                with col4:
-                    data_time = vessel_analysis.get('timestamps', {}).get('data_time', '')
-                    if data_time:
-                        date_str = data_time.split('T')[0] if 'T' in data_time else data_time[:10]
-                        st.metric("Data Date", date_str)
-                    else:
-                        st.metric("Data Date", "N/A")
                 
                 # Location breakdown
                 st.subheader("📍 Vessel Locations")
