@@ -404,8 +404,11 @@ class DecisionSupportEngine:
                         expires_at=context.current_time + timedelta(hours=2)
                     ))
             
-            # Check weather conditions
-            weather_impact = context.weather_conditions.get('impact_score', 0.0)
+            # Check weather conditions (if available)
+            weather_impact = 0.0
+            if context.weather_conditions:
+                weather_impact = context.weather_conditions.get('impact_score', 0.0)
+            
             if weather_impact > self.recommendation_rules['emergency_response']['severe_weather_threshold']:
                 recommendations.append(Recommendation(
                     id=f"weather_emergency_{context.current_time.strftime('%Y%m%d_%H%M%S')}",

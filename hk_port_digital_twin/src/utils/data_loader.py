@@ -29,11 +29,17 @@ logger = logging.getLogger(__name__)
 
 # Import our new modules
 try:
-    from .weather_integration import HKObservatoryIntegration, get_weather_impact_for_simulation
+    # Weather integration temporarily disabled for removal
+    # from .weather_integration import HKObservatoryIntegration, get_weather_impact_for_simulation
     from .file_monitor import PortDataFileMonitor, create_default_port_monitor
+    
+    # Set weather integration to None (disabled)
+    HKObservatoryIntegration = None
+    get_weather_impact_for_simulation = None
+    logger.info("Weather integration disabled - feature removal in progress")
 except ImportError:
     # Fallback for when modules are not available
-    logger.warning("Weather integration and file monitoring modules not available")
+    logger.warning("File monitoring modules not available")
     HKObservatoryIntegration = None
     get_weather_impact_for_simulation = None
     PortDataFileMonitor = None
@@ -730,7 +736,7 @@ def get_vessel_queue_analysis() -> Dict[str, any]:
 @dataclass
 class RealTimeDataConfig:
     """Configuration for real-time data processing."""
-    enable_weather_integration: bool = True
+    enable_weather_integration: bool = False  # DISABLED: Weather impact feature removed
     enable_file_monitoring: bool = True
     vessel_update_interval: int = 300  # seconds (5 minutes)
     weather_update_interval: int = 1800  # seconds (30 minutes)

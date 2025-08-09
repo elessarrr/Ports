@@ -15,7 +15,9 @@ from hk_port_digital_twin.src.utils.data_loader import RealTimeDataConfig, get_r
 from hk_port_digital_twin.config.settings import SIMULATION_CONFIG
 from hk_port_digital_twin.src.core.port_simulation import PortSimulation
 from hk_port_digital_twin.src.utils.visualization import create_kpi_summary_chart, create_port_layout_chart, create_ship_queue_chart, create_berth_utilization_chart, create_throughput_timeline, create_waiting_time_distribution
-from hk_port_digital_twin.src.utils.weather_integration import HKObservatoryIntegration
+# Weather integration disabled for feature removal
+# from hk_port_digital_twin.src.utils.weather_integration import HKObservatoryIntegration
+HKObservatoryIntegration = None  # Disabled
 from hk_port_digital_twin.src.utils.data_loader import load_focused_cargo_statistics, get_enhanced_cargo_analysis, get_time_series_data
 
 try:
@@ -380,87 +382,9 @@ def main():
             
             st.metric("Utilization Rate", "75%")
         
-        # Weather Summary Section
-        st.subheader("🌤️ Current Weather Conditions")
-        
-        # Initialize weather integration for overview
-        weather_col1, weather_col2, weather_col3 = st.columns(3)
-        
-        if HKObservatoryIntegration:
-            try:
-                weather_integration = HKObservatoryIntegration()
-                current_weather = weather_integration.get_current_weather()
-                
-                if current_weather:
-                    with weather_col1:
-                        temp = current_weather.get('temperature', 'N/A')
-                        st.metric("🌡️ Temperature", f"{temp}°C" if temp != 'N/A' else temp)
-                        
-                        wind_speed = current_weather.get('wind_speed', 'N/A')
-                        st.metric("💨 Wind Speed", f"{wind_speed} km/h" if wind_speed != 'N/A' else wind_speed)
-                    
-                    with weather_col2:
-                        humidity = current_weather.get('humidity', 'N/A')
-                        st.metric("💧 Humidity", f"{humidity}%" if humidity != 'N/A' else humidity)
-                        
-                        visibility = current_weather.get('visibility', 'N/A')
-                        st.metric("👁️ Visibility", f"{visibility} km" if visibility != 'N/A' else visibility)
-                    
-                    with weather_col3:
-                        # Weather impact assessment
-                        try:
-                            from src.utils.weather_integration import get_weather_impact_for_simulation
-                            impact_data = get_weather_impact_for_simulation(current_weather)
-                            delay_factor = impact_data.get('delay_factor', 1.0)
-                            
-                            if delay_factor <= 1.1:
-                                impact_status = "🟢 Normal"
-                            elif delay_factor <= 1.3:
-                                impact_status = "🟡 Caution"
-                            else:
-                                impact_status = "🔴 High Risk"
-                            
-                            st.metric("⚠️ Weather Impact", f"{delay_factor:.2f}x", help=impact_status)
-                            
-                            # Show current conditions
-                            description = current_weather.get('description', 'No data')
-                            st.info(f"**Conditions:** {description}")
-                            
-                        except ImportError:
-                            st.metric("⚠️ Weather Impact", "N/A")
-                            st.info("**Conditions:** Weather analysis unavailable")
-                
-                else:
-                    with weather_col1:
-                        st.metric("🌡️ Temperature", "N/A")
-                        st.metric("💨 Wind Speed", "N/A")
-                    with weather_col2:
-                        st.metric("💧 Humidity", "N/A")
-                        st.metric("👁️ Visibility", "N/A")
-                    with weather_col3:
-                        st.metric("⚠️ Weather Impact", "N/A")
-                        st.warning("Weather data unavailable")
-                        
-            except Exception as e:
-                with weather_col1:
-                    st.metric("🌡️ Temperature", "N/A")
-                    st.metric("💨 Wind Speed", "N/A")
-                with weather_col2:
-                    st.metric("💧 Humidity", "N/A")
-                    st.metric("👁️ Visibility", "N/A")
-                with weather_col3:
-                    st.metric("⚠️ Weather Impact", "N/A")
-                    st.warning(f"Weather service error: {str(e)}")
-        else:
-            with weather_col1:
-                st.metric("🌡️ Temperature", "N/A")
-                st.metric("💨 Wind Speed", "N/A")
-            with weather_col2:
-                st.metric("💧 Humidity", "N/A")
-                st.metric("👁️ Visibility", "N/A")
-            with weather_col3:
-                st.metric("⚠️ Weather Impact", "N/A")
-                st.info("Weather integration not available")
+        # Weather Summary Section (Disabled)
+        st.subheader("🌤️ Weather Integration Status")
+        st.info("⚠️ Weather integration feature has been disabled. Previously provided real-time weather conditions and operational impact assessment.")
         
         # Port Layout
         st.subheader("Port Layout")
@@ -1390,102 +1314,21 @@ def main():
     
     with tab7:
         st.subheader("🌤️ Weather Conditions & Impact")
-        st.markdown("Real-time weather data and its impact on port operations")
+        st.markdown("Weather integration feature has been disabled")
         
-        # Initialize weather integration
-        weather_integration = None
-        if HKObservatoryIntegration:
-            try:
-                weather_integration = HKObservatoryIntegration()
-            except Exception as e:
-                st.warning(f"Weather service unavailable: {str(e)}")
+        # Weather feature disabled message
+        st.info("⚠️ **Weather Integration Disabled**")
+        st.markdown("""
+        The weather impact feature is currently disabled as part of system maintenance.
         
-        if weather_integration:
-            try:
-                # Get current weather
-                current_weather = weather_integration.get_current_weather()
-                
-                if current_weather:
-                    # Weather overview
-                    st.subheader("🌡️ Current Conditions")
-                    
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        temp = current_weather.get('temperature', 'N/A')
-                        st.metric("Temperature", f"{temp}°C" if temp != 'N/A' else temp)
-                    with col2:
-                        humidity = current_weather.get('humidity', 'N/A')
-                        st.metric("Humidity", f"{humidity}%" if humidity != 'N/A' else humidity)
-                    with col3:
-                        wind_speed = current_weather.get('wind_speed', 'N/A')
-                        st.metric("Wind Speed", f"{wind_speed} km/h" if wind_speed != 'N/A' else wind_speed)
-                    with col4:
-                        visibility = current_weather.get('visibility', 'N/A')
-                        st.metric("Visibility", f"{visibility} km" if visibility != 'N/A' else visibility)
-                    
-                    # Weather description
-                    description = current_weather.get('description', 'No description available')
-                    st.info(f"**Current Conditions:** {description}")
-                    
-                    # Operational impact assessment
-                    st.subheader("⚠️ Operational Impact Assessment")
-                    
-                    try:
-                        from src.utils.weather_integration import get_weather_impact_for_simulation
-                        impact_data = get_weather_impact_for_simulation(current_weather)
-                        
-                        impact_col1, impact_col2 = st.columns(2)
-                        
-                        with impact_col1:
-                            st.write("**Impact Factors**")
-                            
-                            # Wind impact
-                            wind_impact = impact_data.get('wind_impact', 1.0)
-                            wind_status = "🟢 Normal" if wind_impact <= 1.1 else "🟡 Caution" if wind_impact <= 1.3 else "🔴 High Risk"
-                            st.metric("Wind Impact", f"{wind_impact:.2f}x", help=wind_status)
-                            
-                            # Visibility impact
-                            visibility_impact = impact_data.get('visibility_impact', 1.0)
-                            vis_status = "🟢 Clear" if visibility_impact <= 1.1 else "🟡 Reduced" if visibility_impact <= 1.3 else "🔴 Poor"
-                            st.metric("Visibility Impact", f"{visibility_impact:.2f}x", help=vis_status)
-                            
-                            # Overall delay factor
-                            delay_factor = impact_data.get('delay_factor', 1.0)
-                            delay_status = "🟢 Minimal" if delay_factor <= 1.1 else "🟡 Moderate" if delay_factor <= 1.3 else "🔴 Significant"
-                            st.metric("Expected Delays", f"{delay_factor:.2f}x", help=delay_status)
-                        
-                        with impact_col2:
-                            st.write("**Operational Recommendations**")
-                            
-                            recommendations = []
-                            if wind_impact > 1.3:
-                                recommendations.append("🌪️ High wind conditions - Consider suspending crane operations")
-                            elif wind_impact > 1.1:
-                                recommendations.append("💨 Moderate winds - Reduce crane operating speeds")
-                            
-                            if visibility_impact > 1.3:
-                                recommendations.append("🌫️ Poor visibility - Implement enhanced navigation protocols")
-                            elif visibility_impact > 1.1:
-                                recommendations.append("👁️ Reduced visibility - Increase safety monitoring")
-                            
-                            if delay_factor > 1.2:
-                                recommendations.append("⏰ Expect significant delays - Notify stakeholders")
-
-                            if recommendations:
-                                for rec in recommendations:
-                                    st.warning(rec)
-                            else:
-                                st.success("✅ All systems normal. No specific recommendations.")
-
-                    except ImportError:
-                        st.error("Could not import weather impact module. Please check the installation.")
-                    except Exception as e:
-                        st.error(f"An error occurred during impact assessment: {str(e)}")
-
-            except Exception as e:
-                st.error(f"Failed to fetch or process weather data: {str(e)}")
-        else:
-            st.info("Weather integration is not configured.")
+        **Previously Available Features:**
+        - Real-time weather conditions from Hong Kong Observatory
+        - Operational impact assessment
+        - Weather-based recommendations
+        - Wind and visibility impact analysis
+        
+        Please contact the system administrator for more information.
+        """)
 
 
 if __name__ == "__main__":
