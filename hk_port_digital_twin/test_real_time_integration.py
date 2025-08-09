@@ -23,46 +23,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def test_weather_integration():
-    """Test weather data integration."""
-    logger.info("Testing weather integration...")
-    
-    try:
-        from utils.weather_integration import HKObservatoryIntegration
-        
-        # Initialize weather integration
-        weather = HKObservatoryIntegration()
-        
-        # Test current weather
-        current_weather = weather.get_current_weather()
-        if current_weather:
-            logger.info(f"Current weather: {current_weather.weather_description}")
-            logger.info(f"Operational status: {current_weather.operational_status}")
-            logger.info(f"Impact score: {current_weather.impact_score}")
-        else:
-            logger.warning("No current weather data available")
-        
-        # Test forecast
-        forecast = weather.get_forecast()
-        if forecast:
-            logger.info(f"Forecast available for {len(forecast)} periods")
-        
-        # Test warnings
-        warnings = weather.get_weather_warnings()
-        if warnings:
-            logger.info(f"Active warnings: {len(warnings)}")
-        else:
-            logger.info("No active weather warnings")
-        
-        logger.info("Weather integration test completed successfully")
-        return True
-        
-    except ImportError as e:
-        logger.error(f"Weather integration not available: {e}")
-        return False
-    except Exception as e:
-        logger.error(f"Error testing weather integration: {e}")
-        return False
+# Weather integration test removed - see planning/remove_weather_impact_plan.md
 
 def test_file_monitoring():
     """Test file monitoring system."""

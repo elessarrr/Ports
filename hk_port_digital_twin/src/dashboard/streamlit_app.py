@@ -285,7 +285,7 @@ def main():
         st.rerun()
     
     # Main dashboard layout
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs(["📊 Overview", "🚢 Ships & Berths", "📈 Analytics", "📦 Cargo Statistics", "🌊 Live Map", "🛳️ Live Vessels", "🌤️ Weather", "🏗️ Live Berths", "⚙️ Settings"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(["📊 Overview", "🚢 Ships & Berths", "📈 Analytics", "📦 Cargo Statistics", "🌊 Live Map", "🛳️ Live Vessels", "🏗️ Live Berths", "⚙️ Settings"])
     
     with tab1:
         st.subheader("Port Overview")
@@ -381,10 +381,6 @@ def main():
                 st.metric("Avg Waiting Time", "2.5 hrs")
             
             st.metric("Utilization Rate", "75%")
-        
-        # Weather Summary Section (Disabled)
-        st.subheader("🌤️ Weather Integration Status")
-        st.info("⚠️ Weather integration feature has been disabled. Previously provided real-time weather conditions and operational impact assessment.")
         
         # Port Layout
         st.subheader("Port Layout")
@@ -1312,23 +1308,7 @@ def main():
             st.error(f"Error loading vessel data: {str(e)}")
             st.info("Please ensure the vessel arrivals XML file is available and properly formatted.")
     
-    with tab7:
-        st.subheader("🌤️ Weather Conditions & Impact")
-        st.markdown("Weather integration feature has been disabled")
-        
-        # Weather feature disabled message
-        st.info("⚠️ **Weather Integration Disabled**")
-        st.markdown("""
-        The weather impact feature is currently disabled as part of system maintenance.
-        
-        **Previously Available Features:**
-        - Real-time weather conditions from Hong Kong Observatory
-        - Operational impact assessment
-        - Weather-based recommendations
-        - Wind and visibility impact analysis
-        
-        Please contact the system administrator for more information.
-        """)
+
 
 
 if __name__ == "__main__":
