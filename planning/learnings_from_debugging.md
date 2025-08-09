@@ -438,3 +438,68 @@ Regularly sync project plan status with actual codebase implementation to avoid 
 - Performance metrics show AI optimization is functioning as designed
 
 ---
+
+## Serial `NameError` Exceptions from Missing Imports
+
+- **Caused by:** A series of `NameError` exceptions in `streamlit_app.py` were caused by missing import statements for various functions and classes from different modules within the `hk_port_digital_twin` project. The application was calling functions like `create_berth_utilization_chart`, `create_throughput_timeline`, `create_waiting_time_distribution`, and the class `MarineTrafficIntegration` without them being imported into the main application's namespace.
+- **How fixed:** The issue was resolved by systematically identifying each `NameError`, locating the definition of the missing object using codebase search, and adding the correct import statement to the top of `streamlit_app.py`. This was done iteratively for each error until the application ran without any `NameError` exceptions.
+- **Learnings/Takeaway:** This series of errors highlights the importance of dependency management at the module level. When refactoring or adding new features, it's crucial to ensure that all required components are correctly imported. Using a linter or a static analysis tool can help catch missing imports before runtime. A systematic debugging approach (run, see error, find definition, import, repeat) is effective for resolving such issues.
+- **Date fixed:** 2025-01-28 10:00
+
+**Additional Insight:**
+- The errors were resolved one by one, which is a common pattern when dealing with dependency issues in a large file. Each fix revealed the next error.
+- The use of `try-except ImportError` blocks for optional dependencies like `MarineTrafficIntegration` is a good practice to make the application more robust.
+
+---
+
+## `NameError` for `load_focused_cargo_statistics` in Streamlit App
+
+- **Caused by:** A required function (`load_focused_cargo_statistics`) from the `data_loader` module was called in `streamlit_app.py` without being imported first.
+- **How fixed:** Added the import statement `from hk_port_digital_twin.src.utils.data_loader import load_focused_cargo_statistics, get_enhanced_cargo_analysis, get_time_series_data` to `streamlit_app.py`.
+- **Learnings/Takeaway:** When adding new functionality that relies on functions from other modules, always ensure the necessary imports are added immediately.
+- **Date fixed:** 2025-07-27
+
+---
+
+## `StreamlitDuplicateElementKey` for Dynamically Generated Chart
+
+- **Caused by:** A static key (`forecast_chart`) was used for a Plotly chart element generated inside a `for` loop. Streamlit requires every element to have a unique key.
+- **How fixed:** Modified the key assignment to be dynamic by appending the loop variable (category) to the key: `key=f"forecast_chart_{category}"`.
+- **Learnings/Takeaway:** When creating UI elements within loops in Streamlit, always generate dynamic and unique keys for each element. Using loop variables is a good practice.
+- **Date fixed:** 2025-07-27
+
+---
+
+## XML Parsing Errors with Vessel Arrivals Data
+
+- **Caused by:** Multiple issues: 1) A non-XML comment line at the start of the file. 2) Unescaped ampersand `&` characters in the XML content. 3) Using an outdated pandas parameter (`na_last` instead of `na_position`).
+- **How fixed:** 1) Added filtering to remove the comment line. 2) Replaced `&` with `&amp;` before parsing. 3) Changed the pandas `sort_values` parameter to `na_position='last'` for compatibility.
+- **Learnings/Takeaway:** Always validate and clean external XML data before parsing. Implement comprehensive character escaping and be mindful of library version differences in parameters.
+- **Date fixed:** 2025-07-26
+
+---
+
+## Cargo Statistics Analysis Failed Due to Data Structure Mismatch
+
+- **Caused by:** The Streamlit UI expected data in dictionaries with keys like `shipment_type_analysis`, but the data loader returned a different structure with nested DataFrames under keys like `time_series_data`.
+- **How fixed:** Updated the UI tabs in `streamlit_app.py` to access the data from the correct nested structure (e.g., `time_series_data['shipment_types']`) instead of the old top-level keys.
+- **Learnings/Takeaway:** Always verify the actual data structure returned by functions before building UI components that consume it. Debug scripts to inspect complex data structures are invaluable.
+- **Date fixed:** 2025-01-27
+
+---
+
+## AI Optimization Layer Test Suite Failures
+
+- **Caused by:** Mismatches between test code and implementation: 1) Incorrect dataclass field names (`containers` vs. `containers_to_load`). 2) Calling private or incorrect method names (`_estimate_service_time` vs. `estimate_service_time`). 3) Asserting on incorrect result object attributes.
+- **How fixed:** Corrected all field names, method calls, and assertion attributes in the test files (`test_ai_optimization.py`) to align with the actual implementation in `src/ai/optimization.py`.
+- **Learnings/Takeaway:** Write tests after the initial implementation to ensure alignment, or update them immediately after refactoring. Clearly document public APIs. Review test cases against the implementation.
+- **Date fixed:** 2025-07-26
+
+---
+
+## `ModuleNotFoundError: No module named 'plotly'`
+
+- **Caused by:** The required dependencies listed in `requirements.txt` were not installed in the active Python environment, even though `plotly` was correctly specified in the file.
+- **How fixed:** Ran `pip install -r hk_port_digital_twin/requirements.txt` to install all required packages into the environment.
+- **Learnings/Takeaway:** Always run `pip install -r requirements.txt` when setting up a new development environment or pulling new code. Use virtual environments to isolate project dependencies.
+- **Date fixed:** 2025-01-27

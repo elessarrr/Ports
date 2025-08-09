@@ -4,21 +4,30 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import logging
+import numpy as np
 
 # Add the project root to the Python path to allow absolute imports
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from hk_port_digital_twin.src.utils.data_loader import RealTimeDataConfig, get_real_time_manager
+from hk_port_digital_twin.src.utils.data_loader import RealTimeDataConfig, get_real_time_manager, load_container_throughput
 from hk_port_digital_twin.config.settings import SIMULATION_CONFIG
 from hk_port_digital_twin.src.core.port_simulation import PortSimulation
+from hk_port_digital_twin.src.utils.visualization import create_kpi_summary_chart, create_port_layout_chart, create_ship_queue_chart, create_berth_utilization_chart, create_throughput_timeline, create_waiting_time_distribution
+from hk_port_digital_twin.src.utils.weather_integration import HKObservatoryIntegration
+from hk_port_digital_twin.src.utils.data_loader import load_focused_cargo_statistics, get_enhanced_cargo_analysis, get_time_series_data
+
+try:
+    from hk_port_digital_twin.src.dashboard.marine_traffic_integration import MarineTrafficIntegration
+except ImportError:
+    MarineTrafficIntegration = None
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(threadName)s - %(message)s')
 
 
-def load_sample_data():
+def load_sample_data(use_real_throughput_data=True):
     """Load sample data"""
     queue_data = {
         'berth_id': ['Berth_A1', 'Berth_A2', 'Berth_A3', 'Berth_A4', 'Berth_B1', 'Berth_B2', 'Berth_C1', 'Berth_C2'],
@@ -35,7 +44,7 @@ def load_sample_data():
     }
     
     # Load real container throughput data instead of simulated data
-    if load_container_throughput:
+    if use_real_throughput_data:
         try:
             timeline_data = load_container_throughput()
             # The data already has a datetime index, so we use that as 'time'
@@ -954,7 +963,7 @@ def main():
                     # Center the chart
                     chart_col1, chart_col2, chart_col3 = st.columns([0.1, 0.8, 0.1])
                     with chart_col2:
-                        st.plotly_chart(fig, use_container_width=True, key="forecast_chart")
+                        st.plotly_chart(fig, use_container_width=True, key=f"forecast_chart_{category}")
                     
                     # Display forecast metrics
                     st.subheader("🎯 Forecast Metrics")
