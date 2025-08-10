@@ -83,7 +83,7 @@ class PortSimulation:
         
         # Initialize scenario management
         self.scenario_manager = ScenarioManager()
-        self.scenario_optimizer = ScenarioAwareBerthOptimizer(self.berth_optimizer, self.scenario_manager)
+        self.scenario_optimizer = ScenarioAwareBerthOptimizer(self.scenario_manager)
         
         # Ship queue for batch optimization
         self.pending_ships = []
@@ -540,7 +540,7 @@ class PortSimulation:
         
         # Reset scenario management
         self.scenario_manager = ScenarioManager()
-        self.scenario_optimizer = ScenarioAwareBerthOptimizer(self.berth_optimizer, self.scenario_manager)
+        self.scenario_optimizer = ScenarioAwareBerthOptimizer(self.scenario_manager)
         
         # Reset metrics
         self.metrics = {

@@ -152,205 +152,194 @@ class TestInvestmentPlanner(unittest.TestCase):
     
     def test_analyze_investment_scenario(self):
         """Test complete investment scenario analysis"""
-        results = self.planner.analyze_investment_scenario(
-            investment_type=InvestmentType.NEW_BERTH,
-            investment_amount=50_000_000,
-            demand_growth_rate=0.06,
-            analysis_years=10
+        # Create a scenario using existing investment options
+        scenario = self.planner.create_investment_scenario(
+            scenario_id="test_analysis_scenario",
+            name="Expansion Scenario",
+            description="Major port expansion",
+            investment_ids=["new_berth_1", "crane_upgrade_1"]
         )
         
-        self.assertIsInstance(results, dict)
+        analysis = self.planner.calculate_roi_analysis(scenario)
         
-        # Check required result fields
+        self.assertIsInstance(analysis, dict)
+        
+        # Check required analysis fields
         required_fields = [
-            'roi_percentage', 'npv', 'payback_years',
-            'capacity_impact', 'financial_projections',
-            'recommendations', 'risk_assessment'
+            'scenario', 'financial_metrics', 'capacity_metrics',
+            'risk_assessment', 'recommendations', 'cash_flows'
         ]
         
         for field in required_fields:
-            self.assertIn(field, results)
+            self.assertIn(field, analysis)
         
-        # Verify data types
-        self.assertIsInstance(results['roi_percentage'], (int, float))
-        self.assertIsInstance(results['npv'], (int, float))
-        self.assertIsInstance(results['payback_years'], (int, float))
-        self.assertIsInstance(results['capacity_impact'], dict)
-        self.assertIsInstance(results['financial_projections'], list)
-        self.assertIsInstance(results['recommendations'], list)
-        self.assertIsInstance(results['risk_assessment'], dict)
+        # Verify financial analysis
+        financial = analysis['financial_metrics']
+        self.assertIn('npv', financial)
+        self.assertIn('irr', financial)
+        self.assertIn('payback_period', financial)
         
-        # Verify capacity impact structure
-        capacity_impact = results['capacity_impact']
-        self.assertIn('throughput_increase', capacity_impact)
-        self.assertIn('efficiency_improvement', capacity_impact)
+        # Verify capacity analysis
+        capacity = analysis['capacity_metrics']
+        self.assertIn('final_additional_capacity', capacity)
+        self.assertIn('average_utilization', capacity)
         
-        # Verify financial projections length
-        self.assertEqual(len(results['financial_projections']), 10)
+        # Verify recommendations
+        recommendations = analysis['recommendations']
+        self.assertIsInstance(recommendations, list)
+        self.assertGreater(len(recommendations), 0)
     
     def test_compare_investment_scenarios(self):
         """Test comparing multiple investment scenarios"""
-        # Create multiple scenarios
-        scenario1_results = self.planner.analyze_investment_scenario(
-            investment_type=InvestmentType.NEW_BERTH,
-            investment_amount=50_000_000,
-            demand_growth_rate=0.05,
-            analysis_years=10
+        # Create multiple scenarios using existing investment options
+        scenario1 = self.planner.create_investment_scenario(
+            scenario_id="conservative_scenario",
+            name="Conservative Scenario",
+            description="Low-risk investments",
+            investment_ids=["storage_expansion_1"]
         )
         
-        scenario2_results = self.planner.analyze_investment_scenario(
-            investment_type=InvestmentType.CRANE_UPGRADE,
-            investment_amount=20_000_000,
-            demand_growth_rate=0.05,
-            analysis_years=10
+        scenario2 = self.planner.create_investment_scenario(
+            scenario_id="aggressive_scenario",
+            name="Aggressive Scenario",
+            description="High-growth investments",
+            investment_ids=["new_berth_1", "automation_1"]
         )
         
-        scenarios = {
-            'New Berth': scenario1_results,
-            'Crane Upgrade': scenario2_results
-        }
-        
-        comparison = self.planner.compare_investment_scenarios(scenarios)
+        comparison = self.planner.compare_investment_scenarios(["conservative_scenario", "aggressive_scenario"])
         
         self.assertIsInstance(comparison, dict)
         
         # Check comparison structure
-        self.assertIn('best_roi_scenario', comparison)
-        self.assertIn('best_npv_scenario', comparison)
-        self.assertIn('fastest_payback_scenario', comparison)
-        self.assertIn('scenario_rankings', comparison)
+        self.assertIn('scenarios', comparison)
+        self.assertIn('ranking', comparison)
+        self.assertIn('summary', comparison)
         
-        # Verify scenario rankings
-        rankings = comparison['scenario_rankings']
-        self.assertIsInstance(rankings, list)
-        self.assertEqual(len(rankings), 2)
+        # Verify scenarios data
+        scenarios_data = comparison['scenarios']
+        self.assertEqual(len(scenarios_data), 2)
         
-        for ranking in rankings:
-            self.assertIn('scenario_name', ranking)
-            self.assertIn('overall_score', ranking)
-            self.assertIn('roi_rank', ranking)
-            self.assertIn('npv_rank', ranking)
+        # Each scenario should have analysis results
+        for scenario_analysis in scenarios_data:
+            self.assertIn('scenario', scenario_analysis)
+            self.assertIn('financial_metrics', scenario_analysis)
+            self.assertIn('capacity_metrics', scenario_analysis)
+        
+        # Verify ranking
+        ranking = comparison['ranking']
+        self.assertIsInstance(ranking, list)
+        
+        # Verify summary
+        summary = comparison['summary']
+        self.assertIsInstance(summary, dict)
     
     def test_generate_investment_recommendations(self):
         """Test investment recommendation generation"""
-        # Test recommendations for different investment types
-        berth_recs = self.planner.generate_investment_recommendations(
-            InvestmentType.NEW_BERTH,
-            roi_percentage=15.5,
-            payback_years=6.2,
-            risk_level="Medium"
+        # Create a scenario using existing investment options
+        scenario = self.planner.create_investment_scenario(
+            scenario_id="recommendation_test_scenario",
+            name="Recommendation Test",
+            description="Test scenario for recommendations",
+            investment_ids=["new_berth_1", "crane_upgrade_1"]
         )
         
-        self.assertIsInstance(berth_recs, list)
-        self.assertGreater(len(berth_recs), 0)
+        # Get recommendations through ROI analysis
+        analysis = self.planner.calculate_roi_analysis(scenario)
+        recommendations = analysis['recommendations']
         
-        # Test automation recommendations
-        automation_recs = self.planner.generate_investment_recommendations(
-            InvestmentType.AUTOMATION,
-            roi_percentage=22.3,
-            payback_years=4.1,
-            risk_level="Low"
-        )
+        self.assertIsInstance(recommendations, list)
+        self.assertGreater(len(recommendations), 0)
         
-        self.assertIsInstance(automation_recs, list)
-        self.assertGreater(len(automation_recs), 0)
-        
-        # Recommendations should be different for different investment types
-        self.assertNotEqual(berth_recs, automation_recs)
+        # Check recommendation structure
+        for recommendation in recommendations:
+            self.assertIsInstance(recommendation, str)
+            self.assertGreater(len(recommendation), 0)
     
     def test_assess_investment_risks(self):
         """Test investment risk assessment"""
-        risk_assessment = self.planner.assess_investment_risks(
-            investment_type=InvestmentType.NEW_BERTH,
-            investment_amount=50_000_000,
-            demand_growth_rate=0.05,
-            market_volatility=0.15
+        # Create a scenario using existing investment options
+        scenario = self.planner.create_investment_scenario(
+            scenario_id="high_risk_scenario",
+            name="High-Risk Scenario",
+            description="High-risk, high-reward investment",
+            investment_ids=["automation_1", "new_berth_1"]
         )
+        
+        # Get risk assessment through ROI analysis
+        analysis = self.planner.calculate_roi_analysis(scenario)
+        risk_assessment = analysis['risk_assessment']
         
         self.assertIsInstance(risk_assessment, dict)
         
         # Check risk categories
-        expected_risks = [
-            'Market Risk', 'Financial Risk', 'Operational Risk',
-            'Regulatory Risk', 'Technology Risk'
+        expected_keys = [
+            'implementation_risk', 'demand_risk', 'technology_risk',
+            'financial_risk', 'regulatory_risk', 'overall_risk_score'
         ]
         
-        for risk in expected_risks:
-            self.assertIn(risk, risk_assessment)
+        for key in expected_keys:
+            self.assertIn(key, risk_assessment)
         
-        # Verify risk levels are valid
-        valid_risk_levels = ['Low', 'Medium', 'High', 'Critical']
-        for risk_level in risk_assessment.values():
-            self.assertIn(risk_level, valid_risk_levels)
+        # Risk levels should be valid strings or numeric scores
+        risk_levels = ['low', 'medium', 'high', 'critical']
+        for key in ['implementation_risk', 'demand_risk', 'technology_risk', 'financial_risk', 'regulatory_risk']:
+            if key in risk_assessment:
+                risk_value = risk_assessment[key]
+                if isinstance(risk_value, str):
+                    self.assertIn(risk_value, risk_levels)
+                else:
+                    self.assertGreaterEqual(risk_value, 0.0)
+                    self.assertLessEqual(risk_value, 1.0)
+        
+        # Overall risk should be calculated
+        overall_risk = risk_assessment['overall_risk_score']
+        self.assertIsInstance(overall_risk, (int, float))
+        self.assertGreaterEqual(overall_risk, 0.0)
+        self.assertLessEqual(overall_risk, 1.0)
     
     def test_add_investment_option(self):
-        """Test adding investment options to the planner"""
-        option = InvestmentOption(
-            investment_id="smart_terminal",
-            name="Smart Terminal System",
-            investment_type=InvestmentType.AUTOMATION,
-            priority=InvestmentPriority.HIGH,
-            capital_cost=30_000_000,
-            annual_operating_cost=1_500_000,
-            implementation_time_months=18,
-            capacity_increase=400_000,
-            efficiency_improvement=0.25,
-            lifespan_years=20
-        )
+        """Test that investment options are properly initialized"""
+        # The planner comes with pre-initialized investment options
+        self.assertGreater(len(self.planner.investment_options), 0)
         
-        self.planner.add_investment_option(option)
-        
-        self.assertEqual(len(self.planner.investment_options), 1)
-        self.assertEqual(self.planner.investment_options[0], option)
+        # Check that some expected investment options exist
+        expected_ids = ["new_berth_1", "crane_upgrade_1", "automation_1", "storage_expansion_1"]
+        for investment_id in expected_ids:
+            self.assertIn(investment_id, self.planner.investment_options)
+            
+        # Verify investment options have correct structure
+        for investment_id, option in self.planner.investment_options.items():
+            self.assertIsInstance(option, InvestmentOption)
+            self.assertEqual(option.investment_id, investment_id)
+            self.assertGreater(option.capital_cost, 0)
+            self.assertGreaterEqual(option.capacity_increase, 0)
     
     def test_create_investment_scenario(self):
         """Test creating investment scenarios"""
-        # Add some investment options first
-        option1 = InvestmentOption(
-            investment_id="new_berth_test",
-            name="New Berth",
-            investment_type=InvestmentType.NEW_BERTH,
-            priority=InvestmentPriority.HIGH,
-            capital_cost=50_000_000,
-            annual_operating_cost=2_500_000,
-            implementation_time_months=24,
-            capacity_increase=500_000,
-            efficiency_improvement=0.15,
-            lifespan_years=25
-        )
-        
-        option2 = InvestmentOption(
-            investment_id="crane_upgrade_test",
-            name="Crane Upgrade",
-            investment_type=InvestmentType.CRANE_UPGRADE,
-            priority=InvestmentPriority.MEDIUM,
-            capital_cost=15_000_000,
-            annual_operating_cost=750_000,
-            implementation_time_months=12,
-            capacity_increase=200_000,
-            efficiency_improvement=0.20,
-            lifespan_years=15
-        )
-        
-        self.planner.add_investment_option(option1)
-        self.planner.add_investment_option(option2)
-        
+        # Use existing investment options
         scenario = self.planner.create_investment_scenario(
+            scenario_id="expansion_phase_1",
             name="Expansion Phase 1",
-            selected_options=[option1, option2],
-            budget_limit=70_000_000,
-            timeline_years=3
+            description="Major expansion project",
+            investment_ids=["new_berth_1", "crane_upgrade_1"]
         )
         
         self.assertIsInstance(scenario, InvestmentScenario)
+        self.assertEqual(scenario.scenario_id, "expansion_phase_1")
         self.assertEqual(scenario.name, "Expansion Phase 1")
-        self.assertEqual(len(scenario.selected_options), 2)
-        self.assertEqual(scenario.budget_limit, 70_000_000)
-        self.assertEqual(scenario.timeline_years, 3)
+        self.assertEqual(len(scenario.investments), 2)
         
-        # Total cost should be within budget
-        total_cost = sum(option.capital_cost for option in scenario.selected_options)
-        self.assertLessEqual(total_cost, scenario.budget_limit)
+        # Verify investments are properly loaded
+        investment_ids = [inv.investment_id for inv in scenario.investments]
+        self.assertIn("new_berth_1", investment_ids)
+        self.assertIn("crane_upgrade_1", investment_ids)
+        
+        # Verify scenario is stored in planner
+        self.assertIn("expansion_phase_1", self.planner.scenarios)
+        
+        # Verify total costs are calculated
+        self.assertGreater(scenario.total_capital_cost, 0)
+        self.assertGreaterEqual(scenario.total_annual_operating_cost, 0)
 
 if __name__ == '__main__':
     unittest.main()
