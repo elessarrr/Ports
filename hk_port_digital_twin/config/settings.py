@@ -91,7 +91,83 @@ SIMULATION_CONFIG = {
     'weekend_multiplier': 0.7,  # Reduced activity on weekends
     'random_seed': 42,  # For reproducible simulations
     'warm_up_period': 24,  # Hours to warm up simulation
+    'use_historical_parameters': True,  # Enable historical data-driven parameters
 }
+
+def get_enhanced_simulation_config():
+    """Get simulation configuration enhanced with historical data patterns.
+    
+    This function combines the base SIMULATION_CONFIG with parameters extracted
+    from 14+ years of historical Hong Kong port data to create more realistic
+    simulation scenarios.
+    
+    Returns:
+        Dict: Enhanced simulation configuration with historical patterns
+    """
+    enhanced_config = SIMULATION_CONFIG.copy()
+    
+    # Only enhance if historical parameters are enabled
+    if not enhanced_config.get('use_historical_parameters', False):
+        return enhanced_config
+    
+    try:
+        # Import here to avoid circular imports
+        from hk_port_digital_twin.src.utils.data_loader import extract_historical_simulation_parameters
+        
+        # Extract historical parameters
+        historical_params = extract_historical_simulation_parameters()
+        
+        if historical_params:
+            # Update ship arrival rate with historical data
+            if 'ship_arrival_rate' in historical_params:
+                enhanced_config['ship_arrival_rate'] = historical_params['ship_arrival_rate']
+            
+            # Update seasonal patterns
+            seasonal_patterns = historical_params.get('seasonal_patterns', {})
+            if seasonal_patterns:
+                enhanced_config['peak_multiplier'] = seasonal_patterns.get('peak_multiplier', enhanced_config['peak_multiplier'])
+                enhanced_config['seasonal_low_multiplier'] = seasonal_patterns.get('low_multiplier', 0.7)
+                enhanced_config['peak_months'] = seasonal_patterns.get('peak_months', [11, 12])
+                enhanced_config['low_months'] = seasonal_patterns.get('low_months', [6, 7])
+            
+            # Add ship type distribution from historical data
+            ship_type_dist = historical_params.get('ship_type_distribution', {})
+            if ship_type_dist:
+                enhanced_config['historical_ship_type_distribution'] = ship_type_dist
+            
+            # Add operational efficiency parameters
+            operational_efficiency = historical_params.get('operational_efficiency', {})
+            if operational_efficiency:
+                enhanced_config['processing_rate_multiplier'] = operational_efficiency.get('processing_rate_multiplier', 1.0)
+                enhanced_config['crane_efficiency_factor'] = operational_efficiency.get('crane_efficiency_factor', 1.0)
+                enhanced_config['target_berth_utilization'] = operational_efficiency.get('berth_utilization_target', 0.85)
+            
+            # Add metadata about historical analysis
+            analysis_metadata = historical_params.get('analysis_metadata', {})
+            enhanced_config['historical_data_metadata'] = {
+                'data_period': historical_params.get('data_period', 'Unknown'),
+                'years_of_data': analysis_metadata.get('years_of_data', 0),
+                'total_data_points': analysis_metadata.get('total_data_points', 0),
+                'trend_direction': analysis_metadata.get('trend_direction', 'stable'),
+                'seasonality_strength': analysis_metadata.get('seasonality_strength', 0.1)
+            }
+            
+            # Add volume characteristics
+            volume_chars = historical_params.get('volume_characteristics', {})
+            if volume_chars:
+                enhanced_config['historical_volume_characteristics'] = volume_chars
+            
+            enhanced_config['enhanced_with_historical_data'] = True
+            
+        else:
+            enhanced_config['enhanced_with_historical_data'] = False
+            
+    except Exception as e:
+        # Log error but don't fail - fall back to base configuration
+        print(f"Warning: Could not enhance simulation config with historical data: {e}")
+        enhanced_config['enhanced_with_historical_data'] = False
+    
+    return enhanced_config
 
 # Operational Parameters
 OPERATIONAL_CONFIG = {

@@ -2278,3 +2278,164 @@ def load_sample_data() -> pd.DataFrame:
     
     logger.info(f"Generated sample data: {len(df)} monthly records")
     return df
+
+
+def load_berth_configurations() -> List[Dict]:
+    """Load berth configuration data from CSV file.
+    
+    Returns:
+        List[Dict]: List of berth configuration dictionaries
+    """
+    try:
+        # Define the path to the berth data CSV file
+        berth_csv_path = (Path(__file__).parent.parent.parent / ".." / "data" / "berth_data" / "berths.csv").resolve()
+        
+        if not berth_csv_path.exists():
+            logger.warning(f"Berth CSV file not found at {berth_csv_path}, falling back to settings")
+            # Fallback to hardcoded configuration from settings
+            from ..config.settings import BERTH_CONFIGS
+            return BERTH_CONFIGS
+        
+        # Load berth data from CSV
+        df = pd.read_csv(berth_csv_path)
+        
+        # Convert DataFrame to list of dictionaries
+        berth_configs = []
+        for _, row in df.iterrows():
+            berth_config = {
+                'berth_id': int(row['berth_id']),
+                'berth_name': str(row['berth_name']),
+                'max_capacity_teu': int(row['max_capacity_teu']),
+                'crane_count': int(row['crane_count']),
+                'berth_type': str(row['berth_type'])
+            }
+            berth_configs.append(berth_config)
+        
+        logger.info(f"Loaded {len(berth_configs)} berth configurations from CSV")
+        return berth_configs
+        
+    except Exception as e:
+        logger.error(f"Error loading berth configurations from CSV: {e}")
+        # Fallback to hardcoded configuration from settings
+        try:
+            from ..config.settings import BERTH_CONFIGS
+            logger.info(f"Using fallback berth configurations from settings: {len(BERTH_CONFIGS)} berths")
+            return BERTH_CONFIGS
+        except ImportError:
+            logger.error("Could not import fallback berth configurations")
+            return []
+
+
+def extract_historical_simulation_parameters() -> Dict[str, any]:
+    """Extract realistic simulation parameters from 14+ years of historical data.
+    
+    This function analyzes historical container throughput and cargo statistics
+    to derive realistic simulation parameters that reflect actual Hong Kong port
+    operational patterns and seasonal variations.
+    
+    Returns:
+        Dict containing enhanced simulation parameters based on historical data
+    """
+    try:
+        logger.info("Extracting simulation parameters from historical data...")
+        
+        # Load historical data
+        throughput_data = load_container_throughput()
+        cargo_stats = load_port_cargo_statistics()
+        
+        if throughput_data.empty:
+            logger.warning("No historical throughput data available, using default parameters")
+            return {}
+        
+        # Get comprehensive trend analysis
+        trends = get_throughput_trends()
+        seasonal_analysis = trends.get('seasonal_analysis', {})
+        
+        # Extract seasonal patterns
+        monthly_patterns = seasonal_analysis.get('monthly_patterns', {})
+        peak_month = monthly_patterns.get('peak_month', {}).get('number', 12)
+        low_month = monthly_patterns.get('low_month', {}).get('number', 6)
+        
+        # Calculate realistic ship arrival rates based on historical throughput
+        recent_data = throughput_data.tail(24)  # Last 2 years
+        avg_monthly_teus = recent_data['total_teus'].mean() if not recent_data.empty else 1500000
+        
+        # Estimate ships per month (assuming average 2000 TEU per ship)
+        avg_teu_per_ship = 2000
+        ships_per_month = avg_monthly_teus / avg_teu_per_ship
+        ships_per_hour = ships_per_month / (30 * 24)  # Convert to hourly rate
+        
+        # Calculate seasonal multipliers
+        if monthly_patterns:
+            peak_value = monthly_patterns.get('peak_value', avg_monthly_teus)
+            low_value = monthly_patterns.get('low_value', avg_monthly_teus)
+            peak_multiplier = peak_value / avg_monthly_teus if avg_monthly_teus > 0 else 1.4
+            low_multiplier = low_value / avg_monthly_teus if avg_monthly_teus > 0 else 0.7
+        else:
+            peak_multiplier = 1.4
+            low_multiplier = 0.7
+        
+        # Analyze cargo type distribution from historical data
+        ship_type_distribution = {'container': 0.75, 'bulk': 0.20, 'mixed': 0.05}  # Default
+        
+        if not cargo_stats.empty:
+            # Extract ship type patterns from cargo statistics
+            latest_cargo = cargo_stats.tail(12)  # Last year
+            if 'seaborne_teus' in latest_cargo.columns and 'total_teus' in latest_cargo.columns:
+                seaborne_ratio = latest_cargo['seaborne_teus'].mean() / latest_cargo['total_teus'].mean()
+                # Adjust container ship percentage based on seaborne ratio
+                ship_type_distribution['container'] = min(0.85, max(0.65, seaborne_ratio))
+                ship_type_distribution['bulk'] = 0.25 - (ship_type_distribution['container'] - 0.75) * 0.5
+                ship_type_distribution['mixed'] = 1.0 - ship_type_distribution['container'] - ship_type_distribution['bulk']
+        
+        # Calculate processing efficiency based on historical trends
+        time_series_analysis = trends.get('time_series_analysis', {})
+        linear_trend = time_series_analysis.get('linear_trend', {})
+        trend_direction = linear_trend.get('direction', 'stable')
+        
+        # Adjust efficiency based on historical improvement trends
+        efficiency_multiplier = 1.0
+        if trend_direction == 'increasing':
+            efficiency_multiplier = 1.1  # 10% better efficiency for growing ports
+        elif trend_direction == 'decreasing':
+            efficiency_multiplier = 0.95  # 5% reduced efficiency
+        
+        # Generate enhanced simulation parameters
+        enhanced_params = {
+            'historical_data_driven': True,
+            'data_period': f"{throughput_data.index[0].strftime('%Y-%m')} to {throughput_data.index[-1].strftime('%Y-%m')}",
+            'ship_arrival_rate': max(0.5, min(3.0, ships_per_hour)),  # Realistic bounds
+            'seasonal_patterns': {
+                'peak_months': [peak_month, (peak_month % 12) + 1],
+                'low_months': [low_month, (low_month % 12) + 1],
+                'peak_multiplier': min(2.0, max(1.2, peak_multiplier)),
+                'low_multiplier': max(0.5, min(0.9, low_multiplier))
+            },
+            'ship_type_distribution': ship_type_distribution,
+            'operational_efficiency': {
+                'processing_rate_multiplier': efficiency_multiplier,
+                'crane_efficiency_factor': efficiency_multiplier,
+                'berth_utilization_target': min(0.9, max(0.7, 0.8 + (efficiency_multiplier - 1.0)))
+            },
+            'volume_characteristics': {
+                'average_monthly_teus': float(avg_monthly_teus),
+                'estimated_ships_per_month': float(ships_per_month),
+                'average_teu_per_ship': avg_teu_per_ship
+            },
+            'analysis_metadata': {
+                'total_data_points': len(throughput_data),
+                'years_of_data': (throughput_data.index[-1] - throughput_data.index[0]).days / 365.25,
+                'seasonality_strength': seasonal_analysis.get('monthly_patterns', {}).get('seasonality_strength', 0.1),
+                'trend_direction': trend_direction
+            }
+        }
+        
+        logger.info(f"Extracted simulation parameters from {len(throughput_data)} months of historical data")
+        logger.info(f"Estimated ship arrival rate: {enhanced_params['ship_arrival_rate']:.2f} ships/hour")
+        logger.info(f"Peak season multiplier: {enhanced_params['seasonal_patterns']['peak_multiplier']:.2f}")
+        
+        return enhanced_params
+        
+    except Exception as e:
+        logger.error(f"Error extracting historical simulation parameters: {e}")
+        return {}

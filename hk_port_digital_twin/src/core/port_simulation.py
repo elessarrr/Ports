@@ -19,7 +19,7 @@ from datetime import datetime
 
 # Add project root to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from config.settings import SIMULATION_CONFIG, SHIP_TYPES, BERTH_CONFIGS
+from config.settings import SIMULATION_CONFIG, SHIP_TYPES, BERTH_CONFIGS, get_enhanced_simulation_config
 from src.core.ship_manager import ShipManager, Ship
 from src.core.berth_manager import BerthManager
 from src.core.container_handler import ContainerHandler
@@ -30,6 +30,7 @@ from src.ai.optimization import (
     Ship as AIShip, Berth as AIBerth
 )
 from src.ai.decision_support import DecisionSupportEngine
+from src.scenarios import ScenarioManager, ScenarioAwareBerthOptimizer
 
 
 class PortSimulation:
@@ -38,6 +39,25 @@ class PortSimulation:
     This class manages the entire port simulation, coordinating ship arrivals,
     berth allocation, and container processing operations.
     """
+    
+    @classmethod
+    def create_with_historical_parameters(cls, base_config: Dict = None):
+        """Create a PortSimulation instance with historical data-driven parameters.
+        
+        Args:
+            base_config: Optional base configuration to override defaults
+            
+        Returns:
+            PortSimulation: Instance configured with historical parameters
+        """
+        # Get enhanced configuration with historical data
+        enhanced_config = get_enhanced_simulation_config()
+        
+        # Merge with any provided base configuration
+        if base_config:
+            enhanced_config.update(base_config)
+        
+        return cls(enhanced_config)
     
     def __init__(self, config: Dict):
         """Initialize the port simulation
@@ -60,6 +80,10 @@ class PortSimulation:
         self.berth_optimizer = BerthAllocationOptimizer()
         self.resource_optimizer = ResourceAllocationOptimizer()
         self.decision_engine = DecisionSupportEngine()
+        
+        # Initialize scenario management
+        self.scenario_manager = ScenarioManager()
+        self.scenario_optimizer = ScenarioAwareBerthOptimizer(self.berth_optimizer, self.scenario_manager)
         
         # Ship queue for batch optimization
         self.pending_ships = []
@@ -175,11 +199,11 @@ class PortSimulation:
                 ai_ships = self._convert_ships_to_ai_format(self.pending_ships)
                 ai_berths = self._convert_berths_to_ai_format()
                 
-                # Run AI optimization
+                # Run AI optimization using scenario-aware optimizer
                 optimization_start = self.env.now
-                optimization_result = self.resource_optimizer.optimize_port_operations(
-                    ai_ships, ai_berths, 
-                    available_cranes=self.container_handler.get_available_cranes(),
+                optimization_result = self.scenario_optimizer.optimize_with_scenario(
+                    ships=ai_ships,
+                    berths=ai_berths,
                     current_time=datetime.now()
                 )
                 
@@ -514,6 +538,10 @@ class PortSimulation:
         self.berth_manager = BerthManager(self.env, berth_config)
         self.container_handler = ContainerHandler(self.env)
         
+        # Reset scenario management
+        self.scenario_manager = ScenarioManager()
+        self.scenario_optimizer = ScenarioAwareBerthOptimizer(self.berth_optimizer, self.scenario_manager)
+        
         # Reset metrics
         self.metrics = {
             'ships_arrived': 0,
@@ -524,3 +552,58 @@ class PortSimulation:
         }
         
         print("Simulation reset to initial state")
+        
+    def set_scenario(self, scenario_name: str) -> bool:
+        """Set the operational scenario for the simulation
+        
+        Args:
+            scenario_name: Name of the scenario to set
+            
+        Returns:
+            True if scenario was set successfully, False otherwise
+        """
+        return self.scenario_manager.set_scenario(scenario_name)
+        
+    def get_current_scenario(self) -> str:
+        """Get the current operational scenario
+        
+        Returns:
+            Name of the current scenario
+        """
+        return self.scenario_manager.get_current_scenario()
+        
+    def get_scenario_info(self) -> Dict:
+        """Get information about the current scenario
+        
+        Returns:
+            Dictionary containing scenario information and parameters
+        """
+        return self.scenario_manager.get_scenario_info()
+        
+    def list_available_scenarios(self) -> List[str]:
+        """Get list of available scenarios
+        
+        Returns:
+            List of scenario names
+        """
+        return self.scenario_manager.list_scenarios()
+        
+    def enable_auto_scenario_detection(self, enable: bool = True):
+        """Enable or disable automatic scenario detection
+        
+        Args:
+            enable: Whether to enable auto-detection
+        """
+        self.scenario_manager.set_auto_detection(enable)
+        
+    def compare_scenarios(self, scenario1: str, scenario2: str) -> Dict:
+        """Compare two scenarios
+        
+        Args:
+            scenario1: Name of first scenario
+            scenario2: Name of second scenario
+            
+        Returns:
+            Dictionary containing comparison results
+        """
+        return self.scenario_manager.compare_scenarios(scenario1, scenario2)

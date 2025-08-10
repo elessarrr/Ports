@@ -5,15 +5,19 @@ import pandas as pd
 from datetime import datetime, timedelta
 import logging
 import numpy as np
+import simpy
 
 # Add the project root to the Python path to allow absolute imports
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from hk_port_digital_twin.src.utils.data_loader import RealTimeDataConfig, get_real_time_manager, load_container_throughput
-from hk_port_digital_twin.config.settings import SIMULATION_CONFIG
+from hk_port_digital_twin.src.utils.data_loader import RealTimeDataConfig, get_real_time_manager, load_container_throughput, load_vessel_arrivals, load_berth_configurations
+from hk_port_digital_twin.config.settings import SIMULATION_CONFIG, get_enhanced_simulation_config
 from hk_port_digital_twin.src.core.port_simulation import PortSimulation
+from hk_port_digital_twin.src.core.simulation_controller import SimulationController
+from hk_port_digital_twin.src.core.berth_manager import BerthManager
+from hk_port_digital_twin.src.scenarios import ScenarioManager, list_available_scenarios
 from hk_port_digital_twin.src.utils.visualization import create_kpi_summary_chart, create_port_layout_chart, create_ship_queue_chart, create_berth_utilization_chart, create_throughput_timeline, create_waiting_time_distribution
 # Weather integration disabled for feature removal
 # from hk_port_digital_twin.src.utils.weather_integration import HKObservatoryIntegration
@@ -116,7 +120,8 @@ def get_real_berth_data():
         try:
             # Create a simulation environment and berth manager for real data
             env = simpy.Environment()
-            berth_manager = BerthManager(env, PORT_CONFIG)
+            berth_configs = load_berth_configurations()
+            berth_manager = BerthManager(env, berth_configs)
             
             # Get berth statistics
             berth_stats = berth_manager.get_berth_statistics()
@@ -126,7 +131,7 @@ def get_real_berth_data():
             for berth_id, berth in berth_manager.berths.items():
                 berths_list.append({
                     'berth_id': berth_id,
-                    'name': f"Berth {berth_id}",
+                    'name': berth.name,  # Use actual berth name from CSV
                     'status': 'occupied' if berth.is_occupied else 'available',
                     'ship_id': berth.current_ship.ship_id if berth.current_ship else None,
                     'berth_type': berth.berth_type,
@@ -145,7 +150,7 @@ def get_real_berth_data():
                 'total_berths': berth_stats['total_berths'],
                 'occupied_berths': berth_stats['occupied_berths'],
                 'available_berths': berth_stats['available_berths'],
-                'utilization_rate': berth_stats['utilization_rate'],
+                'utilization_rate': berth_stats['overall_utilization_rate'],
                 'berth_types': berth_stats['berth_types']
             }
             
@@ -206,10 +211,104 @@ def create_sidebar():
     """Create sidebar with simulation controls"""
     st.sidebar.title("🚢 Port Control Panel")
     
+    # Scenario Management
+    st.sidebar.subheader("📋 Scenario Management")
+    
+    # Initialize scenario manager if not in session state
+    if 'scenario_manager' not in st.session_state:
+        st.session_state.scenario_manager = ScenarioManager()
+    
+    scenario_manager = st.session_state.scenario_manager
+    
+    # Scenario selection
+    available_scenarios = list_available_scenarios()
+    current_scenario = scenario_manager.get_current_scenario()
+    
+    selected_scenario = st.sidebar.selectbox(
+        "Select Scenario",
+        available_scenarios,
+        index=available_scenarios.index(current_scenario) if current_scenario in available_scenarios else 0,
+        help="Choose operational scenario based on expected conditions"
+    )
+    
+    # Update scenario if changed
+    if selected_scenario != current_scenario:
+        scenario_manager.set_scenario(selected_scenario)
+        st.sidebar.success(f"Scenario changed to: {selected_scenario}")
+    
+    # Auto-detection toggle
+    auto_detect = st.sidebar.checkbox(
+        "Auto-detect scenario",
+        value=scenario_manager.auto_detection_enabled,
+        help="Automatically select scenario based on current date and historical patterns"
+    )
+    
+    if auto_detect != scenario_manager.auto_detection_enabled:
+        if auto_detect:
+            scenario_manager.enable_auto_detection()
+        else:
+            scenario_manager.disable_auto_detection()
+    
+    # Display scenario info
+    scenario_info = scenario_manager.get_scenario_info()
+    if scenario_info:
+        with st.sidebar.expander("📊 Scenario Details", expanded=False):
+            st.write(f"**Description:** {scenario_info.get('description', 'N/A')}")
+            st.write(f"**Ship Arrival Rate:** {scenario_info.get('ship_arrival_multiplier', 1.0):.1f}x")
+            st.write(f"**Container Volume:** {scenario_info.get('container_volume_multiplier', 1.0):.1f}x")
+            st.write(f"**Processing Efficiency:** {scenario_info.get('processing_efficiency_factor', 1.0):.1f}x")
+    
+    # Display historical simulation parameters
+    try:
+        enhanced_config = get_enhanced_simulation_config()
+        if enhanced_config.get('enhanced_with_historical_data', False):
+            with st.sidebar.expander("📈 Historical Data Integration", expanded=False):
+                metadata = enhanced_config.get('historical_data_metadata', {})
+                st.write(f"**Data Period:** {metadata.get('data_period', 'Unknown')}")
+                st.write(f"**Years of Data:** {metadata.get('years_of_data', 0):.1f}")
+                st.write(f"**Data Points:** {metadata.get('total_data_points', 0):,}")
+                st.write(f"**Trend Direction:** {metadata.get('trend_direction', 'stable').title()}")
+                
+                # Show enhanced parameters
+                if 'seasonal_patterns' in enhanced_config:
+                    seasonal = enhanced_config['seasonal_patterns']
+                    st.write(f"**Peak Multiplier:** {seasonal.get('peak_multiplier', 1.0):.2f}x")
+                    st.write(f"**Low Multiplier:** {seasonal.get('low_multiplier', 1.0):.2f}x")
+                
+                if 'historical_ship_type_distribution' in enhanced_config:
+                    ship_dist = enhanced_config['historical_ship_type_distribution']
+                    st.write("**Ship Type Distribution:**")
+                    for ship_type, percentage in ship_dist.items():
+                        st.write(f"  - {ship_type.title()}: {percentage:.1%}")
+        else:
+            with st.sidebar.expander("📈 Historical Data Integration", expanded=False):
+                st.write("⚠️ Historical data enhancement not available")
+                st.write("Using default simulation parameters")
+    except Exception as e:
+        with st.sidebar.expander("📈 Historical Data Integration", expanded=False):
+            st.write("⚠️ Error loading historical parameters")
+            st.write(f"Error: {str(e)}")
+    
+    st.sidebar.divider()
+    
     # Simulation parameters
-    st.sidebar.subheader("Simulation Settings")
+    st.sidebar.subheader("⚙️ Simulation Settings")
     duration = st.sidebar.slider("Duration (hours)", 1, 168, SIMULATION_CONFIG['default_duration'])
-    arrival_rate = st.sidebar.slider("Ship Arrival Rate (ships/hour)", 0.5, 5.0, float(SIMULATION_CONFIG['ship_arrival_rate']))
+    
+    # Get scenario-adjusted arrival rate
+    base_arrival_rate = float(SIMULATION_CONFIG['ship_arrival_rate'])
+    scenario_params = scenario_manager.get_current_parameters()
+    if scenario_params:
+        adjusted_arrival_rate = base_arrival_rate * scenario_params.arrival_rate_multiplier
+    else:
+        adjusted_arrival_rate = base_arrival_rate
+    
+    arrival_rate = st.sidebar.slider(
+        "Ship Arrival Rate (ships/hour)", 
+        0.5, 5.0, 
+        adjusted_arrival_rate,
+        help=f"Base rate: {base_arrival_rate}, Scenario multiplier: {scenario_params.arrival_rate_multiplier if scenario_params else 1.0}x"
+    )
     
     # Simulation controls
     st.sidebar.subheader("Controls")
@@ -219,15 +318,20 @@ def create_sidebar():
     with col1:
         if st.button("▶️ Start", disabled=st.session_state.simulation_running or not PortSimulation):
             if PortSimulation and SimulationController:
-                # Initialize simulation controller
-                config = SIMULATION_CONFIG.copy()
+                # Initialize simulation controller with historical parameters
+                config = get_enhanced_simulation_config()
                 config['ship_arrival_rate'] = arrival_rate
                 
                 simulation = PortSimulation(config)
+                
+                # Set scenario in simulation
+                if hasattr(simulation, 'set_scenario'):
+                    simulation.set_scenario(selected_scenario)
+                
                 st.session_state.simulation_controller = SimulationController(simulation)
                 st.session_state.simulation_controller.start(duration)
                 st.session_state.simulation_running = True
-                st.success("Simulation started!")
+                st.success(f"Simulation started with scenario: {selected_scenario}!")
             else:
                 st.error("Simulation components not available")
     
@@ -285,7 +389,7 @@ def main():
         st.rerun()
     
     # Main dashboard layout
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(["📊 Overview", "🚢 Ships & Berths", "📈 Analytics", "📦 Cargo Statistics", "🌊 Live Map", "🛳️ Live Vessels", "🏗️ Live Berths", "⚙️ Settings"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs(["📊 Overview", "🚢 Ships & Berths", "📈 Analytics", "📦 Cargo Statistics", "🌊 Live Map", "🛳️ Live Vessels", "🏗️ Live Berths", "🎯 Scenarios", "⚙️ Settings"])
     
     with tab1:
         st.subheader("Port Overview")
@@ -1308,7 +1412,255 @@ def main():
             st.error(f"Error loading vessel data: {str(e)}")
             st.info("Please ensure the vessel arrivals XML file is available and properly formatted.")
     
-
+    with tab7:
+        st.subheader("🏗️ Live Berth Status")
+        st.markdown("Real-time berth occupancy and availability")
+        
+        # Load berth data
+        berth_data, berth_metrics = get_real_berth_data()
+        
+        if not berth_data.empty:
+            # Berth status overview
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                occupied = len(berth_data[berth_data['status'] == 'occupied'])
+                st.metric("Occupied Berths", occupied)
+            
+            with col2:
+                available = len(berth_data[berth_data['status'] == 'available'])
+                st.metric("Available Berths", available)
+            
+            with col3:
+                maintenance = len(berth_data[berth_data['status'] == 'maintenance'])
+                st.metric("Under Maintenance", maintenance)
+            
+            with col4:
+                total_berths = len(berth_data)
+                utilization = (occupied / total_berths * 100) if total_berths > 0 else 0
+                st.metric("Utilization Rate", f"{utilization:.1f}%")
+            
+            # Berth details table
+            st.subheader("📋 Berth Details")
+            st.dataframe(berth_data, use_container_width=True)
+        else:
+            st.info("No berth data available")
+    
+    with tab8:
+        st.subheader("🎯 Scenario Analysis & Comparison")
+        st.markdown("Compare different operational scenarios and their impact on port performance")
+        
+        # Scenario comparison interface
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            st.subheader("📊 Scenario Selection")
+            
+            # Get available scenarios
+            available_scenarios = list_available_scenarios()
+            
+            # Multi-select for scenario comparison
+            selected_scenarios = st.multiselect(
+                "Select scenarios to compare:",
+                available_scenarios,
+                default=available_scenarios[:2] if len(available_scenarios) >= 2 else available_scenarios
+            )
+            
+            if st.button("🔄 Run Scenario Comparison"):
+                if len(selected_scenarios) >= 2:
+                    with st.spinner("Running scenario comparison..."):
+                        # Initialize scenario manager
+                        scenario_manager = ScenarioManager()
+                        
+                        # Store comparison results
+                        comparison_results = {}
+                        
+                        for scenario in selected_scenarios:
+                            # Get scenario parameters
+                            from hk_port_digital_twin.src.scenarios.scenario_parameters import get_scenario_parameters
+                            params = get_scenario_parameters(scenario)
+                            if params:
+                                comparison_results[scenario] = {
+                                    'ship_arrival_rate': params.arrival_rate_multiplier,
+                                    'container_volume_multiplier': params.average_ship_size_multiplier,
+                                    'processing_efficiency': params.processing_rate_multiplier,
+                                    'berth_utilization': params.target_berth_utilization
+                                }
+                            else:
+                                comparison_results[scenario] = {
+                                    'ship_arrival_rate': 1.0,
+                                    'container_volume_multiplier': 1.0,
+                                    'processing_efficiency': 1.0,
+                                    'berth_utilization': 0.8
+                                }
+                        
+                        st.session_state.scenario_comparison = comparison_results
+                        st.success("Scenario comparison completed!")
+                else:
+                    st.warning("Please select at least 2 scenarios for comparison")
+        
+        with col2:
+            st.subheader("📈 Comparison Results")
+            
+            if hasattr(st.session_state, 'scenario_comparison') and st.session_state.scenario_comparison:
+                comparison_data = st.session_state.scenario_comparison
+                
+                # Create comparison dataframe
+                comparison_df = pd.DataFrame(comparison_data).T
+                comparison_df.index.name = 'Scenario'
+                
+                # Display comparison table
+                st.dataframe(comparison_df, use_container_width=True)
+                
+                # Visualization of key metrics
+                st.subheader("📊 Visual Comparison")
+                
+                # Ship arrival rate comparison
+                fig_col1, fig_col2 = st.columns(2)
+                
+                with fig_col1:
+                    import plotly.express as px
+                    
+                    # Ship arrival rate chart
+                    arrival_data = {
+                        'Scenario': list(comparison_data.keys()),
+                        'Ship Arrival Rate': [data['ship_arrival_rate'] for data in comparison_data.values()]
+                    }
+                    fig1 = px.bar(
+                        arrival_data,
+                        x='Scenario',
+                        y='Ship Arrival Rate',
+                        title='Ship Arrival Rate by Scenario',
+                        color='Ship Arrival Rate',
+                        color_continuous_scale='viridis'
+                    )
+                    st.plotly_chart(fig1, use_container_width=True)
+                
+                with fig_col2:
+                    # Processing efficiency chart
+                    efficiency_data = {
+                        'Scenario': list(comparison_data.keys()),
+                        'Processing Efficiency': [data['processing_efficiency'] for data in comparison_data.values()]
+                    }
+                    fig2 = px.bar(
+                        efficiency_data,
+                        x='Scenario',
+                        y='Processing Efficiency',
+                        title='Processing Efficiency by Scenario',
+                        color='Processing Efficiency',
+                        color_continuous_scale='plasma'
+                    )
+                    st.plotly_chart(fig2, use_container_width=True)
+                
+                # Container volume comparison
+                st.subheader("📦 Container Volume Impact")
+                volume_data = {
+                    'Scenario': list(comparison_data.keys()),
+                    'Container Volume Multiplier': [data['container_volume_multiplier'] for data in comparison_data.values()]
+                }
+                fig3 = px.line(
+                    volume_data,
+                    x='Scenario',
+                    y='Container Volume Multiplier',
+                    title='Container Volume Multiplier by Scenario',
+                    markers=True
+                )
+                st.plotly_chart(fig3, use_container_width=True)
+                
+                # Export comparison results
+                comparison_csv = comparison_df.to_csv()
+                st.download_button(
+                    label="📥 Export Comparison Results",
+                    data=comparison_csv,
+                    file_name=f"scenario_comparison_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv"
+                )
+            else:
+                st.info("Run a scenario comparison to see results here")
+                
+                # Show available scenarios info
+                st.subheader("📋 Available Scenarios")
+                scenario_manager = ScenarioManager()
+                
+                for scenario in available_scenarios:
+                    with st.expander(f"📄 {scenario}"):
+                        scenario_info = scenario_manager.get_scenario_info(scenario)
+                        st.write(f"**Description:** {scenario_info.get('description', 'No description available')}")
+                        
+                        from hk_port_digital_twin.src.scenarios.scenario_parameters import get_scenario_parameters
+                        from dataclasses import asdict
+                        params = get_scenario_parameters(scenario)
+                        params_dict = asdict(params)
+                        st.write("**Parameters:**")
+                        for key, value in params_dict.items():
+                            if key != 'description':
+                                st.write(f"- {key.replace('_', ' ').title()}: {value}")
+    
+    with tab9:
+        st.subheader("⚙️ Settings")
+        st.markdown("Configure simulation parameters and system settings")
+        
+        # Simulation settings
+        st.subheader("🔧 Simulation Configuration")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**Performance Settings**")
+            auto_refresh = st.checkbox("Auto-refresh dashboard", value=True)
+            refresh_interval = st.slider("Refresh interval (seconds)", 1, 30, 5)
+            
+            st.write("**Data Settings**")
+            use_real_data = st.checkbox("Use real-time data", value=True)
+            cache_duration = st.slider("Cache duration (minutes)", 1, 60, 10)
+        
+        with col2:
+            st.write("**Display Settings**")
+            show_debug_info = st.checkbox("Show debug information", value=False)
+            chart_theme = st.selectbox("Chart theme", ["plotly", "plotly_white", "plotly_dark"], index=0)
+            
+            st.write("**Export Settings**")
+            default_export_format = st.selectbox("Default export format", ["CSV", "Excel", "JSON"], index=0)
+        
+        # System information
+        st.subheader("📊 System Information")
+        
+        info_col1, info_col2, info_col3 = st.columns(3)
+        
+        with info_col1:
+            st.metric("Dashboard Version", "1.0.0")
+            st.metric("Streamlit Version", st.__version__)
+        
+        with info_col2:
+            st.metric("Active Sessions", "1")
+            st.metric("Uptime", "Running")
+        
+        with info_col3:
+            st.metric("Data Sources", "3")
+            st.metric("Last Update", datetime.now().strftime("%H:%M:%S"))
+        
+        # Reset options
+        st.subheader("🔄 Reset Options")
+        
+        reset_col1, reset_col2, reset_col3 = st.columns(3)
+        
+        with reset_col1:
+            if st.button("🗑️ Clear Cache"):
+                st.cache_data.clear()
+                st.success("Cache cleared successfully!")
+        
+        with reset_col2:
+            if st.button("🔄 Reset Session"):
+                for key in list(st.session_state.keys()):
+                    del st.session_state[key]
+                st.success("Session reset successfully!")
+                st.rerun()
+        
+        with reset_col3:
+            if st.button("📊 Reset Simulation"):
+                if hasattr(st.session_state, 'simulation_controller'):
+                    st.session_state.simulation_controller.reset()
+                st.success("Simulation reset successfully!")
 
 
 if __name__ == "__main__":

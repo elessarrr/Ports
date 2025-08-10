@@ -149,35 +149,37 @@ Build a working digital twin simulation of Hong Kong's port operations that can 
 
 **Deliverable**: AI-enhanced simulation with optimization capabilities
 
-#### Week 6: Historical Data-Driven Simulation Enhancement (15 hours)
-**Milestone**: Realistic simulations using historical patterns with comprehensive scenario framework
+#### Week 6: Advanced Digital Twin Simulation Capabilities (15 hours)
+**Milestone**: Implement three advanced simulation scenarios that qualify the dashboard as a true "Digital Twin"
 
-**PRIORITY 2B: Scenario-Based Simulation Framework**
-- Create realistic simulation parameters based on 14+ years of historical data
-- Implement multiple operational scenarios (Peak Season, Normal Operations, Low Season)
-- Add performance benchmarking against historical baselines
-- Create comprehensive scenario comparison capabilities
+**PRIORITY 2B: Advanced Digital Twin Simulation Framework**
+- Leverage existing data assets and simulation engine to create sophisticated operational modeling
+- Implement Multi-Scenario Operational Optimization, Disruption Impact, and Investment Planning simulations
+- Create comprehensive scenario comparison and analysis capabilities
 
 **Tasks**:
-1. **Historical Data-Driven Parameters** (6 hours)
-   - Extract realistic ship arrival patterns from cargo statistics
-   - Calculate seasonal variations in throughput (peak/off-peak periods)
-   - Adjust ship type distributions based on historical cargo data
-   - Implement realistic container load/unload volumes based on historical averages
+1. **Multi-Scenario Operational Optimization Simulation** (6 hours)
+   - Extract seasonal cargo patterns from 14+ years of container throughput data
+   - Calculate realistic ship arrival distributions for Peak/Normal/Low seasons
+   - Integrate `BerthAllocationOptimizer` with scenario-specific parameters
+   - Create optimization comparison framework (optimized vs. non-optimized)
+   - Add scenario selection interface with optimization toggle
+   - Create side-by-side comparison visualizations
 
-2. **Scenario Management System** (6 hours)
-   - Create predefined scenarios: "Peak Season", "Normal Operations", "Low Season"
-   - Implement scenario selection interface in dashboard
-   - Add scenario comparison capabilities with side-by-side metrics
-   - Generate scenario-specific performance reports
+2. **Predictive Disruption Impact Simulation** (5 hours)
+   - Create disruption event classes (weather, equipment failure, congestion)
+   - Implement disruption impact calculations on berth capacity and processing times
+   - Implement multiple recovery strategies (berth reallocation, priority queuing)
+   - Model ripple effects on vessel queues and waiting times
+   - Create disruption scenario comparison dashboard
 
-3. **Performance Benchmarking Framework** (3 hours)
-   - Establish baseline KPIs using historical data patterns
-   - Create performance comparison metrics (efficiency scores)
-   - Implement trend analysis for simulation results
-   - Add historical vs. simulated performance comparisons
+3. **Dynamic Capacity Planning & Investment Simulation** (4 hours)
+   - Create infrastructure investment classes (new berths, crane upgrades, capacity expansion)
+   - Integrate `forecast_cargo_throughput` for 3-5 year demand projections
+   - Calculate investment ROI based on throughput improvements and efficiency gains
+   - Generate strategic investment recommendations dashboard
 
-**Deliverable**: Comprehensive scenario simulation framework with historical data validation
+**Deliverable**: True Digital Twin system with sophisticated operational modeling, predictive analytics, and strategic planning capabilities
 
 **🎉 PRIORITY 2 CHECKPOINT**: Enhanced simulation with realistic scenarios and performance benchmarking
 
@@ -623,6 +625,54 @@ hk_port_digital_twin/
 - Enhanced logistics modeling (container yard, truck routing) integrated
 - Operational complexity features (seasonal variation, maintenance scheduling) working
 
-By Priority 2 completion: A comprehensive digital twin showcasing both historical intelligence and advanced simulation capabilities - bridging past patterns with future operational optimization through AI-powered scenario modeling and performance benchmarking.
+### **PHASE 4: Enhanced Simulation Features & Production Polish** (Weeks 7-8, 30 hours) - *Moved from Priority 3*
+**Goal**: Add comprehensive scenario library and production-ready polish
+**Approach**: Build upon the advanced Digital Twin capabilities with additional features and optimization
+
+#### Week 7: Historical Data-Driven Simulation Enhancement (15 hours)
+**Milestone**: Realistic simulations using historical patterns with comprehensive scenario framework
+
+**Tasks**:
+1. **Historical Data-Driven Parameters** (6 hours)
+   - Extract realistic ship arrival patterns from cargo statistics
+   - Calculate seasonal variations in throughput (peak/off-peak periods)
+   - Adjust ship type distributions based on historical cargo data
+   - Implement realistic container load/unload volumes based on historical averages
+
+2. **Advanced Scenario Library** (6 hours)
+   - Create additional disruption scenarios (equipment failure, typhoon impact, labor shortage)
+   - Implement scenario saving/loading functionality
+   - Add custom scenario builder interface
+   - Create scenario templates based on historical events
+
+3. **Performance Benchmarking Framework** (3 hours)
+   - Establish baseline KPIs using historical data patterns
+   - Create performance comparison metrics (efficiency scores)
+   - Implement trend analysis for simulation results
+   - Add historical vs. simulated performance comparisons
+
+#### Week 8: Production Optimization and Polish (15 hours)
+**Milestone**: Robust performance and comprehensive testing
+
+**Tasks**:
+1. **Enhanced Logistics Modeling** (5 hours)
+   - Add container yard management simulation
+   - Implement truck routing for container pickup/delivery
+   - Add supply chain disruption modeling
+   - Create multi-modal transport integration
+
+2. **Performance Optimization** (6 hours)
+   - Optimize simulation engine for speed
+   - Implement efficient data structures
+   - Add performance monitoring and profiling
+   - Write unit tests for all core modules
+
+3. **Operational Complexity Features** (4 hours)
+   - Add seasonal variation modeling based on historical patterns
+   - Implement equipment maintenance scheduling
+   - Add capacity constraint modeling
+   - Create operational efficiency optimization
+
+**Deliverable**: Comprehensive, production-ready Digital Twin system with advanced features and robust performance
 
 This priority-based roadmap ensures that at any point in development, we have a functional, demonstrable system that can be presented with confidence, while systematically building toward a world-class conference demo focused on sophisticated simulation and scenario analysis capabilities.
