@@ -43,7 +43,11 @@ from .scenario_manager import (
 )
 
 from .historical_extractor import HistoricalParameterExtractor
-from .scenario_optimizer import ScenarioAwareBerthOptimizer
+try:
+    from .scenario_optimizer import ScenarioAwareBerthOptimizer
+except ImportError:
+    # Skip if optimization module is not available
+    ScenarioAwareBerthOptimizer = None
 
 # Package version
 __version__ = '1.0.0'

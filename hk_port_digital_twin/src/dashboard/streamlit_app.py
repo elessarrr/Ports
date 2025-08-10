@@ -1595,6 +1595,600 @@ def main():
                         for key, value in params_dict.items():
                             if key != 'description':
                                 st.write(f"- {key.replace('_', ' ').title()}: {value}")
+        
+        # Multi-Scenario Optimization Section
+        st.markdown("---")
+        st.subheader("🚀 Multi-Scenario Optimization Analysis")
+        st.markdown("Compare optimized vs. non-optimized operations across different scenarios")
+        
+        # Multi-scenario optimization interface
+        opt_col1, opt_col2 = st.columns([1, 2])
+        
+        with opt_col1:
+            st.subheader("⚙️ Optimization Settings")
+            
+            # Simulation duration
+            simulation_hours = st.slider(
+                "Simulation Duration (hours)",
+                min_value=24,
+                max_value=168,
+                value=72,
+                step=24,
+                help="Duration for the optimization comparison simulation"
+            )
+            
+            # Use historical data toggle
+            use_historical = st.checkbox(
+                "Use Historical Data",
+                value=True,
+                help="Use real historical patterns for seasonal analysis"
+            )
+            
+            if st.button("🔄 Run Multi-Scenario Optimization"):
+                with st.spinner("Running multi-scenario optimization analysis..."):
+                    try:
+                        # Import the multi-scenario optimizer
+                        from hk_port_digital_twin.src.scenarios.multi_scenario_optimizer import create_sample_multi_scenario_comparison
+                        
+                        # Run the optimization comparison
+                        optimization_results = create_sample_multi_scenario_comparison(
+                            simulation_hours=simulation_hours,
+                            use_historical_data=use_historical
+                        )
+                        
+                        if optimization_results:
+                            st.session_state.multi_scenario_optimization = optimization_results
+                            st.success("Multi-scenario optimization completed!")
+                        else:
+                            st.error("Failed to run multi-scenario optimization")
+                            
+                    except Exception as e:
+                        st.error(f"Error running optimization: {str(e)}")
+                        logging.error(f"Multi-scenario optimization error: {e}")
+        
+        with opt_col2:
+            st.subheader("📊 Optimization Results")
+            
+            if hasattr(st.session_state, 'multi_scenario_optimization') and st.session_state.multi_scenario_optimization:
+                opt_results = st.session_state.multi_scenario_optimization
+                
+                # Display seasonal patterns if available
+                if 'seasonal_patterns' in opt_results:
+                    st.subheader("🌊 Seasonal Patterns Analysis")
+                    seasonal_data = opt_results['seasonal_patterns']
+                    
+                    # Create seasonal patterns dataframe
+                    seasonal_df = pd.DataFrame({
+                        'Season': ['Peak', 'Normal', 'Low'],
+                        'Throughput (TEU)': [
+                            seasonal_data.get('peak_throughput', 0),
+                            seasonal_data.get('normal_throughput', 0),
+                            seasonal_data.get('low_throughput', 0)
+                        ],
+                        'Ship Arrivals': [
+                            seasonal_data.get('peak_arrivals', 0),
+                            seasonal_data.get('normal_arrivals', 0),
+                            seasonal_data.get('low_arrivals', 0)
+                        ]
+                    })
+                    
+                    st.dataframe(seasonal_df, use_container_width=True)
+                
+                # Display scenario comparisons
+                if 'scenario_comparisons' in opt_results:
+                    st.subheader("⚡ Optimization Impact by Scenario")
+                    
+                    scenario_comparisons = opt_results['scenario_comparisons']
+                    
+                    # Create comparison metrics
+                    comparison_metrics = []
+                    for scenario_name, comparison in scenario_comparisons.items():
+                        comparison_metrics.append({
+                            'Scenario': scenario_name.replace('_', ' ').title(),
+                            'Waiting Time Improvement (%)': f"{comparison.get('waiting_time_improvement', 0):.1f}%",
+                            'Berth Utilization Improvement (%)': f"{comparison.get('berth_utilization_improvement', 0):.1f}%",
+                            'Overall Efficiency Improvement (%)': f"{comparison.get('overall_efficiency_improvement', 0):.1f}%"
+                        })
+                    
+                    comparison_df = pd.DataFrame(comparison_metrics)
+                    st.dataframe(comparison_df, use_container_width=True)
+                    
+                    # Visualization of optimization improvements
+                    st.subheader("📈 Optimization Impact Visualization")
+                    
+                    # Create improvement charts
+                    import plotly.express as px
+                    
+                    # Waiting time improvements
+                    waiting_improvements = {
+                        'Scenario': [comp['Scenario'] for comp in comparison_metrics],
+                        'Waiting Time Improvement (%)': [float(comp['Waiting Time Improvement (%)'].replace('%', '')) for comp in comparison_metrics]
+                    }
+                    
+                    fig_waiting = px.bar(
+                        waiting_improvements,
+                        x='Scenario',
+                        y='Waiting Time Improvement (%)',
+                        title='Waiting Time Reduction by Scenario',
+                        color='Waiting Time Improvement (%)',
+                        color_continuous_scale='RdYlGn'
+                    )
+                    st.plotly_chart(fig_waiting, use_container_width=True)
+                    
+                    # Overall efficiency improvements
+                    efficiency_improvements = {
+                        'Scenario': [comp['Scenario'] for comp in comparison_metrics],
+                        'Overall Efficiency Improvement (%)': [float(comp['Overall Efficiency Improvement (%)'].replace('%', '')) for comp in comparison_metrics]
+                    }
+                    
+                    fig_efficiency = px.bar(
+                        efficiency_improvements,
+                        x='Scenario',
+                        y='Overall Efficiency Improvement (%)',
+                        title='Overall Efficiency Improvement by Scenario',
+                        color='Overall Efficiency Improvement (%)',
+                        color_continuous_scale='viridis'
+                    )
+                    st.plotly_chart(fig_efficiency, use_container_width=True)
+                
+                # Display overall insights
+                if 'overall_insights' in opt_results:
+                    st.subheader("💡 Key Insights")
+                    insights = opt_results['overall_insights']
+                    
+                    # Display insights in an organized manner
+                    insight_col1, insight_col2 = st.columns(2)
+                    
+                    with insight_col1:
+                        st.metric(
+                            "Best Performing Scenario",
+                            insights.get('best_scenario', 'N/A'),
+                            help="Scenario with highest optimization impact"
+                        )
+                        
+                        st.metric(
+                            "Average Waiting Time Reduction",
+                            f"{insights.get('avg_waiting_improvement', 0):.1f}%",
+                            help="Average improvement across all scenarios"
+                        )
+                    
+                    with insight_col2:
+                        st.metric(
+                            "Peak Season Benefit",
+                            f"{insights.get('peak_season_benefit', 0):.1f}%",
+                            help="Additional benefit during peak operations"
+                        )
+                        
+                        st.metric(
+                            "Overall ROI Indicator",
+                            insights.get('roi_category', 'N/A'),
+                            help="Return on investment category for optimization"
+                        )
+                    
+                    # Additional insights text
+                    if 'summary' in insights:
+                        st.info(insights['summary'])
+                
+                # Export optimization results
+                if 'scenario_comparisons' in opt_results:
+                    export_data = []
+                    for scenario_name, comparison in opt_results['scenario_comparisons'].items():
+                        export_data.append({
+                            'Scenario': scenario_name,
+                            'Waiting_Time_Improvement': comparison.get('waiting_time_improvement', 0),
+                            'Berth_Utilization_Improvement': comparison.get('berth_utilization_improvement', 0),
+                            'Overall_Efficiency_Improvement': comparison.get('overall_efficiency_improvement', 0)
+                        })
+                    
+                    export_df = pd.DataFrame(export_data)
+                    export_csv = export_df.to_csv(index=False)
+                    
+                    st.download_button(
+                        label="📥 Export Optimization Results",
+                        data=export_csv,
+                        file_name=f"multi_scenario_optimization_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv"
+                    )
+            else:
+                st.info("Run a multi-scenario optimization to see detailed results here")
+                
+                # Show optimization benefits preview
+                st.markdown("""
+                **Multi-Scenario Optimization Benefits:**
+                - 🎯 **Optimized Berth Allocation**: AI-powered assignment reduces waiting times
+                - 📊 **Seasonal Analysis**: Compare performance across peak, normal, and low seasons
+                - ⚡ **Efficiency Gains**: Quantify improvements in throughput and utilization
+                - 💰 **ROI Analysis**: Understand the business impact of optimization
+                - 🔄 **Real-time Adaptation**: Dynamic allocation based on current conditions
+                """)
+        
+        st.markdown("---")
+        st.subheader("⚠️ Predictive Disruption Impact Simulation")
+        st.markdown("Analyze the impact of potential disruptions on port operations")
+        
+        # Disruption simulation interface
+        disrupt_col1, disrupt_col2 = st.columns([1, 2])
+        
+        with disrupt_col1:
+            st.subheader("🌪️ Disruption Settings")
+            
+            # Disruption type selection
+            disruption_type = st.selectbox(
+                "Disruption Type",
+                ["Equipment Failure", "Typhoon Impact", "Labor Shortage", "Cyber Attack", "Supply Chain Disruption"],
+                help="Select the type of disruption to simulate"
+            )
+            
+            # Severity level
+            severity_level = st.selectbox(
+                "Severity Level",
+                ["Low", "Medium", "High", "Critical"],
+                index=1,
+                help="Impact severity of the disruption"
+            )
+            
+            # Duration
+            disruption_duration = st.slider(
+                "Disruption Duration (hours)",
+                min_value=1,
+                max_value=72,
+                value=12,
+                help="How long the disruption lasts"
+            )
+            
+            # Recovery time
+            recovery_time = st.slider(
+                "Recovery Time (hours)",
+                min_value=1,
+                max_value=48,
+                value=6,
+                help="Time to fully recover from disruption"
+            )
+            
+            if st.button("🔥 Simulate Disruption Impact"):
+                with st.spinner("Simulating disruption impact..."):
+                    try:
+                        # Import the disruption simulator
+                        from hk_port_digital_twin.src.scenarios.disruption_simulator import DisruptionSimulator, DisruptionType, DisruptionSeverity
+                        
+                        # Create disruption simulator
+                        simulator = DisruptionSimulator()
+                        
+                        # Map UI selections to enum values
+                        type_mapping = {
+                            "Equipment Failure": DisruptionType.EQUIPMENT_FAILURE,
+                            "Typhoon Impact": DisruptionType.TYPHOON,
+                            "Labor Shortage": DisruptionType.LABOR_SHORTAGE,
+                            "Cyber Attack": DisruptionType.CYBER_ATTACK,
+                            "Supply Chain Disruption": DisruptionType.SUPPLY_CHAIN
+                        }
+                        
+                        severity_mapping = {
+                            "Low": DisruptionSeverity.LOW,
+                            "Medium": DisruptionSeverity.MEDIUM,
+                            "High": DisruptionSeverity.HIGH,
+                            "Critical": DisruptionSeverity.CRITICAL
+                        }
+                        
+                        # Run disruption simulation
+                        disruption_results = simulator.simulate_disruption_impact(
+                            disruption_type=type_mapping[disruption_type],
+                            severity=severity_mapping[severity_level],
+                            duration_hours=disruption_duration,
+                            recovery_hours=recovery_time
+                        )
+                        
+                        if disruption_results:
+                            st.session_state.disruption_simulation = disruption_results
+                            st.success("Disruption impact simulation completed!")
+                        else:
+                            st.error("Failed to run disruption simulation")
+                            
+                    except Exception as e:
+                        st.error(f"Error running disruption simulation: {str(e)}")
+                        logging.error(f"Disruption simulation error: {e}")
+        
+        with disrupt_col2:
+            st.subheader("📊 Disruption Impact Results")
+            
+            if hasattr(st.session_state, 'disruption_simulation') and st.session_state.disruption_simulation:
+                disrupt_results = st.session_state.disruption_simulation
+                
+                # Display impact metrics
+                st.subheader("💥 Impact Assessment")
+                
+                impact_col1, impact_col2, impact_col3 = st.columns(3)
+                
+                with impact_col1:
+                    st.metric(
+                        "Throughput Reduction",
+                        f"{disrupt_results.get('throughput_impact', 0):.1f}%",
+                        help="Percentage reduction in container throughput"
+                    )
+                
+                with impact_col2:
+                    st.metric(
+                        "Waiting Time Increase",
+                        f"{disrupt_results.get('waiting_time_impact', 0):.1f}%",
+                        help="Percentage increase in vessel waiting times"
+                    )
+                
+                with impact_col3:
+                    st.metric(
+                        "Revenue Loss",
+                        f"${disrupt_results.get('revenue_loss', 0):,.0f}",
+                        help="Estimated revenue loss during disruption"
+                    )
+                
+                # Recovery timeline
+                if 'recovery_timeline' in disrupt_results:
+                    st.subheader("🔄 Recovery Timeline")
+                    
+                    recovery_data = disrupt_results['recovery_timeline']
+                    recovery_df = pd.DataFrame({
+                        'Hour': list(range(len(recovery_data))),
+                        'Operational Capacity (%)': recovery_data
+                    })
+                    
+                    import plotly.express as px
+                    fig_recovery = px.line(
+                        recovery_df,
+                        x='Hour',
+                        y='Operational Capacity (%)',
+                        title='Port Operational Capacity Recovery',
+                        markers=True
+                    )
+                    fig_recovery.add_hline(y=100, line_dash="dash", line_color="green", annotation_text="Full Capacity")
+                    st.plotly_chart(fig_recovery, use_container_width=True)
+                
+                # Recommendations
+                if 'recommendations' in disrupt_results:
+                    st.subheader("💡 Recovery Recommendations")
+                    recommendations = disrupt_results['recommendations']
+                    
+                    for i, rec in enumerate(recommendations, 1):
+                        st.write(f"**{i}.** {rec}")
+                
+                # Export disruption results
+                export_disruption_data = {
+                    'Disruption_Type': disruption_type,
+                    'Severity': severity_level,
+                    'Duration_Hours': disruption_duration,
+                    'Recovery_Hours': recovery_time,
+                    'Throughput_Impact_Percent': disrupt_results.get('throughput_impact', 0),
+                    'Waiting_Time_Impact_Percent': disrupt_results.get('waiting_time_impact', 0),
+                    'Revenue_Loss_USD': disrupt_results.get('revenue_loss', 0)
+                }
+                
+                export_disruption_df = pd.DataFrame([export_disruption_data])
+                export_disruption_csv = export_disruption_df.to_csv(index=False)
+                
+                st.download_button(
+                    label="📥 Export Disruption Analysis",
+                    data=export_disruption_csv,
+                    file_name=f"disruption_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv"
+                )
+            else:
+                st.info("Run a disruption simulation to see impact analysis here")
+                
+                # Show disruption simulation benefits preview
+                st.markdown("""
+                **Disruption Impact Simulation Benefits:**
+                - ⚠️ **Risk Assessment**: Quantify potential impacts of various disruptions
+                - 🔄 **Recovery Planning**: Optimize recovery strategies and timelines
+                - 💰 **Financial Impact**: Estimate revenue losses and mitigation costs
+                - 📊 **Scenario Planning**: Prepare for different disruption scenarios
+                - 🛡️ **Resilience Building**: Identify vulnerabilities and strengthen operations
+                """)
+        
+        st.markdown("---")
+        st.subheader("💰 Dynamic Capacity Planning & Investment Simulation")
+        st.markdown("Analyze investment opportunities and capacity expansion scenarios")
+        
+        # Investment planning interface
+        invest_col1, invest_col2 = st.columns([1, 2])
+        
+        with invest_col1:
+            st.subheader("🏗️ Investment Options")
+            
+            # Investment type selection
+            investment_type = st.selectbox(
+                "Investment Type",
+                ["New Berth Construction", "Crane Upgrade", "Automation System", "IT Infrastructure", "Storage Expansion"],
+                help="Select the type of investment to analyze"
+            )
+            
+            # Investment amount
+            investment_amount = st.number_input(
+                "Investment Amount (USD Million)",
+                min_value=1.0,
+                max_value=500.0,
+                value=50.0,
+                step=5.0,
+                help="Total investment cost in millions USD"
+            )
+            
+            # Expected demand growth
+            demand_growth = st.slider(
+                "Expected Annual Demand Growth (%)",
+                min_value=0.0,
+                max_value=20.0,
+                value=5.0,
+                step=0.5,
+                help="Expected annual growth in container throughput"
+            )
+            
+            # Analysis period
+            analysis_period = st.slider(
+                "Analysis Period (years)",
+                min_value=5,
+                max_value=20,
+                value=10,
+                help="Time horizon for ROI analysis"
+            )
+            
+            if st.button("📈 Analyze Investment ROI"):
+                with st.spinner("Analyzing investment scenarios..."):
+                    try:
+                        # Import the investment planner
+                        from hk_port_digital_twin.src.scenarios.investment_planner import InvestmentPlanner, InvestmentType
+                        
+                        # Create investment planner
+                        planner = InvestmentPlanner()
+                        
+                        # Map UI selections to enum values
+                        investment_type_mapping = {
+                            "New Berth Construction": InvestmentType.NEW_BERTH,
+                            "Crane Upgrade": InvestmentType.CRANE_UPGRADE,
+                            "Automation System": InvestmentType.AUTOMATION,
+                            "IT Infrastructure": InvestmentType.IT_INFRASTRUCTURE,
+                            "Storage Expansion": InvestmentType.STORAGE_EXPANSION
+                        }
+                        
+                        # Run investment analysis
+                        investment_results = planner.analyze_investment_scenario(
+                            investment_type=investment_type_mapping[investment_type],
+                            investment_amount=investment_amount * 1_000_000,  # Convert to USD
+                            demand_growth_rate=demand_growth / 100,  # Convert to decimal
+                            analysis_years=analysis_period
+                        )
+                        
+                        if investment_results:
+                            st.session_state.investment_analysis = investment_results
+                            st.success("Investment analysis completed!")
+                        else:
+                            st.error("Failed to run investment analysis")
+                            
+                    except Exception as e:
+                        st.error(f"Error running investment analysis: {str(e)}")
+                        logging.error(f"Investment analysis error: {e}")
+        
+        with invest_col2:
+            st.subheader("📊 Investment Analysis Results")
+            
+            if hasattr(st.session_state, 'investment_analysis') and st.session_state.investment_analysis:
+                invest_results = st.session_state.investment_analysis
+                
+                # Display ROI metrics
+                st.subheader("💹 Financial Metrics")
+                
+                roi_col1, roi_col2, roi_col3 = st.columns(3)
+                
+                with roi_col1:
+                    st.metric(
+                        "ROI",
+                        f"{invest_results.get('roi_percentage', 0):.1f}%",
+                        help="Return on Investment percentage"
+                    )
+                
+                with roi_col2:
+                    st.metric(
+                        "NPV",
+                        f"${invest_results.get('npv', 0):,.0f}",
+                        help="Net Present Value in USD"
+                    )
+                
+                with roi_col3:
+                    st.metric(
+                        "Payback Period",
+                        f"{invest_results.get('payback_years', 0):.1f} years",
+                        help="Time to recover initial investment"
+                    )
+                
+                # Capacity impact
+                if 'capacity_impact' in invest_results:
+                    st.subheader("📈 Capacity Impact")
+                    
+                    capacity_col1, capacity_col2 = st.columns(2)
+                    
+                    with capacity_col1:
+                        st.metric(
+                            "Throughput Increase",
+                            f"{invest_results['capacity_impact'].get('throughput_increase', 0):.1f}%",
+                            help="Expected increase in container throughput"
+                        )
+                    
+                    with capacity_col2:
+                        st.metric(
+                            "Efficiency Improvement",
+                            f"{invest_results['capacity_impact'].get('efficiency_improvement', 0):.1f}%",
+                            help="Expected improvement in operational efficiency"
+                        )
+                
+                # Financial projections
+                if 'financial_projections' in invest_results:
+                    st.subheader("💰 Financial Projections")
+                    
+                    projections = invest_results['financial_projections']
+                    projections_df = pd.DataFrame({
+                        'Year': list(range(1, len(projections) + 1)),
+                        'Revenue (USD Million)': [p / 1_000_000 for p in projections],
+                        'Cumulative Revenue (USD Million)': [sum(projections[:i+1]) / 1_000_000 for i in range(len(projections))]
+                    })
+                    
+                    import plotly.express as px
+                    fig_projections = px.line(
+                        projections_df,
+                        x='Year',
+                        y=['Revenue (USD Million)', 'Cumulative Revenue (USD Million)'],
+                        title='Revenue Projections Over Time',
+                        markers=True
+                    )
+                    st.plotly_chart(fig_projections, use_container_width=True)
+                
+                # Investment recommendations
+                if 'recommendations' in invest_results:
+                    st.subheader("💡 Investment Recommendations")
+                    recommendations = invest_results['recommendations']
+                    
+                    for i, rec in enumerate(recommendations, 1):
+                        st.write(f"**{i}.** {rec}")
+                
+                # Risk assessment
+                if 'risk_assessment' in invest_results:
+                    st.subheader("⚠️ Risk Assessment")
+                    risk_data = invest_results['risk_assessment']
+                    
+                    risk_df = pd.DataFrame({
+                        'Risk Factor': list(risk_data.keys()),
+                        'Risk Level': list(risk_data.values())
+                    })
+                    
+                    st.dataframe(risk_df, use_container_width=True)
+                
+                # Export investment results
+                export_investment_data = {
+                    'Investment_Type': investment_type,
+                    'Investment_Amount_USD_Million': investment_amount,
+                    'Demand_Growth_Percent': demand_growth,
+                    'Analysis_Period_Years': analysis_period,
+                    'ROI_Percentage': invest_results.get('roi_percentage', 0),
+                    'NPV_USD': invest_results.get('npv', 0),
+                    'Payback_Years': invest_results.get('payback_years', 0)
+                }
+                
+                export_investment_df = pd.DataFrame([export_investment_data])
+                export_investment_csv = export_investment_df.to_csv(index=False)
+                
+                st.download_button(
+                    label="📥 Export Investment Analysis",
+                    data=export_investment_csv,
+                    file_name=f"investment_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv"
+                )
+            else:
+                st.info("Run an investment analysis to see detailed results here")
+                
+                # Show investment analysis benefits preview
+                st.markdown("""
+                **Investment Analysis Benefits:**
+                - 💹 **ROI Calculation**: Quantify return on investment for different options
+                - 📈 **Capacity Planning**: Optimize expansion based on demand projections
+                - 💰 **Financial Modeling**: Detailed cash flow and NPV analysis
+                - ⚖️ **Risk Assessment**: Evaluate investment risks and mitigation strategies
+                - 🎯 **Strategic Planning**: Make data-driven investment decisions
+                """)
     
     with tab9:
         st.subheader("⚙️ Settings")
