@@ -23,6 +23,31 @@ from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, asdict
 from copy import deepcopy
 import random
+from enum import Enum
+
+class OptimizationObjective(Enum):
+    """Enumeration of optimization objectives"""
+    MINIMIZE_WAITING_TIME = "minimize_waiting_time"
+    MAXIMIZE_THROUGHPUT = "maximize_throughput"
+    MINIMIZE_COST = "minimize_cost"
+    MAXIMIZE_EFFICIENCY = "maximize_efficiency"
+    BALANCE_UTILIZATION = "balance_utilization"
+
+@dataclass
+class OptimizationResult:
+    """Results from optimization analysis"""
+    scenario_name: str
+    optimization_enabled: bool
+    total_waiting_time: float
+    average_waiting_time: float
+    berth_utilization: float
+    throughput: int
+    cost_efficiency: float
+    optimization_improvement: Optional[float] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization"""
+        return asdict(self)
 
 # Import existing modules
 import sys

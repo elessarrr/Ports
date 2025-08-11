@@ -77,8 +77,8 @@ class ScenarioOptimizationResult:
                 'total_waiting_time': self.base_result.total_waiting_time,
                 'average_waiting_time': self.base_result.average_waiting_time,
                 'berth_utilization': self.base_result.berth_utilization,
-                'unallocated_ships': len(self.base_result.unallocated_ships),
-                'allocation_efficiency': self.base_result.allocation_efficiency
+                'unallocated_ships': 0,  # Calculate from ship_berth_assignments if needed
+                'allocation_efficiency': self.base_result.optimization_score
             }
         }
         
@@ -155,7 +155,7 @@ class ScenarioAwareBerthOptimizer:
         current_scenario = self.scenario_manager.get_current_scenario()
         if not current_scenario:
             logger.warning("No scenario set, using default optimization")
-            base_result = self.base_optimizer.optimize()
+            base_result = self.base_optimizer.optimize_berth_allocation()
             return self._create_scenario_result(base_result, 'default', {})
         
         logger.info(f"Starting optimization with scenario: {current_scenario}")
@@ -167,7 +167,7 @@ class ScenarioAwareBerthOptimizer:
         self._apply_scenario_optimization_settings(scenario_params)
         
         # Perform base optimization
-        base_result = self.base_optimizer.optimize()
+        base_result = self.base_optimizer.optimize_berth_allocation()
         
         # Create enhanced result
         scenario_result = self._create_scenario_result(
@@ -179,6 +179,38 @@ class ScenarioAwareBerthOptimizer:
         
         logger.info(f"Optimization completed for scenario: {current_scenario}")
         return scenario_result
+    
+    def optimize_with_scenario(self, ships: List[Ship], berths: List[Berth], current_time=None) -> Dict[str, Any]:
+        """Perform optimization with scenario-specific parameters using provided ships and berths.
+        
+        Args:
+            ships: List of ships to optimize
+            berths: List of available berths
+            current_time: Current simulation time (optional)
+            
+        Returns:
+            Dictionary containing optimization results and berth allocation
+        """
+        # Clear existing ships and berths
+        self.base_optimizer.ships.clear()
+        self.base_optimizer.berths.clear()
+        
+        # Add provided ships and berths
+        for ship in ships:
+            self.add_ship(ship)
+        for berth in berths:
+            self.add_berth(berth)
+        
+        # Perform optimization
+        result = self.optimize()
+        
+        # Return result in expected format
+        return {
+            'berth_allocation': result.base_result,
+            'scenario_metrics': result.scenario_adjusted_metrics,
+            'optimization_time': getattr(result, 'optimization_time', 0.0),
+            'scenario_name': result.scenario_name
+        }
     
     def compare_scenarios(self, scenarios: List[str]) -> Dict[str, ScenarioOptimizationResult]:
         """Compare optimization results across multiple scenarios.
@@ -361,18 +393,19 @@ class ScenarioAwareBerthOptimizer:
             adjusted_waiting_time = result.total_waiting_time / params['processing_rate_multiplier']
             adjusted_metrics['adjusted_total_waiting_time'] = adjusted_waiting_time
             adjusted_metrics['adjusted_average_waiting_time'] = (
-                adjusted_waiting_time / max(1, len(result.allocations))
+                adjusted_waiting_time / max(1, len(result.ship_berth_assignments))
             )
         
         # Adjust berth utilization based on target utilization
         if 'target_berth_utilization' in params:
-            utilization_efficiency = result.berth_utilization / params['target_berth_utilization']
+            avg_utilization = sum(result.berth_utilization.values()) / max(1, len(result.berth_utilization))
+            utilization_efficiency = avg_utilization / params['target_berth_utilization']
             adjusted_metrics['utilization_efficiency'] = min(1.0, utilization_efficiency)
         
         # Calculate throughput efficiency
         if 'arrival_rate_multiplier' in params:
             throughput_factor = params['arrival_rate_multiplier']
-            adjusted_metrics['throughput_efficiency'] = result.allocation_efficiency * throughput_factor
+            adjusted_metrics['throughput_efficiency'] = result.optimization_score * throughput_factor
         
         return adjusted_metrics
     
@@ -405,7 +438,7 @@ class ScenarioAwareBerthOptimizer:
         """
         baseline_waiting_time = baseline.base_result.total_waiting_time
         baseline_utilization = baseline.base_result.berth_utilization
-        baseline_efficiency = baseline.base_result.allocation_efficiency
+        baseline_efficiency = baseline.base_result.optimization_score
         
         for scenario_name, result in results.items():
             if scenario_name == baseline.scenario_name:
@@ -428,7 +461,7 @@ class ScenarioAwareBerthOptimizer:
             
             if baseline_efficiency > 0:
                 efficiency_improvement = (
-                    (result.base_result.allocation_efficiency - baseline_efficiency) / baseline_efficiency
+                    (result.base_result.optimization_score - baseline_efficiency) / baseline_efficiency
                 )
                 relative_performance['efficiency_improvement'] = efficiency_improvement
             

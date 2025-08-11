@@ -1,5 +1,6 @@
 import sys
 import os
+import time
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
@@ -85,8 +86,11 @@ def load_sample_data(use_real_throughput_data=True):
         'ship_id': ['SHIP_001', 'SHIP_002', 'SHIP_003'],
         'name': ['MSC Lucinda', 'COSCO Shanghai', 'Evergreen Marine'],
         'ship_type': ['container', 'container', 'bulk'],
+        'arrival_time': [datetime.now() - timedelta(hours=2), datetime.now() - timedelta(hours=1), datetime.now() - timedelta(minutes=30)],
+        'containers': [150, 200, 120],
         'size_teu': [8000, 12000, 6500],
-        'waiting_time': [2.5, 1.8, 3.2]
+        'waiting_time': [2.5, 1.8, 3.2],
+        'priority': ['high', 'medium', 'low']
     }
     
     # Sample waiting time data
@@ -110,7 +114,13 @@ def load_sample_data(use_real_throughput_data=True):
         'queue': pd.DataFrame(ship_queue_data),
         'timeline': timeline_data,  # Now using real data
         'waiting': pd.DataFrame(waiting_data),
-        'kpis': pd.DataFrame(kpi_data)
+        'kpis': pd.DataFrame(kpi_data),
+        'vessel_queue_analysis': {
+            'total_vessels_waiting': len(ship_queue_data['ship_id']),
+            'average_waiting_time': np.mean(ship_queue_data['waiting_time']),
+            'queue_by_type': {'container': 2, 'bulk': 1},
+            'priority_distribution': {'high': 1, 'medium': 1, 'low': 1}
+        }
     }
 
 

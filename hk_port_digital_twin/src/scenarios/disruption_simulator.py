@@ -14,9 +14,12 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Any
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from enum import Enum
 import random
+import json
+import os
+from pathlib import Path
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,11 +28,17 @@ logger = logging.getLogger(__name__)
 class DisruptionType(Enum):
     """Types of disruption events"""
     WEATHER = "weather"
+    TYPHOON = "typhoon"
     EQUIPMENT_FAILURE = "equipment_failure"
+    CRANE_FAILURE = "crane_failure"
+    POWER_OUTAGE = "power_outage"
     CONGESTION = "congestion"
     LABOR_SHORTAGE = "labor_shortage"
+    LABOR_STRIKE = "labor_strike"
     CYBER_SECURITY = "cyber_security"
     SUPPLY_CHAIN = "supply_chain"
+    VESSEL_BREAKDOWN = "vessel_breakdown"
+    INFRASTRUCTURE_DAMAGE = "infrastructure_damage"
 
 class DisruptionSeverity(Enum):
     """Severity levels for disruption events"""
@@ -72,14 +81,50 @@ class RecoveryStrategy:
     cost: float  # Implementation cost
     applicable_disruptions: List[DisruptionType]
 
+@dataclass
+class ScenarioTemplate:
+    """Template for creating disruption scenarios"""
+    template_id: str
+    name: str
+    description: str
+    disruption_type: DisruptionType
+    typical_severity: DisruptionSeverity
+    typical_duration_hours: float
+    seasonal_likelihood: Dict[str, float]  # month -> probability
+    historical_frequency: float  # events per year
+    typical_affected_berths: List[str]
+    recovery_strategies: List[str]
+    created_date: datetime = field(default_factory=datetime.now)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert template to dictionary for JSON serialization"""
+        data = asdict(self)
+        data['disruption_type'] = self.disruption_type.value
+        data['typical_severity'] = self.typical_severity.value
+        data['created_date'] = self.created_date.isoformat()
+        return data
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ScenarioTemplate':
+        """Create template from dictionary"""
+        data['disruption_type'] = DisruptionType(data['disruption_type'])
+        data['typical_severity'] = DisruptionSeverity(data['typical_severity'])
+        data['created_date'] = datetime.fromisoformat(data['created_date'])
+        return cls(**data)
+
 class DisruptionSimulator:
     """Main class for simulating disruption impacts on port operations"""
     
-    def __init__(self):
+    def __init__(self, scenarios_dir: Optional[str] = None):
         self.active_disruptions: List[DisruptionEvent] = []
         self.recovery_strategies: Dict[str, RecoveryStrategy] = {}
         self.disruption_history: List[DisruptionEvent] = []
+        self.scenario_templates: Dict[str, ScenarioTemplate] = {}
+        self.scenarios_dir = Path(scenarios_dir) if scenarios_dir else Path("scenarios")
+        self.scenarios_dir.mkdir(exist_ok=True)
         self._initialize_recovery_strategies()
+        self._initialize_scenario_templates()
+        self._load_saved_scenarios()
     
     def _initialize_recovery_strategies(self):
         """Initialize predefined recovery strategies"""
@@ -124,6 +169,159 @@ class DisruptionSimulator:
         
         for strategy in strategies:
             self.recovery_strategies[strategy.strategy_id] = strategy
+    
+    def _initialize_scenario_templates(self):
+        """Initialize predefined scenario templates"""
+        templates = [
+            ScenarioTemplate(
+                template_id="typhoon_severe",
+                name="Severe Typhoon Impact",
+                description="Major typhoon causing widespread port disruption",
+                disruption_type=DisruptionType.TYPHOON,
+                typical_severity=DisruptionSeverity.CRITICAL,
+                typical_duration_hours=48.0,
+                seasonal_likelihood={
+                    "Jun": 0.1, "Jul": 0.2, "Aug": 0.3, "Sep": 0.4, "Oct": 0.2,
+                    "Nov": 0.1, "Dec": 0.05, "Jan": 0.02, "Feb": 0.02, "Mar": 0.02,
+                    "Apr": 0.05, "May": 0.08
+                },
+                historical_frequency=2.5,
+                typical_affected_berths=["CT1", "CT2", "CT3", "CT4", "CT5"],
+                recovery_strategies=["emergency_response", "equipment_repair"]
+            ),
+            ScenarioTemplate(
+                template_id="crane_failure_major",
+                name="Major Crane Failure",
+                description="Critical crane equipment failure affecting container operations",
+                disruption_type=DisruptionType.CRANE_FAILURE,
+                typical_severity=DisruptionSeverity.HIGH,
+                typical_duration_hours=24.0,
+                seasonal_likelihood={month: 0.083 for month in ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]},
+                historical_frequency=8.0,
+                typical_affected_berths=["CT1", "CT2"],
+                recovery_strategies=["equipment_repair", "alternative_routing"]
+            ),
+            ScenarioTemplate(
+                template_id="labor_strike_extended",
+                name="Extended Labor Strike",
+                description="Multi-day labor strike affecting port operations",
+                disruption_type=DisruptionType.LABOR_STRIKE,
+                typical_severity=DisruptionSeverity.HIGH,
+                typical_duration_hours=72.0,
+                seasonal_likelihood={month: 0.083 for month in ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]},
+                historical_frequency=1.2,
+                typical_affected_berths=["CT1", "CT2", "CT3", "CT4", "CT5"],
+                recovery_strategies=["negotiation", "alternative_workforce"]
+            ),
+            ScenarioTemplate(
+                template_id="power_outage_grid",
+                name="Grid Power Outage",
+                description="Major power grid failure affecting port operations",
+                disruption_type=DisruptionType.POWER_OUTAGE,
+                typical_severity=DisruptionSeverity.CRITICAL,
+                typical_duration_hours=12.0,
+                seasonal_likelihood={
+                    "Jun": 0.15, "Jul": 0.2, "Aug": 0.2, "Sep": 0.15, "Oct": 0.1,
+                    "Nov": 0.05, "Dec": 0.08, "Jan": 0.12, "Feb": 0.08, "Mar": 0.05,
+                    "Apr": 0.05, "May": 0.1
+                },
+                historical_frequency=3.5,
+                typical_affected_berths=["CT1", "CT2", "CT3", "CT4", "CT5"],
+                recovery_strategies=["backup_power", "emergency_response"]
+            )
+        ]
+        
+        for template in templates:
+            self.scenario_templates[template.template_id] = template
+        
+        logging.info(f"Initialized {len(self.scenario_templates)} scenario templates")
+    
+    def _load_saved_scenarios(self):
+        """Load saved scenario templates from disk"""
+        scenarios_file = self.scenarios_dir / "scenario_templates.json"
+        if scenarios_file.exists():
+            try:
+                with open(scenarios_file, 'r') as f:
+                    data = json.load(f)
+                    for template_data in data:
+                        template = ScenarioTemplate.from_dict(template_data)
+                        self.scenario_templates[template.template_id] = template
+                logging.info(f"Loaded {len(data)} saved scenario templates")
+            except Exception as e:
+                logging.error(f"Error loading saved scenarios: {e}")
+    
+    def save_scenario_templates(self):
+        """Save scenario templates to disk"""
+        scenarios_file = self.scenarios_dir / "scenario_templates.json"
+        try:
+            templates_data = [template.to_dict() for template in self.scenario_templates.values()]
+            with open(scenarios_file, 'w') as f:
+                json.dump(templates_data, f, indent=2)
+            logging.info(f"Saved {len(templates_data)} scenario templates")
+        except Exception as e:
+            logging.error(f"Error saving scenario templates: {e}")
+    
+    def create_scenario_from_template(self, template_id: str, 
+                                    custom_severity: Optional[DisruptionSeverity] = None,
+                                    custom_duration: Optional[float] = None,
+                                    custom_affected_berths: Optional[List[str]] = None,
+                                    start_time: Optional[datetime] = None) -> DisruptionEvent:
+        """Create a disruption event from a scenario template"""
+        if template_id not in self.scenario_templates:
+            raise ValueError(f"Template {template_id} not found")
+        
+        template = self.scenario_templates[template_id]
+        
+        # Use custom values or template defaults
+        severity = custom_severity or template.typical_severity
+        duration = custom_duration or template.typical_duration_hours
+        affected_berths = custom_affected_berths or template.typical_affected_berths
+        event_start = start_time or datetime.now()
+        
+        return self.create_disruption_event(
+            disruption_type=template.disruption_type,
+            severity=severity,
+            affected_berths=affected_berths,
+            duration_hours=duration,
+            start_time=event_start
+        )
+    
+    def add_custom_template(self, template: ScenarioTemplate) -> bool:
+        """Add a custom scenario template"""
+        try:
+            self.scenario_templates[template.template_id] = template
+            self.save_scenario_templates()
+            logging.info(f"Added custom template: {template.name}")
+            return True
+        except Exception as e:
+            logging.error(f"Error adding custom template: {e}")
+            return False
+    
+    def get_template_by_id(self, template_id: str) -> Optional[ScenarioTemplate]:
+        """Get a scenario template by ID"""
+        return self.scenario_templates.get(template_id)
+    
+    def list_templates(self) -> List[ScenarioTemplate]:
+        """Get all available scenario templates"""
+        return list(self.scenario_templates.values())
+    
+    def get_seasonal_templates(self, month: str) -> List[ScenarioTemplate]:
+        """Get templates with high likelihood for a specific month"""
+        seasonal_templates = []
+        for template in self.scenario_templates.values():
+            if template.seasonal_likelihood.get(month, 0) > 0.1:  # 10% threshold
+                seasonal_templates.append(template)
+        return sorted(seasonal_templates, 
+                     key=lambda t: t.seasonal_likelihood.get(month, 0), 
+                     reverse=True)
+    
+    def export_scenario(self, scenario: DisruptionEvent, filename: str) -> bool:
+        """Export a single scenario to JSON file"""
+        return export_scenarios_to_file([scenario], filename)
+    
+    def import_scenarios(self, filename: str) -> List[DisruptionEvent]:
+        """Import scenarios from JSON file"""
+        return import_scenarios_from_file(filename)
     
     def create_disruption_event(
         self,
@@ -176,11 +374,17 @@ class DisruptionSimulator:
         # Base impact factors by disruption type
         base_impacts = {
             DisruptionType.WEATHER: (0.3, 0.2),
+            DisruptionType.TYPHOON: (0.8, 0.6),
             DisruptionType.EQUIPMENT_FAILURE: (0.5, 0.4),
+            DisruptionType.CRANE_FAILURE: (0.7, 0.5),
+            DisruptionType.POWER_OUTAGE: (0.9, 0.8),
             DisruptionType.CONGESTION: (0.2, 0.3),
             DisruptionType.LABOR_SHORTAGE: (0.4, 0.5),
+            DisruptionType.LABOR_STRIKE: (0.8, 0.7),
             DisruptionType.CYBER_SECURITY: (0.6, 0.3),
-            DisruptionType.SUPPLY_CHAIN: (0.3, 0.4)
+            DisruptionType.SUPPLY_CHAIN: (0.3, 0.4),
+            DisruptionType.VESSEL_BREAKDOWN: (0.1, 0.2),
+            DisruptionType.INFRASTRUCTURE_DAMAGE: (0.9, 0.9)
         }
         
         # Severity multipliers
@@ -211,13 +415,31 @@ class DisruptionSimulator:
                 DisruptionSeverity.LOW: "Light rain affecting outdoor operations",
                 DisruptionSeverity.MEDIUM: "Moderate storm with wind and rain",
                 DisruptionSeverity.HIGH: "Severe weather with strong winds",
-                DisruptionSeverity.CRITICAL: "Typhoon conditions - emergency protocols activated"
+                DisruptionSeverity.CRITICAL: "Extreme weather conditions - operations suspended"
+            },
+            DisruptionType.TYPHOON: {
+                DisruptionSeverity.LOW: "Typhoon Signal T3 - Reduced operations",
+                DisruptionSeverity.MEDIUM: "Typhoon Signal T8 - Partial port closure",
+                DisruptionSeverity.HIGH: "Typhoon Signal T9 - Port operations suspended",
+                DisruptionSeverity.CRITICAL: "Typhoon Signal T10 - Complete port shutdown"
             },
             DisruptionType.EQUIPMENT_FAILURE: {
                 DisruptionSeverity.LOW: "Minor equipment malfunction",
                 DisruptionSeverity.MEDIUM: "Crane operational issues",
                 DisruptionSeverity.HIGH: "Major equipment failure affecting multiple berths",
                 DisruptionSeverity.CRITICAL: "Critical infrastructure failure"
+            },
+            DisruptionType.CRANE_FAILURE: {
+                DisruptionSeverity.LOW: "Single crane malfunction",
+                DisruptionSeverity.MEDIUM: "Multiple crane operational issues",
+                DisruptionSeverity.HIGH: "Major crane failure affecting berth operations",
+                DisruptionSeverity.CRITICAL: "Complete crane system failure"
+            },
+            DisruptionType.POWER_OUTAGE: {
+                DisruptionSeverity.LOW: "Partial power reduction",
+                DisruptionSeverity.MEDIUM: "Significant power outage affecting operations",
+                DisruptionSeverity.HIGH: "Major power failure - backup systems activated",
+                DisruptionSeverity.CRITICAL: "Complete power grid failure"
             },
             DisruptionType.CONGESTION: {
                 DisruptionSeverity.LOW: "Slight increase in vessel traffic",
@@ -230,6 +452,36 @@ class DisruptionSimulator:
                 DisruptionSeverity.MEDIUM: "Reduced crew availability",
                 DisruptionSeverity.HIGH: "Significant labor shortage",
                 DisruptionSeverity.CRITICAL: "Critical staffing crisis"
+            },
+            DisruptionType.LABOR_STRIKE: {
+                DisruptionSeverity.LOW: "Work slowdown by dock workers",
+                DisruptionSeverity.MEDIUM: "Partial strike affecting some operations",
+                DisruptionSeverity.HIGH: "Major strike - significant operations halted",
+                DisruptionSeverity.CRITICAL: "Complete labor strike - port shutdown"
+            },
+            DisruptionType.CYBER_SECURITY: {
+                DisruptionSeverity.LOW: "Minor system intrusion detected",
+                DisruptionSeverity.MEDIUM: "Cyber attack affecting port systems",
+                DisruptionSeverity.HIGH: "Major cyber security breach",
+                DisruptionSeverity.CRITICAL: "Critical infrastructure cyber attack"
+            },
+            DisruptionType.SUPPLY_CHAIN: {
+                DisruptionSeverity.LOW: "Minor supply chain delays",
+                DisruptionSeverity.MEDIUM: "Moderate supply chain disruption",
+                DisruptionSeverity.HIGH: "Major supply chain breakdown",
+                DisruptionSeverity.CRITICAL: "Critical supply chain failure"
+            },
+            DisruptionType.VESSEL_BREAKDOWN: {
+                DisruptionSeverity.LOW: "Single vessel mechanical issues",
+                DisruptionSeverity.MEDIUM: "Vessel breakdown blocking berth access",
+                DisruptionSeverity.HIGH: "Major vessel incident affecting operations",
+                DisruptionSeverity.CRITICAL: "Vessel emergency - port safety protocols activated"
+            },
+            DisruptionType.INFRASTRUCTURE_DAMAGE: {
+                DisruptionSeverity.LOW: "Minor infrastructure damage",
+                DisruptionSeverity.MEDIUM: "Significant infrastructure issues",
+                DisruptionSeverity.HIGH: "Major infrastructure damage affecting operations",
+                DisruptionSeverity.CRITICAL: "Critical infrastructure failure - emergency response"
             }
         }
         
@@ -546,12 +798,109 @@ class DisruptionSimulator:
             ]
         }
 
+def create_sample_scenarios() -> List[DisruptionEvent]:
+    """Create sample disruption scenarios using templates"""
+    simulator = DisruptionSimulator()
+    
+    scenarios = [
+        # Typhoon scenario from template
+        simulator.create_scenario_from_template(
+            template_id="typhoon_severe",
+            start_time=datetime.now()
+        ),
+        
+        # Equipment failure scenario from template
+        simulator.create_scenario_from_template(
+            template_id="crane_failure_major",
+            start_time=datetime.now() + timedelta(days=1)
+        ),
+        
+        # Labor strike scenario from template
+        simulator.create_scenario_from_template(
+            template_id="labor_strike_extended",
+            custom_severity=DisruptionSeverity.MEDIUM,
+            start_time=datetime.now() + timedelta(days=2)
+        ),
+        
+        # Power outage scenario from template
+        simulator.create_scenario_from_template(
+            template_id="power_outage_grid",
+            custom_duration=8.0,  # Shorter outage
+            start_time=datetime.now() + timedelta(days=3)
+        )
+    ]
+    
+    return scenarios
+
+def export_scenarios_to_file(scenarios: List[DisruptionEvent], filename: str) -> bool:
+    """Export disruption scenarios to JSON file"""
+    try:
+        scenarios_data = []
+        for scenario in scenarios:
+            scenario_dict = {
+                'event_id': scenario.event_id,
+                'disruption_type': scenario.disruption_type.value,
+                'severity': scenario.severity.value,
+                'start_time': scenario.start_time.isoformat(),
+                'duration_hours': scenario.duration_hours,
+                'affected_berths': scenario.affected_berths,
+                'capacity_reduction': scenario.capacity_reduction,
+                'processing_time_increase': scenario.processing_time_increase,
+                'description': scenario.description,
+                'recovery_strategies': scenario.recovery_strategies
+            }
+            scenarios_data.append(scenario_dict)
+        
+        with open(filename, 'w') as f:
+            json.dump(scenarios_data, f, indent=2)
+        
+        logging.info(f"Exported {len(scenarios)} scenarios to {filename}")
+        return True
+    except Exception as e:
+        logging.error(f"Error exporting scenarios: {e}")
+        return False
+
+def import_scenarios_from_file(filename: str) -> List[DisruptionEvent]:
+    """Import disruption scenarios from JSON file"""
+    try:
+        with open(filename, 'r') as f:
+            scenarios_data = json.load(f)
+        
+        scenarios = []
+        for data in scenarios_data:
+            scenario = DisruptionEvent(
+                event_id=data['event_id'],
+                disruption_type=DisruptionType(data['disruption_type']),
+                severity=DisruptionSeverity(data['severity']),
+                start_time=datetime.fromisoformat(data['start_time']),
+                duration_hours=data['duration_hours'],
+                affected_berths=data['affected_berths'],
+                capacity_reduction=data['capacity_reduction'],
+                processing_time_increase=data['processing_time_increase'],
+                description=data['description'],
+                recovery_strategies=data['recovery_strategies']
+            )
+            scenarios.append(scenario)
+        
+        logging.info(f"Imported {len(scenarios)} scenarios from {filename}")
+        return scenarios
+    except Exception as e:
+        logging.error(f"Error importing scenarios: {e}")
+        return []
+
 def create_sample_disruption_analysis():
     """Create and run sample disruption analysis"""
     simulator = DisruptionSimulator()
     
-    # Create sample scenarios
-    scenarios = simulator.create_sample_disruption_scenarios()
+    # Create sample scenarios using templates
+    scenarios = create_sample_scenarios()
+    
+    # Export scenarios for future use
+    export_scenarios_to_file(scenarios, "sample_scenarios.json")
+    
+    # Add scenarios to simulator for analysis
+    for scenario in scenarios:
+        simulator.active_disruptions.append(scenario)
     
     # Run comparison analysis
     results = simulator.run_disruption_comparison(scenarios)

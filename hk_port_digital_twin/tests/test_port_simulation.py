@@ -217,6 +217,59 @@ class TestPortSimulation:
         ]
         for key in performance_keys:
             assert key in performance
+    
+    def test_benchmark_analysis_integration(self):
+        """Test that benchmark analysis is included in simulation results"""
+        # Run simulation
+        result = self.simulation.run_simulation(duration=0.5)
+        
+        # Check benchmark analysis is included
+        assert 'benchmark_analysis' in result
+        
+        benchmark_analysis = result['benchmark_analysis']
+        
+        # Check benchmark analysis structure
+        expected_keys = ['overall_score', 'performance_level', 'metrics', 'recommendations']
+        for key in expected_keys:
+            assert key in benchmark_analysis
+        
+        # Check overall score is valid
+        overall_score = benchmark_analysis['overall_score']
+        assert isinstance(overall_score, (int, float))
+        assert 0 <= overall_score <= 100
+        
+        # Check performance level is valid
+        performance_level = benchmark_analysis['performance_level']
+        valid_levels = ['Poor', 'Below Average', 'Average', 'Good', 'Excellent']
+        assert performance_level in valid_levels
+        
+        # Check metrics structure
+        metrics = benchmark_analysis['metrics']
+        assert isinstance(metrics, list)
+        assert len(metrics) > 0
+        
+        # Check recommendations structure
+        recommendations = benchmark_analysis['recommendations']
+        assert isinstance(recommendations, list)
+    
+    def test_get_benchmark_analysis_method(self):
+        """Test the get_benchmark_analysis method"""
+        # Run simulation first
+        self.simulation.run_simulation(duration=0.2)
+        
+        # Get benchmark analysis
+        analysis = self.simulation.get_benchmark_analysis()
+        
+        # Check analysis structure
+        assert isinstance(analysis, dict)
+        assert 'overall_score' in analysis
+        assert 'performance_level' in analysis
+        assert 'metrics' in analysis
+        
+        # Check score is valid
+        score = analysis['overall_score']
+        assert isinstance(score, (int, float))
+        assert 0 <= score <= 100
             
     def test_simulation_with_no_berths(self):
         """Test simulation behavior with no berths configured"""

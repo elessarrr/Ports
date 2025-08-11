@@ -31,6 +31,7 @@ from src.ai.optimization import (
 )
 from src.ai.decision_support import DecisionSupportEngine
 from src.scenarios import ScenarioManager, ScenarioAwareBerthOptimizer
+from src.analysis.performance_benchmarking import PerformanceBenchmarking
 
 
 class PortSimulation:
@@ -84,6 +85,9 @@ class PortSimulation:
         # Initialize scenario management
         self.scenario_manager = ScenarioManager()
         self.scenario_optimizer = ScenarioAwareBerthOptimizer(self.scenario_manager)
+        
+        # Initialize performance benchmarking
+        self.performance_benchmarking = PerformanceBenchmarking()
         
         # Ship queue for batch optimization
         self.pending_ships = []
@@ -301,8 +305,10 @@ class PortSimulation:
             print(f"Time {self.env.now:.1f}: Ship {ship.ship_id} assigned to berth {assigned_berth_id} via AI optimization")
             
             # Wait for berth availability if needed (AI should minimize this)
-            while not self.berth_manager.is_berth_available(assigned_berth_id):
+            berth = self.berth_manager.get_berth(assigned_berth_id)
+            while berth and berth.is_occupied:
                 yield self.env.timeout(0.1)  # Wait 6 minutes
+                berth = self.berth_manager.get_berth(assigned_berth_id)  # Refresh berth status
                 
             # Allocate the AI-assigned berth
             allocation_success = self.berth_manager.allocate_berth(assigned_berth_id, ship.ship_id)
@@ -358,7 +364,7 @@ class PortSimulation:
                 id=ship.ship_id,
                 arrival_time=datetime.now(),  # Use current time as arrival
                 ship_type=ship.ship_type,
-                size_teu=ship.size_teu,
+                size=ship.size_teu,  # Convert size_teu to size parameter
                 priority=1,  # Default priority
                 containers_to_load=getattr(ship, 'containers_to_load', 0),
                 containers_to_unload=getattr(ship, 'containers_to_unload', 0)
@@ -377,14 +383,22 @@ class PortSimulation:
         
         # Get all berths from berth manager
         for berth_id in range(1, berth_stats.get('total_berths', 0) + 1):
-            berth = self.berth_manager.get_berth(f"BERTH_{berth_id:03d}")
+            berth = self.berth_manager.get_berth(berth_id)
             if berth:
+                # Define ship type compatibility based on berth type
+                if berth.berth_type == 'container':
+                    suitable_ship_types = ['container', 'mixed']  # Container berths can handle container and mixed ships
+                elif berth.berth_type == 'bulk':
+                    suitable_ship_types = ['bulk', 'mixed']  # Bulk berths can handle bulk and mixed ships
+                else:  # mixed berth type
+                    suitable_ship_types = ['container', 'bulk', 'mixed']  # Mixed berths can handle all ship types
+                
                 ai_berth = AIBerth(
-                    id=berth.berth_id,
-                    capacity_teu=getattr(berth, 'capacity_teu', 5000),
-                    crane_count=getattr(berth, 'crane_count', 2),
-                    suitable_ship_types=getattr(berth, 'suitable_ship_types', ['container', 'bulk', 'mixed']),
-                    is_available=self.berth_manager.is_berth_available(berth.berth_id)
+                    id=str(berth.berth_id),
+                    capacity=berth.max_capacity_teu,
+                    crane_count=berth.crane_count,
+                    suitable_ship_types=suitable_ship_types,
+                    is_available=not berth.is_occupied
                 )
                 ai_berths.append(ai_berth)
         return ai_berths
@@ -458,6 +472,27 @@ class PortSimulation:
         berth_stats = self.berth_manager.get_berth_statistics()
         container_stats = self.container_handler.get_processing_statistics()
         
+        # Calculate container throughput (TEU per hour)
+        total_containers = container_stats.get('total_operations', 0)
+        container_throughput = total_containers / simulation_duration if simulation_duration > 0 else 0
+        
+        # Calculate ship turnaround time (average time from arrival to departure)
+        ship_turnaround_time = avg_waiting_time + container_stats.get('average_processing_time', 0)
+        
+        # Update performance benchmarking with simulation results
+        simulation_results = {
+            'container_throughput_teu_per_hour': container_throughput,
+            'berth_utilization_percent': self._calculate_berth_utilization(),
+            'ship_turnaround_time_hours': ship_turnaround_time,
+            'queue_efficiency_percent': self._calculate_queue_efficiency(),
+            'processing_efficiency_percent': self._calculate_processing_efficiency(),
+            'ships_processed_per_hour': self.metrics['ships_processed'] / simulation_duration if simulation_duration > 0 else 0,
+            'average_waiting_time_hours': avg_waiting_time
+        }
+        
+        # Generate performance benchmark analysis
+        benchmark_report = self.performance_benchmarking.analyze_simulation_results(simulation_results)
+        
         report = {
             'simulation_summary': {
                 'duration': round(simulation_duration, 2),
@@ -472,7 +507,8 @@ class PortSimulation:
                 'berth_utilization': self._calculate_berth_utilization(),
                 'queue_efficiency': self._calculate_queue_efficiency(),
                 'processing_efficiency': self._calculate_processing_efficiency()
-            }
+            },
+            'benchmark_analysis': benchmark_report.to_dict()
         }
         
         return report
@@ -542,13 +578,18 @@ class PortSimulation:
         self.scenario_manager = ScenarioManager()
         self.scenario_optimizer = ScenarioAwareBerthOptimizer(self.scenario_manager)
         
+        # Reset performance benchmarking
+        self.performance_benchmarking = PerformanceBenchmarking()
+        
         # Reset metrics
         self.metrics = {
             'ships_arrived': 0,
             'ships_processed': 0,
             'total_waiting_time': 0,
             'simulation_start_time': 0,
-            'simulation_end_time': 0
+            'simulation_end_time': 0,
+            'ai_optimizations_performed': 0,
+            'optimization_time_saved': 0
         }
         
         print("Simulation reset to initial state")
@@ -579,6 +620,40 @@ class PortSimulation:
             Dictionary containing scenario information and parameters
         """
         return self.scenario_manager.get_scenario_info()
+    
+    def get_benchmark_analysis(self) -> Dict:
+        """Get current performance benchmark analysis
+        
+        Returns:
+            Dictionary containing benchmark metrics and analysis
+        """
+        if not self.running and self.metrics['simulation_end_time'] > 0:
+            # Generate analysis from completed simulation
+            simulation_duration = self.metrics['simulation_end_time'] - self.metrics['simulation_start_time']
+            avg_waiting_time = (
+                self.metrics['total_waiting_time'] / self.metrics['ships_processed']
+                if self.metrics['ships_processed'] > 0 else 0
+            )
+            
+            container_stats = self.container_handler.get_processing_statistics()
+            total_containers = container_stats.get('total_operations', 0)
+            container_throughput = total_containers / simulation_duration if simulation_duration > 0 else 0
+            ship_turnaround_time = avg_waiting_time + container_stats.get('average_processing_time', 0)
+            
+            simulation_results = {
+                'container_throughput_teu_per_hour': container_throughput,
+                'berth_utilization_percent': self._calculate_berth_utilization(),
+                'ship_turnaround_time_hours': ship_turnaround_time,
+                'queue_efficiency_percent': self._calculate_queue_efficiency(),
+                'processing_efficiency_percent': self._calculate_processing_efficiency(),
+                'ships_processed_per_hour': self.metrics['ships_processed'] / simulation_duration if simulation_duration > 0 else 0,
+                'average_waiting_time_hours': avg_waiting_time
+            }
+            
+            return self.performance_benchmarking.analyze_simulation_results(simulation_results).to_dict()
+        else:
+            # Return current benchmark state for running simulation
+            return self.performance_benchmarking.generate_report().to_dict()
         
     def list_available_scenarios(self) -> List[str]:
         """Get list of available scenarios

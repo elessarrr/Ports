@@ -1945,9 +1945,22 @@ def _validate_cargo_data(cargo_stats: Dict[str, pd.DataFrame]) -> Dict[str, any]
 def _validate_vessel_data(vessel_data: pd.DataFrame) -> Dict[str, any]:
     """Validate vessel arrivals data quality."""
     try:
-        if not isinstance(vessel_data, pd.DataFrame) or vessel_data.empty:
-            logger.warning("Vessel data is not a valid DataFrame or is empty.")
-            return {'status': 'invalid_input', 'valid': False, 'message': 'Input is not a valid DataFrame or is empty.'}
+        if not isinstance(vessel_data, pd.DataFrame):
+            logger.warning("Vessel data is not a valid DataFrame.")
+            return {'status': 'invalid_input', 'valid': False, 'message': 'Input is not a valid DataFrame.'}
+        
+        if vessel_data.empty:
+            logger.warning("Vessel data is empty.")
+            return {
+                'valid': False,
+                'records_count': 0,
+                'unique_vessels': 0,
+                'date_range': 'unknown',
+                'missing_values': {},
+                'data_completeness': 0,
+                'duplicate_records': 0,
+                'message': 'Input DataFrame is empty.'
+            }
 
         validation = {
             'valid': True,

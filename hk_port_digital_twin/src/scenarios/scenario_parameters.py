@@ -19,10 +19,32 @@ optimization decisions.
 
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
+from enum import Enum
 import logging
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+class SeasonType(Enum):
+    """Enumeration of seasonal periods"""
+    PEAK = "peak"
+    NORMAL = "normal"
+    LOW = "low"
+
+class WeatherCondition(Enum):
+    """Enumeration of weather conditions"""
+    CLEAR = "clear"
+    CLOUDY = "cloudy"
+    RAINY = "rainy"
+    STORMY = "stormy"
+    TYPHOON = "typhoon"
+
+class OperationalMode(Enum):
+    """Enumeration of operational modes"""
+    NORMAL = "normal"
+    MAINTENANCE = "maintenance"
+    EMERGENCY = "emergency"
+    REDUCED_CAPACITY = "reduced_capacity"
 
 @dataclass
 class ScenarioParameters:

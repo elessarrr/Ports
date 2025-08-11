@@ -6,6 +6,7 @@ for different scenarios based on seasonal patterns and historical trends.
 """
 
 import logging
+import pandas as pd
 from datetime import datetime, date
 from typing import Dict, List, Optional, Tuple
 from dataclasses import asdict
@@ -15,7 +16,8 @@ try:
         get_time_series_data,
         forecast_cargo_throughput,
         get_enhanced_cargo_analysis,
-        _analyze_seasonal_patterns
+        _analyze_seasonal_patterns,
+        load_focused_cargo_statistics
     )
 except ImportError:
     logging.warning("Could not import data_loader functions. Historical extraction will use default values.")
@@ -23,6 +25,7 @@ except ImportError:
     forecast_cargo_throughput = None
     get_enhanced_cargo_analysis = None
     _analyze_seasonal_patterns = None
+    load_focused_cargo_statistics = None
 
 from .scenario_parameters import ScenarioParameters, ALL_SCENARIOS
 
@@ -45,18 +48,41 @@ class HistoricalParameterExtractor:
             True if data was loaded successfully, False otherwise
         """
         try:
-            if not get_time_series_data:
+            if not get_time_series_data or not load_focused_cargo_statistics:
                 logger.warning("Data loader functions not available. Using predefined parameters.")
                 return False
                 
-            # Get time series data
-            time_series_data = get_time_series_data()
+            # Load cargo statistics first
+            cargo_stats = load_focused_cargo_statistics()
+            if not cargo_stats:
+                logger.warning("No cargo statistics data available")
+                return False
+                
+            # Get time series data with cargo_stats parameter
+            time_series_data = get_time_series_data(cargo_stats)
             if not time_series_data:
                 logger.warning("No time series data available")
                 return False
                 
-            # Analyze seasonal patterns
-            self.seasonal_patterns = _analyze_seasonal_patterns(time_series_data)
+            # Analyze seasonal patterns - use shipment_types data if available
+            if 'shipment_types' in time_series_data and not time_series_data['shipment_types'].empty:
+                # Convert to format expected by _analyze_seasonal_patterns
+                shipment_df = time_series_data['shipment_types']
+                # Create a combined DataFrame with datetime index for seasonal analysis
+                combined_data = pd.DataFrame()
+                combined_data['total_teus'] = shipment_df.sum(axis=1)
+                if 'Direct shipment cargo' in shipment_df.columns:
+                    combined_data['seaborne_teus'] = shipment_df['Direct shipment cargo']
+                if 'Transhipment cargo' in shipment_df.columns:
+                    combined_data['river_teus'] = shipment_df['Transhipment cargo']
+                
+                # Convert year index to datetime
+                combined_data.index = pd.to_datetime(combined_data.index, format='%Y')
+                
+                self.seasonal_patterns = _analyze_seasonal_patterns(combined_data)
+            else:
+                logger.warning("No suitable time series data for seasonal analysis")
+                self.seasonal_patterns = {}
             
             # Get cargo forecasts
             self.cargo_forecasts = forecast_cargo_throughput(time_series_data, forecast_years=2)

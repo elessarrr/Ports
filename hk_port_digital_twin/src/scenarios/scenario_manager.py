@@ -22,6 +22,26 @@ import logging
 from datetime import datetime, date
 from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import asdict
+from enum import Enum
+
+class ScenarioType(Enum):
+    """Enumeration of scenario types"""
+    PEAK_SEASON = "peak_season"
+    NORMAL_OPERATIONS = "normal_operations"
+    LOW_SEASON = "low_season"
+    EQUIPMENT_MAINTENANCE = "equipment_maintenance"
+    TYPHOON_DISRUPTION = "typhoon_disruption"
+    CAPACITY_STRESS_TEST = "capacity_stress_test"
+    AI_OPTIMIZATION_BENCHMARK = "ai_optimization_benchmark"
+    SUPPLY_CHAIN_DISRUPTION = "supply_chain_disruption"
+
+class ScenarioStatus(Enum):
+    """Enumeration of scenario status"""
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    PENDING = "pending"
+    COMPLETED = "completed"
+    ERROR = "error"
 
 from .scenario_parameters import (
     ScenarioParameters,

@@ -98,6 +98,17 @@ Every time you fix a coding error, document the debugging process and key learni
 
 **Additional Insight:**
 - Export functionality should be easily discoverable and well-organized in the UI
+
+## Missing Time Module Import in Streamlit Dashboard
+
+- **Caused by:** NameError: name 'time' is not defined at line 397 in streamlit_app.py. The code was using `time.sleep(5)` for auto-refresh functionality but the `time` module was not imported.
+- **How fixed:** Added `import time` to the import statements at the top of the streamlit_app.py file, placing it logically with other standard library imports.
+- **Learnings/Takeaway:** Always ensure all required modules are imported before using them. Standard library imports like `time` are easy to overlook but cause runtime errors. Use IDE linting or static analysis tools to catch missing imports during development rather than at runtime.
+- **Date fixed:** 2025-01-11 22:20
+
+**Additional Insight:**
+- This type of import error is common when adding new functionality that uses modules not previously required in the file
+- Auto-refresh functionality in web dashboards should be implemented carefully to avoid performance issues with frequent page reloads
 - New features require corresponding tests to ensure reliability
 - Timestamp-based file naming prevents download conflicts for users
 
