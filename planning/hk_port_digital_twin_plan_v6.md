@@ -333,6 +333,16 @@ Build a working digital twin simulation of Hong Kong's port operations that can 
 
 ---
 
+### 🔮 PRIORITY 6: FUTURE ENHANCEMENTS
+
+**Goal**: Continuously improve the Digital Twin with new features and capabilities.
+
+**Backlog**:
+- **Vessel Turnaround Time Metric**: Implement the calculation and visualization of vessel turnaround time in the dashboard.
+- **Advanced Crane Logic**: Model individual crane operations and assignments for more granular optimization.
+- **Inter-Terminal Traffic**: Simulate container movements between different terminals in the port.
+- **Energy Consumption & Emissions**: Add modules to track and optimize energy usage and environmental impact.
+
 ## Data Sources (Open Source)
 - **Marine Department Hong Kong**: Ship arrival/departure data (public API)
 - **Hong Kong Port Development Council**: Port statistics and berth information

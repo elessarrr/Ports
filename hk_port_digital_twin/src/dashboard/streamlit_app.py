@@ -34,8 +34,21 @@ except ImportError:
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(threadName)s - %(message)s')
 
 
-def load_sample_data(use_real_throughput_data=True):
-    """Load sample data"""
+def load_sample_data(scenario='normal', use_real_throughput_data=True):
+    """Load sample data based on scenario"""
+    if scenario == 'peak':
+        queue_multiplier = 2
+        utilization_multiplier = 1.2
+        waiting_time_multiplier = 1.5
+    elif scenario == 'low':
+        queue_multiplier = 0.5
+        utilization_multiplier = 0.8
+        waiting_time_multiplier = 0.7
+    else:  # normal
+        queue_multiplier = 1
+        utilization_multiplier = 1
+        waiting_time_multiplier = 1
+
     queue_data = {
         'berth_id': ['Berth_A1', 'Berth_A2', 'Berth_A3', 'Berth_A4', 'Berth_B1', 'Berth_B2', 'Berth_C1', 'Berth_C2'],
         'name': ['Berth A1', 'Berth A2', 'Berth A3', 'Berth A4', 'Berth B1', 'Berth B2', 'Berth C1', 'Berth C2'],
@@ -43,13 +56,13 @@ def load_sample_data(use_real_throughput_data=True):
         'y': [1, 1, 1, 1, 2, 2, 3, 3],
         'status': ['occupied', 'available', 'occupied', 'maintenance', 'occupied', 'available', 'occupied', 'available'],
         'ship_id': ['SHIP_001', None, 'SHIP_003', None, 'SHIP_005', None, 'SHIP_007', None],
-        'utilization': [85, 0, 92, 0, 78, 0, 88, 0],
+        'utilization': [min(99, 85 * utilization_multiplier), 0, min(99, 92 * utilization_multiplier), 0, min(99, 78 * utilization_multiplier), 0, min(99, 88 * utilization_multiplier), 0],
         'berth_type': ['container', 'container', 'container', 'container', 'bulk', 'bulk', 'mixed', 'mixed'],
         'crane_count': [4, 3, 4, 2, 2, 2, 3, 3],
         'max_capacity_teu': [5000, 4000, 5000, 3000, 6000, 6000, 4500, 4500],
         'is_occupied': [True, False, True, False, True, False, True, False]
     }
-    
+
     # Load real container throughput data instead of simulated data
     if use_real_throughput_data:
         try:
@@ -65,7 +78,7 @@ def load_sample_data(use_real_throughput_data=True):
             # Fallback to sample data if real data loading fails
             print(f"Warning: Could not load real throughput data: {e}")
             timeline_data = {
-                'time': pd.date_range(start=datetime.now() - timedelta(hours=24), 
+                'time': pd.date_range(start=datetime.now() - timedelta(hours=24),
                                      end=datetime.now(), freq='h'),
                 'containers_processed': np.random.randint(10, 100, 25),
                 'ships_processed': np.random.randint(1, 8, 25)
@@ -74,41 +87,42 @@ def load_sample_data(use_real_throughput_data=True):
     else:
         # Fallback to sample data if function not available
         timeline_data = {
-            'time': pd.date_range(start=datetime.now() - timedelta(hours=24), 
+            'time': pd.date_range(start=datetime.now() - timedelta(hours=24),
                                  end=datetime.now(), freq='h'),
             'containers_processed': np.random.randint(10, 100, 25),
             'ships_processed': np.random.randint(1, 8, 25)
         }
         timeline_data = pd.DataFrame(timeline_data)
-    
+
     # Sample ship queue data (ships waiting for berths)
+    num_ships_in_queue = int(3 * queue_multiplier)
     ship_queue_data = {
-        'ship_id': ['SHIP_001', 'SHIP_002', 'SHIP_003'],
-        'name': ['MSC Lucinda', 'COSCO Shanghai', 'Evergreen Marine'],
-        'ship_type': ['container', 'container', 'bulk'],
-        'arrival_time': [datetime.now() - timedelta(hours=2), datetime.now() - timedelta(hours=1), datetime.now() - timedelta(minutes=30)],
-        'containers': [150, 200, 120],
-        'size_teu': [8000, 12000, 6500],
-        'waiting_time': [2.5, 1.8, 3.2],
-        'priority': ['high', 'medium', 'low']
+        'ship_id': [f'SHIP_{i:03d}' for i in range(1, num_ships_in_queue + 1)],
+        'name': [f'Ship {i}' for i in range(1, num_ships_in_queue + 1)],
+        'ship_type': np.random.choice(['container', 'bulk'], num_ships_in_queue) if num_ships_in_queue > 0 else [],
+        'arrival_time': [datetime.now() - timedelta(hours=i) for i in range(num_ships_in_queue, 0, -1)],
+        'containers': np.random.randint(100, 300, num_ships_in_queue) if num_ships_in_queue > 0 else [],
+        'size_teu': np.random.randint(5000, 15000, num_ships_in_queue) if num_ships_in_queue > 0 else [],
+        'waiting_time': np.random.uniform(1.0, 5.0, num_ships_in_queue) * waiting_time_multiplier if num_ships_in_queue > 0 else [],
+        'priority': np.random.choice(['high', 'medium', 'low'], num_ships_in_queue) if num_ships_in_queue > 0 else []
     }
     
     # Sample waiting time data
     waiting_data = {
         'ship_id': [f'SHIP_{i:03d}' for i in range(1, 21)],
-        'waiting_time': np.random.exponential(2, 20),
+        'waiting_time': np.random.exponential(2, 20) * waiting_time_multiplier,
         'ship_type': np.random.choice(['container', 'bulk', 'mixed'], 20)
     }
-    
+
     # Sample KPI data
     kpi_data = {
         'metric': ['Average Waiting Time', 'Berth Utilization', 'Throughput Rate', 'Queue Length'],
-        'value': [2.5, 75, 85, 3],
+        'value': [2.5 * waiting_time_multiplier, 75 * utilization_multiplier, 85, 3 * queue_multiplier],
         'unit': ['hours', '%', 'containers/hour', 'ships'],
         'target': [2.0, 80, 90, 2],
         'status': ['warning', 'good', 'good', 'warning']
     }
-    
+
     return {
         'berths': pd.DataFrame(queue_data),
         'queue': pd.DataFrame(ship_queue_data),
@@ -117,9 +131,9 @@ def load_sample_data(use_real_throughput_data=True):
         'kpis': pd.DataFrame(kpi_data),
         'vessel_queue_analysis': {
             'total_vessels_waiting': len(ship_queue_data['ship_id']),
-            'average_waiting_time': np.mean(ship_queue_data['waiting_time']),
-            'queue_by_type': {'container': 2, 'bulk': 1},
-            'priority_distribution': {'high': 1, 'medium': 1, 'low': 1}
+            'average_waiting_time': np.mean(ship_queue_data['waiting_time']) if num_ships_in_queue > 0 else 0,
+            'queue_by_type': pd.DataFrame(ship_queue_data)['ship_type'].value_counts().to_dict() if num_ships_in_queue > 0 else {},
+            'priority_distribution': pd.DataFrame(ship_queue_data)['priority'].value_counts().to_dict() if num_ships_in_queue > 0 else {}
         }
     }
 
@@ -184,6 +198,8 @@ def get_real_berth_data():
 def initialize_session_state():
     """Initialize Streamlit session state variables"""
     logging.info("Initializing session state...")
+    if 'scenario' not in st.session_state:
+        st.session_state.scenario = 'normal'
     if 'simulation_running' not in st.session_state:
         st.session_state.simulation_running = False
     if 'simulation_controller' not in st.session_state:
@@ -438,7 +454,7 @@ def main():
             data = load_sample_data()
     else:
         # Load sample data when simulation is not running
-        data = load_sample_data()
+        data = load_sample_data(st.session_state.scenario)
     
     # Auto-refresh every 2 seconds when simulation is running
     if st.session_state.simulation_running:
@@ -562,36 +578,55 @@ def main():
     
     with tab2:
         st.subheader("Ships & Berths")
-        
+
+        # If simulation is running, use real-time data, otherwise use sample data
+        if st.session_state.simulation_running:
+            sim_status = st.session_state.simulation_controller.get_current_status()
+            berth_stats = st.session_state.simulation_controller.get_berth_statistics()
+
+            # Create a DataFrame for the queue
+            queue_df = pd.DataFrame(sim_status['ship_queue'], columns=['Ship ID', 'Type', 'TEUs', 'Arrival', 'Waiting Time'])
+            
+            # Create a dictionary for berth utilization
+            berth_util_dict = {b['berth_id']: b['utilization'] for b in berth_stats['berth_details']}
+            berths_df = pd.DataFrame(berth_stats['berth_details'])
+
+
+        else:
+            # Fallback to sample data if simulation not running
+            queue_df = data['queue']
+            berth_util_dict = dict(zip(data['berths']['berth_id'], data['berths']['utilization']))
+            berths_df = data['berths']
+
+
         col1, col2 = st.columns(2)
-        
+
         with col1:
             st.subheader("Ship Queue")
             # Convert DataFrame to list of dictionaries for visualization
-            queue_list = data['queue'].to_dict('records')
+            queue_list = queue_df.to_dict('records')
             if create_ship_queue_chart is not None:
                 fig_queue = create_ship_queue_chart(queue_list)
                 st.plotly_chart(fig_queue, use_container_width=True, key="main_ship_queue_chart")
             else:
                 st.warning("Ship queue visualization not available. Please check visualization module import.")
-                st.dataframe(data['queue'], use_container_width=True)
-            
+                st.dataframe(queue_df, use_container_width=True)
+
             # Ship queue table
-            st.dataframe(data['queue'], use_container_width=True)
-        
+            st.dataframe(queue_df, use_container_width=True)
+
         with col2:
             st.subheader("Berth Utilization")
-            # Convert DataFrame to dictionary for visualization
-            berth_util_dict = dict(zip(data['berths']['berth_id'], data['berths']['utilization']))
             if create_berth_utilization_chart is not None:
                 fig_berth = create_berth_utilization_chart(berth_util_dict)
                 st.plotly_chart(fig_berth, use_container_width=True, key="main_berth_utilization_chart")
             else:
                 st.warning("Berth utilization visualization not available. Please check visualization module import.")
-                st.dataframe(data['berths'], use_container_width=True)
+                st.dataframe(pd.Series(berth_util_dict).reset_index(), use_container_width=True)
             
             # Berth status table
-            st.dataframe(data['berths'], use_container_width=True)
+            st.dataframe(berths_df, use_container_width=True)
+
     
     with tab3:
         st.subheader("Analytics")
