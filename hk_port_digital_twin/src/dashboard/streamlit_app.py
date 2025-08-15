@@ -390,12 +390,59 @@ def main():
     # Sidebar controls
     duration, arrival_rate = create_sidebar()
     
-    # Load sample data (in a real implementation, this would come from the simulation)
-    data = load_sample_data()
+    # Load data from running simulation or use sample data
+    if st.session_state.simulation_running and st.session_state.simulation_controller:
+        # Get real-time data from running simulation
+        try:
+            sim_status = st.session_state.simulation_controller.simulation.get_current_status()
+            berth_stats = st.session_state.simulation_controller.simulation.berth_manager.get_berth_statistics()
+            
+            # Convert simulation data to dashboard format
+            data = {
+                'queue': pd.DataFrame([
+                    {
+                        'ship_id': f'SIM_{i+1}',
+                        'ship_type': 'container',
+                        'arrival_time': sim_status['current_time'] - (i * 0.5),
+                        'containers': 150 + (i * 20),
+                        'priority': 'normal'
+                    } for i in range(sim_status['queue_length'])
+                ]),
+                'berths': pd.DataFrame([
+                    {
+                        'berth_id': f'B{i+1}',
+                        'status': 'occupied' if i < berth_stats.get('occupied_berths', 0) else 'available',
+                        'ship_id': f'SIM_{i+1}' if i < berth_stats.get('occupied_berths', 0) else None,
+                        'utilization': 0.8 if i < berth_stats.get('occupied_berths', 0) else 0.0,
+                        'capacity': 2000
+                    } for i in range(berth_stats.get('total_berths', 8))
+                ]),
+                'metrics': {
+                    'current_time': sim_status['current_time'],
+                    'ships_processed': sim_status['ships_processed'],
+                    'ships_in_system': sim_status['ships_in_system'],
+                    'berth_utilization': berth_stats.get('utilization_rate', 0.0),
+                    'queue_length': sim_status['queue_length']
+                }
+            }
+            
+            # Show simulation status
+            progress = st.session_state.simulation_controller.get_progress_percentage()
+            st.sidebar.success(f"Simulation Running - {progress:.1f}% Complete")
+            st.sidebar.metric("Simulation Time", f"{sim_status['current_time']:.1f} hours")
+            st.sidebar.metric("Ships Processed", sim_status['ships_processed'])
+            st.sidebar.metric("Queue Length", sim_status['queue_length'])
+            
+        except Exception as e:
+            st.sidebar.error(f"Error getting simulation data: {e}")
+            data = load_sample_data()
+    else:
+        # Load sample data when simulation is not running
+        data = load_sample_data()
     
-    # Auto-refresh every 5 seconds when simulation is running
+    # Auto-refresh every 2 seconds when simulation is running
     if st.session_state.simulation_running:
-        time.sleep(5)
+        time.sleep(2)
         st.rerun()
     
     # Main dashboard layout
@@ -476,25 +523,34 @@ def main():
         col1, col2 = st.columns([1, 1])
         
         with col1:
-            # Enhanced metrics with real vessel data
-            vessel_analysis = data.get('vessel_queue_analysis', {})
-            
-            if vessel_analysis:
-                active_vessels = vessel_analysis.get('current_status', {}).get('active_vessels', 0)
-                st.metric("Live Vessels", active_vessels)
+            # Real-time or enhanced metrics
+            if st.session_state.simulation_running and 'metrics' in data:
+                # Show real-time simulation metrics
+                sim_metrics = data['metrics']
+                st.metric("Ships in Queue", sim_metrics['queue_length'])
+                st.metric("Available Berths", len(data['berths'][data['berths']['status'] == 'available']))
+                st.metric("Ships Processed", sim_metrics['ships_processed'])
+                st.metric("Berth Utilization", f"{sim_metrics['berth_utilization']:.1%}")
             else:
-                st.metric("Active Ships", len(data['queue']))
-            
-            st.metric("Available Berths", len(data['berths'][data['berths']['status'] == 'available']))
-            
-            # Show recent arrivals if available
-            if vessel_analysis and 'recent_activity' in vessel_analysis:
-                arrivals_24h = vessel_analysis['recent_activity'].get('arrivals_last_24h', 0)
-                st.metric("24h Arrivals", arrivals_24h)
-            else:
-                st.metric("Avg Waiting Time", "2.5 hrs")
-            
-            st.metric("Utilization Rate", "75%")
+                # Enhanced metrics with real vessel data
+                vessel_analysis = data.get('vessel_queue_analysis', {})
+                
+                if vessel_analysis:
+                    active_vessels = vessel_analysis.get('current_status', {}).get('active_vessels', 0)
+                    st.metric("Live Vessels", active_vessels)
+                else:
+                    st.metric("Active Ships", len(data['queue']))
+                
+                st.metric("Available Berths", len(data['berths'][data['berths']['status'] == 'available']))
+                
+                # Show recent arrivals if available
+                if vessel_analysis and 'recent_activity' in vessel_analysis:
+                    arrivals_24h = vessel_analysis['recent_activity'].get('arrivals_last_24h', 0)
+                    st.metric("24h Arrivals", arrivals_24h)
+                else:
+                    st.metric("Avg Waiting Time", "2.5 hrs")
+                
+                st.metric("Utilization Rate", "75%")
         
         # Port Layout
         st.subheader("Port Layout")
