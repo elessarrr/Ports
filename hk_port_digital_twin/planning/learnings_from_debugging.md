@@ -44,3 +44,32 @@ This document outlines the key learnings from debugging sessions, focusing on th
 *   **Symptom:** The application crashed with a `ValueError` when checking if a DataFrame was empty.
 *   **Root Cause:** The code was using `if berth_data:`, which is not a valid way to check if a pandas DataFrame is empty.
 *   **Resolution:** The condition was changed to `if not berth_data.empty:`, which is the correct way to check for an empty DataFrame.
+
+### Session 4: Dynamic Data Generation and Key Errors
+
+**1. `KeyError: 'queue'`**
+
+*   **Symptom:** The application crashed with a `KeyError` when trying to access `data['queue']` in the main function.
+*   **Root Cause:** The `load_sample_data` function was modified to implement dynamic berth data generation but inadvertently stopped returning the 'queue' key in the data dictionary.
+*   **Resolution:** The `load_sample_data` function was corrected to ensure it always returns all required keys including 'queue', 'berths', 'vessels', etc.
+
+**2. `AttributeError: 'NoneType' object has no attribute 'empty'`**
+
+*   **Symptom:** The application crashed when trying to check if `berth_data` was empty, but `berth_data` was `None`.
+*   **Root Cause:** The main function was trying to access `data.get('berth_details')` but the data dictionary contained the berth information under the key 'berths', not 'berth_details'.
+*   **Resolution:** Changed `data.get('berth_details')` to `data.get('berths')` to correctly access the berth data.
+
+**3. Dynamic Scenario-Based Data Generation Implementation**
+
+*   **Challenge:** Implement dynamic data generation that responds to scenario changes (Peak, Normal, Low) with different utilization rates and berth occupancy patterns.
+*   **Solution:** 
+    1. Defined scenario parameters with specific utilization and occupied berth ranges for each scenario
+    2. Modified `load_sample_data` to use these parameters for generating randomized but realistic data
+    3. Ensured the `load_data` function properly integrates with the scenario manager
+    4. Fixed data flow issues to ensure scenario changes trigger proper data reloads
+
+**Key Learnings:**
+- Always ensure data dictionary keys are consistent between generation and consumption functions
+- When modifying data generation logic, verify all return values and data structures remain intact
+- Test scenario switching functionality thoroughly to ensure dynamic updates work correctly
+- Use proper error handling and validation when accessing dictionary keys that might not exist
