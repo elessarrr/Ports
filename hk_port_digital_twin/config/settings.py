@@ -188,3 +188,60 @@ PERFORMANCE_TARGETS = {
     'container_moves_per_hour': 120,  # Target: 120 TEU/hour
     'queue_length_threshold': 5,  # Alert if more than 5 ships waiting
 }
+
+# Dashboard Preferences Configuration
+# Controls the behavior and layout of the dashboard interface
+DASHBOARD_PREFERENCES = {
+    # Tab Structure Settings
+    'use_consolidated_scenarios': True,  # Use new consolidated scenarios tab
+    'scenarios_sections_expanded': True,  # Default expanded state for sections
+    'navigation_style': 'anchor_links',  # Navigation style: 'anchor_links' or 'sidebar'
+    
+    # Section Display Settings
+    'show_section_navigation': True,  # Show navigation sidebar in consolidated tab
+    'enable_expand_collapse_all': True,  # Show expand/collapse all buttons
+    'section_auto_scroll': True,  # Auto-scroll to section when navigating
+    
+    # User Experience Settings
+    'remember_section_states': True,  # Remember expanded/collapsed states
+    'show_section_descriptions': True,  # Show descriptive text for each section
+    'enable_quick_export': True,  # Enable quick export buttons in sections
+    
+    # Performance Settings
+    'lazy_load_sections': False,  # Load sections on-demand (future feature)
+    'cache_section_data': True,  # Cache section data for better performance
+}
+
+# Default Section States for Consolidated Scenarios Tab
+# Controls which sections are expanded by default
+DEFAULT_SECTION_STATES = {
+    'overview': True,     # Scenario Selection & Overview
+    'operations': True,   # Operational Impact
+    'analytics': True,    # Performance Analytics
+    'cargo': True,        # Cargo Analysis
+    'advanced': True,     # Advanced Analysis
+}
+
+def get_dashboard_preferences():
+    """Get current dashboard preferences with user overrides.
+    
+    This function returns the dashboard preferences, allowing for user-specific
+    overrides stored in session state or user configuration files.
+    
+    Returns:
+        Dict: Current dashboard preferences
+    """
+    preferences = DASHBOARD_PREFERENCES.copy()
+    
+    # In a future implementation, this could load user-specific preferences
+    # from a database, configuration file, or session state
+    
+    return preferences
+
+def get_default_section_states():
+    """Get default section states for the consolidated scenarios tab.
+    
+    Returns:
+        Dict: Default expanded/collapsed states for each section
+    """
+    return DEFAULT_SECTION_STATES.copy()
