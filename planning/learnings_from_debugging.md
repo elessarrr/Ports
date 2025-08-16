@@ -248,6 +248,14 @@ In `load_sample_data()` function, the queue data was incorrectly assigned:
 ```python
 return {
     'berths': pd.DataFrame(queue_data),
+
+## Inconsistent UI updates on scenario change
+
+- **Caused by:** The Streamlit application was not consistently updating all components when the scenario was changed. Specifically, the "Berth Utilization" graph and the scenario selector dropdown lagged behind the "Ship Queue" graph. This was due to a state synchronization issue where the app did not reliably re-run after the `st.session_state.scenario` was updated in the `create_sidebar` function.
+- **How fixed:** Added `st.rerun()` immediately after updating `st.session_state.scenario` in the `create_sidebar` function within `streamlit_app.py`. This forces an immediate re-execution of the script with the updated session state, ensuring that all UI components are redrawn with the new scenario's data.
+- **Learnings/Takeaway:** In Streamlit, when updating session state in a callback or part of the script that doesn't automatically trigger a full re-render of all components, it's crucial to manually call `st.rerun()` to enforce a consistent state across the entire application. This is especially important for complex dashboards with interdependent components.
+- **Date fixed:** 2025-01-28
+
     'queue': pd.DataFrame(queue_data),  # Wrong! Using berth data for queue
     ...
 }

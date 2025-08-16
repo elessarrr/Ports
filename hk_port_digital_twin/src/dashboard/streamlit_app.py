@@ -36,31 +36,60 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 def load_sample_data(scenario='normal', use_real_throughput_data=True):
     """Load sample data based on scenario"""
-    if scenario == 'peak':
-        queue_multiplier = 2
-        utilization_multiplier = 1.2
-        waiting_time_multiplier = 1.5
-    elif scenario == 'low':
-        queue_multiplier = 0.5
-        utilization_multiplier = 0.8
-        waiting_time_multiplier = 0.7
-    else:  # normal
-        queue_multiplier = 1
-        utilization_multiplier = 1
-        waiting_time_multiplier = 1
+    # Define scenario-based parameters
+    scenario_params = {
+        'peak': {
+            'queue_multiplier': 2,
+            'utilization_range': (80, 100),
+            'occupied_berths_range': (6, 8),
+            'waiting_time_multiplier': 1.5
+        },
+        'low': {
+            'queue_multiplier': 0.5,
+            'utilization_range': (40, 60),
+            'occupied_berths_range': (2, 4),
+            'waiting_time_multiplier': 0.7
+        },
+        'normal': {
+            'queue_multiplier': 1,
+            'utilization_range': (60, 80),
+            'occupied_berths_range': (4, 6),
+            'waiting_time_multiplier': 1
+        }
+    }
+    
+    params = scenario_params.get(scenario, scenario_params['normal'])
+    
+    # Randomly determine the number of occupied berths within the defined range
+    num_berths = 8
+    num_occupied = np.random.randint(params['occupied_berths_range'][0], params['occupied_berths_range'][1] + 1)
+    
+    # Create a list of statuses with 'occupied', 'available', and one 'maintenance'
+    statuses = ['occupied'] * num_occupied
+    statuses += ['available'] * (num_berths - num_occupied - 1)
+    statuses.append('maintenance')
+    np.random.shuffle(statuses)
+    
+    # Generate random utilization for occupied berths
+    utilization_values = []
+    for status in statuses:
+        if status == 'occupied':
+            utilization_values.append(np.random.randint(params['utilization_range'][0], params['utilization_range'][1] + 1))
+        else:
+            utilization_values.append(0)
 
-    queue_data = {
-        'berth_id': ['Berth_A1', 'Berth_A2', 'Berth_A3', 'Berth_A4', 'Berth_B1', 'Berth_B2', 'Berth_C1', 'Berth_C2'],
-        'name': ['Berth A1', 'Berth A2', 'Berth A3', 'Berth A4', 'Berth B1', 'Berth B2', 'Berth C1', 'Berth C2'],
+    berth_data = {
+        'berth_id': [f'Berth_{chr(65+i//4)}{i%4+1}' for i in range(num_berths)],
+        'name': [f'Berth {chr(65+i//4)}{i%4+1}' for i in range(num_berths)],
         'x': [1, 2, 3, 4, 1, 2, 3, 4],
         'y': [1, 1, 1, 1, 2, 2, 3, 3],
-        'status': ['occupied', 'available', 'occupied', 'maintenance', 'occupied', 'available', 'occupied', 'available'],
-        'ship_id': ['SHIP_001', None, 'SHIP_003', None, 'SHIP_005', None, 'SHIP_007', None],
-        'utilization': [min(99, 85 * utilization_multiplier), 0, min(99, 92 * utilization_multiplier), 0, min(99, 78 * utilization_multiplier), 0, min(99, 88 * utilization_multiplier), 0],
+        'status': statuses,
+        'ship_id': [f'SHIP_{i:03d}' if statuses[i] == 'occupied' else None for i in range(num_berths)],
+        'utilization': utilization_values,
         'berth_type': ['container', 'container', 'container', 'container', 'bulk', 'bulk', 'mixed', 'mixed'],
         'crane_count': [4, 3, 4, 2, 2, 2, 3, 3],
         'max_capacity_teu': [5000, 4000, 5000, 3000, 6000, 6000, 4500, 4500],
-        'is_occupied': [True, False, True, False, True, False, True, False]
+        'is_occupied': [status == 'occupied' for status in statuses]
     }
 
     # Load real container throughput data instead of simulated data
@@ -95,7 +124,7 @@ def load_sample_data(scenario='normal', use_real_throughput_data=True):
         timeline_data = pd.DataFrame(timeline_data)
 
     # Sample ship queue data (ships waiting for berths)
-    num_ships_in_queue = int(3 * queue_multiplier)
+    num_ships_in_queue = int(3 * params['queue_multiplier'])
     ship_queue_data = {
         'ship_id': [f'SHIP_{i:03d}' for i in range(1, num_ships_in_queue + 1)],
         'name': [f'Ship {i}' for i in range(1, num_ships_in_queue + 1)],
@@ -103,30 +132,30 @@ def load_sample_data(scenario='normal', use_real_throughput_data=True):
         'arrival_time': [datetime.now() - timedelta(hours=i) for i in range(num_ships_in_queue, 0, -1)],
         'containers': np.random.randint(100, 300, num_ships_in_queue) if num_ships_in_queue > 0 else [],
         'size_teu': np.random.randint(5000, 15000, num_ships_in_queue) if num_ships_in_queue > 0 else [],
-        'waiting_time': np.random.uniform(1.0, 5.0, num_ships_in_queue) * waiting_time_multiplier if num_ships_in_queue > 0 else [],
+        'waiting_time': np.random.uniform(1.0, 5.0, num_ships_in_queue) * params['waiting_time_multiplier'] if num_ships_in_queue > 0 else [],
         'priority': np.random.choice(['high', 'medium', 'low'], num_ships_in_queue) if num_ships_in_queue > 0 else []
     }
     
     # Sample waiting time data
     waiting_data = {
         'ship_id': [f'SHIP_{i:03d}' for i in range(1, 21)],
-        'waiting_time': np.random.exponential(2, 20) * waiting_time_multiplier,
+        'waiting_time': np.random.exponential(2, 20) * params['waiting_time_multiplier'],
         'ship_type': np.random.choice(['container', 'bulk', 'mixed'], 20)
     }
 
     # Sample KPI data
     kpi_data = {
         'metric': ['Average Waiting Time', 'Berth Utilization', 'Throughput Rate', 'Queue Length'],
-        'value': [2.5 * waiting_time_multiplier, 75 * utilization_multiplier, 85, 3 * queue_multiplier],
+        'value': [2.5 * params['waiting_time_multiplier'], np.mean(params['utilization_range']), 85, 3 * params['queue_multiplier']],
         'unit': ['hours', '%', 'containers/hour', 'ships'],
         'target': [2.0, 80, 90, 2],
         'status': ['warning', 'good', 'good', 'warning']
     }
 
     return {
-        'berths': pd.DataFrame(queue_data),
+        'berths': pd.DataFrame(berth_data),
         'queue': pd.DataFrame(ship_queue_data),
-        'timeline': timeline_data,  # Now using real data
+        'timeline': timeline_data,
         'waiting': pd.DataFrame(waiting_data),
         'kpis': pd.DataFrame(kpi_data),
         'vessel_queue_analysis': {
@@ -138,7 +167,7 @@ def load_sample_data(scenario='normal', use_real_throughput_data=True):
     }
 
 
-def get_real_berth_data():
+def get_real_berth_data(berth_config):
     """Get real-time berth data from BerthManager"""
     if BerthManager and simpy:
         try:
@@ -260,7 +289,9 @@ def create_sidebar():
     # Update scenario if changed
     if selected_scenario != current_scenario:
         scenario_manager.set_scenario(selected_scenario)
+        st.session_state.scenario = selected_scenario  # Update session state
         st.sidebar.success(f"Scenario changed to: {selected_scenario}")
+        st.rerun()
     
     # Auto-detection toggle
     auto_detect = st.sidebar.checkbox(
@@ -386,6 +417,16 @@ def create_sidebar():
     return duration, arrival_rate
 
 
+def load_data(scenario: str):
+    """Loads data for a given scenario."""
+    try:
+        # Load data using the utility function
+        data = load_sample_data(scenario)
+        return data
+    except Exception as e:
+        st.error(f"Error loading data for scenario '{scenario}': {e}")
+        return {}
+
 def main():
     """Main dashboard application"""
     # Page configuration
@@ -395,71 +436,24 @@ def main():
         layout="wide",
         initial_sidebar_state="expanded"
     )
-    
+
     # Initialize session state
     initialize_session_state()
+
+    # --- Sidebar ---
+    create_sidebar()
+    
+    # --- Main Content ---
+    
+    # Get current scenario from session state
+    scenario = st.session_state.scenario_manager.get_current_scenario()
+
+    # Load data based on the selected scenario
+    data = load_data(scenario)
     
     # Header
     st.title("🏗️ Hong Kong Port Digital Twin Dashboard")
     st.markdown("Real-time visualization and control of port operations")
-    
-    # Sidebar controls
-    duration, arrival_rate = create_sidebar()
-    
-    # Load data from running simulation or use sample data
-    if st.session_state.simulation_running and st.session_state.simulation_controller:
-        # Get real-time data from running simulation
-        try:
-            sim_status = st.session_state.simulation_controller.simulation.get_current_status()
-            berth_stats = st.session_state.simulation_controller.simulation.berth_manager.get_berth_statistics()
-            
-            # Convert simulation data to dashboard format
-            data = {
-                'queue': pd.DataFrame([
-                    {
-                        'ship_id': f'SIM_{i+1}',
-                        'ship_type': 'container',
-                        'arrival_time': sim_status['current_time'] - (i * 0.5),
-                        'containers': 150 + (i * 20),
-                        'priority': 'normal'
-                    } for i in range(sim_status['queue_length'])
-                ]),
-                'berths': pd.DataFrame([
-                    {
-                        'berth_id': f'B{i+1}',
-                        'status': 'occupied' if i < berth_stats.get('occupied_berths', 0) else 'available',
-                        'ship_id': f'SIM_{i+1}' if i < berth_stats.get('occupied_berths', 0) else None,
-                        'utilization': 0.8 if i < berth_stats.get('occupied_berths', 0) else 0.0,
-                        'capacity': 2000
-                    } for i in range(berth_stats.get('total_berths', 8))
-                ]),
-                'metrics': {
-                    'current_time': sim_status['current_time'],
-                    'ships_processed': sim_status['ships_processed'],
-                    'ships_in_system': sim_status['ships_in_system'],
-                    'berth_utilization': berth_stats.get('utilization_rate', 0.0),
-                    'queue_length': sim_status['queue_length']
-                }
-            }
-            
-            # Show simulation status
-            progress = st.session_state.simulation_controller.get_progress_percentage()
-            st.sidebar.success(f"Simulation Running - {progress:.1f}% Complete")
-            st.sidebar.metric("Simulation Time", f"{sim_status['current_time']:.1f} hours")
-            st.sidebar.metric("Ships Processed", sim_status['ships_processed'])
-            st.sidebar.metric("Queue Length", sim_status['queue_length'])
-            
-        except Exception as e:
-            st.sidebar.error(f"Error getting simulation data: {e}")
-            data = load_sample_data()
-    else:
-        # Load sample data when simulation is not running
-        data = load_sample_data(st.session_state.scenario)
-    
-    # Auto-refresh every 2 seconds when simulation is running
-    if st.session_state.simulation_running:
-        time.sleep(2)
-        st.rerun()
     
     # Main dashboard layout
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs(["📊 Overview", "🚢 Ships & Berths", "📈 Analytics", "📦 Cargo Statistics", "🌊 Live Map", "🛳️ Live Vessels", "🏗️ Live Berths", "🎯 Scenarios", "⚙️ Settings"])
@@ -1517,8 +1511,8 @@ def main():
         st.subheader("🏗️ Live Berth Status")
         st.markdown("Real-time berth occupancy and availability")
         
-        # Load berth data
-        berth_data, berth_metrics = get_real_berth_data()
+        # Load berth data from the selected scenario
+        berth_data = data.get('berths')
         
         if not berth_data.empty:
             # Berth status overview
@@ -1545,7 +1539,7 @@ def main():
             st.subheader("📋 Berth Details")
             st.dataframe(berth_data, use_container_width=True)
         else:
-            st.info("No berth data available")
+            st.info("No berth data available for the selected scenario.")
     
     with tab8:
         st.subheader("🎯 Scenario Analysis & Comparison")

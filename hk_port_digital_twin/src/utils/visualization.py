@@ -115,31 +115,57 @@ def create_ship_queue_chart(queue_data: List[Dict]) -> go.Figure:
         'mixed': 'lightyellow'
     }
     
-    colors = [type_colors.get(ship_type, 'lightgray') for ship_type in df['ship_type']]
-    
-    fig.add_trace(go.Bar(
-        y=df['name'],
-        x=df['waiting_time'],
-        orientation='h',
-        marker_color=colors,
-        text=[f"{size:,} TEU" for size in df['size_teu']],
-        textposition='inside',
-        hovertemplate=(
-            "<b>%{y}</b><br>"
-            "Type: %{customdata[0]}<br>"
-            "Size: %{customdata[1]:,} TEU<br>"
-            "Waiting: %{x:.1f} hours"
-            "<extra></extra>"
-        ),
-        customdata=list(zip(df['ship_type'], df['size_teu']))
-    ))
-    
+    # Add a trace for each ship type to create a legend
+    for ship_type, color in type_colors.items():
+        type_df = df[df['ship_type'] == ship_type]
+        if not type_df.empty:
+            fig.add_trace(go.Bar(
+                y=type_df['name'],
+                x=type_df['waiting_time'],
+                orientation='h',
+                marker_color=color,
+                text=[f"{size:,} TEU" for size in type_df['size_teu']],
+                textposition='inside',
+                name=ship_type.capitalize(),
+                hovertemplate=(
+                    "<b>%{y}</b><br>"
+                    "Type: %{customdata[0]}<br>"
+                    "Size: %{customdata[1]:,} TEU<br>"
+                    "Waiting: %{x:.1f} hours"
+                    "<extra></extra>"
+                ),
+                customdata=list(zip(type_df['ship_type'], type_df['size_teu']))
+            ))
+
+    # Handle other ship types
+    other_df = df[~df['ship_type'].isin(type_colors.keys())]
+    if not other_df.empty:
+        fig.add_trace(go.Bar(
+            y=other_df['name'],
+            x=other_df['waiting_time'],
+            orientation='h',
+            marker_color='lightgray',
+            text=[f"{size:,} TEU" for size in other_df['size_teu']],
+            textposition='inside',
+            name='Other',
+            hovertemplate=(
+                "<b>%{y}</b><br>"
+                "Type: %{customdata[0]}<br>"
+                "Size: %{customdata[1]:,} TEU<br>"
+                "Waiting: %{x:.1f} hours"
+                "<extra></extra>"
+            ),
+            customdata=list(zip(other_df['ship_type'], other_df['size_teu']))
+        ))
+
     fig.update_layout(
         title="Ship Waiting Queue",
         xaxis_title="Waiting Time (hours)",
         yaxis_title="Ships",
         height=max(300, len(queue_data) * 30),
-        yaxis=dict(autorange="reversed")  # Show first in queue at top
+        yaxis=dict(autorange="reversed"),  # Show first in queue at top
+        legend_title="Ship Type",
+        showlegend=True
     )
     
     return fig
@@ -157,25 +183,49 @@ def create_berth_utilization_chart(utilization_data: Dict[int, float]) -> go.Fig
     berth_ids = list(utilization_data.keys())
     utilizations = list(utilization_data.values())
     
-    # Color based on utilization level
-    colors = ['red' if u > 80 else 'orange' if u > 60 else 'green' for u in utilizations]
-    
-    fig = go.Figure(data=[
-        go.Bar(
-            x=[f"Berth {bid}" for bid in berth_ids],
-            y=utilizations,
-            marker_color=colors,
-            text=[f"{u:.1f}%" for u in utilizations],
-            textposition='outside'
-        )
-    ])
-    
+    df = pd.DataFrame({
+        'berth_id': berth_ids,
+        'utilization': utilizations
+    })
+
+    def assign_category(u):
+        if u > 80:
+            return 'High (> 80%)'
+        elif u > 60:
+            return 'Medium (60-80%)'
+        else:
+            return 'Low (< 60%)'
+
+    df['category'] = df['utilization'].apply(assign_category)
+
+    category_colors = {
+        'High (> 80%)': 'red',
+        'Medium (60-80%)': 'orange',
+        'Low (< 60%)': 'green'
+    }
+
+    fig = go.Figure()
+
+    for category, color in category_colors.items():
+        category_df = df[df['category'] == category]
+        if not category_df.empty:
+            fig.add_trace(go.Bar(
+                x=[f"Berth {bid}" for bid in category_df['berth_id']],
+                y=category_df['utilization'],
+                marker_color=color,
+                text=[f"{u:.1f}%" for u in category_df['utilization']],
+                textposition='outside',
+                name=category
+            ))
+
     fig.update_layout(
         title="Berth Utilization",
         xaxis_title="Berths",
         yaxis_title="Utilization (%)",
         yaxis=dict(range=[0, 100]),
-        height=400
+        height=400,
+        legend_title="Utilization Level",
+        showlegend=True
     )
     
     return fig

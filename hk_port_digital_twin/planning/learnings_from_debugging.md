@@ -1,134 +1,46 @@
-# Debugging Session Learnings
+## Learnings from Debugging
 
-This document captures key learnings from debugging sessions to help prevent similar issues in the future.
+This document outlines the key learnings from debugging sessions, focusing on the root causes of errors and their resolutions.
 
-## Session 1: Data Structure Mismatch
-**Date**: 2024-12-23
-**Error**: KeyError and AttributeError in data processing
+### Session 1: `AttributeError` and `NameError`
 
-### Cause
-- Mismatch between expected and actual data structure
-- Missing validation of input data format
-- Assumptions about data keys without verification
+**1. `AttributeError: 'list' object has no attribute 'empty'`**
 
-### Fix
-- Added data validation checks
-- Implemented fallback values for missing keys
-- Enhanced error handling with descriptive messages
+*   **Symptom:** The application crashed with an `AttributeError` when checking if `berth_data` was empty.
+*   **Root Cause:** The code was using `.empty`, a pandas DataFrame attribute, on a list object. This happened because the `load_data` function, which was temporarily removed, returned a list, not a DataFrame.
+*   **Resolution:** The condition was changed from `if not berth_data.empty:` to `if berth_data:`, which is the correct way to check if a list is empty in Python.
 
-### Learnings
-- Always validate data structure before processing
-- Use `.get()` method with default values for dictionaries
-- Implement comprehensive error handling
-- Log data structure for debugging purposes
+**2. `NameError: name 'get_berth_config' is not defined`**
 
-## Session 2: Missing Export Functionality
-**Date**: 2024-12-23
-**Error**: Export buttons not working, missing download functionality
+*   **Symptom:** The application failed to load real-time berth data due to a `NameError`.
+*   **Root Cause:** The function `get_berth_config` was called, but it was not defined anywhere in the codebase. The correct function to load berth configurations is `load_berth_configurations`.
+*   **Resolution:** The incorrect function call was replaced with `load_berth_configurations`, and the function was imported from `src/utils/data_loader.py`.
 
-### Cause
-- Missing implementation of export functions
-- Incorrect file path handling
-- Missing error handling for file operations
+### Session 3: Scenario Update Regression
 
-### Fix
-- Implemented CSV and JSON export functions
-- Added proper file path validation
-- Enhanced error handling for file operations
-- Added user feedback for successful exports
+**1. `Regression: Dashboard not updating on scenario change`**
 
-### Learnings
-- Test all UI components thoroughly
-- Implement proper file handling with error checking
-- Provide clear user feedback for all operations
-- Validate file paths and permissions
+*   **Symptom:** The dashboard data did not update when the user changed the scenario (e.g., from 'Normal' to 'Peak') in the sidebar.
+*   **Root Cause:** The `main` function in `streamlit_app.py` was loading the data only once when the application started. It did not reload the data when the scenario was changed via the sidebar controls.
+*   **Resolution:** The `main` function was refactored to:
+    1.  Get the current scenario from the `scenario_manager` at the beginning of each run.
+    2.  Call the `load_data` function with the current scenario to ensure the data is always up-to-date.
+    3.  Remove redundant calls to `initialize_session_state`, `create_sidebar`, and `load_data` to streamline the application flow and prevent conflicts.
 
-## Session 3: Dependency Error Resolution
-**Date**: 2024-12-24
-**Error**: ImportError and ModuleNotFoundError in pipx and Conda environments
+**1. `TypeError: get_real_berth_data() takes 0 positional arguments but 1 was given`**
 
-### Cause
-- Missing dependencies in different Python environments
-- Inconsistent package installations between pipx and Conda
-- Path resolution issues in virtual environments
+*   **Symptom:** The application failed to load real-time berth data, showing a `TypeError`.
+*   **Root Cause:** The function `get_real_berth_data` was called with `berth_config` as an argument, but the function was defined to take no arguments.
+*   **Resolution:** The function definition was updated to accept the `berth_config` argument, aligning the function signature with its usage.
 
-### Fix
-- Identified missing packages using `pip list` and `conda list`
-- Installed missing dependencies: `pip install plotly pandas numpy`
-- Verified package versions and compatibility
-- Updated import statements to handle missing dependencies gracefully
+**2. `TypeError: tuple indices must be integers or slices, not str`**
 
-### Learnings
-- Always verify dependencies in the target environment
-- Use `try-except` blocks for optional imports
-- Document required packages in requirements.txt
-- Test in multiple environments when possible
+*   **Symptom:** The application crashed when trying to access data from a tuple as if it were a dictionary or DataFrame.
+*   **Root Cause:** The `get_real_berth_data` function returns a tuple containing a DataFrame and a dictionary (`berths_df`, `berth_metrics`). The calling code was assigning this entire tuple to a single variable and then attempting to access it like a DataFrame.
+*   **Resolution:** The return value of `get_real_berth_data` was unpacked into two separate variables (`berth_details`, `_`), and only the DataFrame was used.
 
-## Session 4: TypeError and NameError Resolution
-**Date**: 2024-12-25
-**Error**: TypeError: 'NoneType' object is not callable and NameError: name 'MarineTrafficIntegration' is not defined
+**3. `ValueError: The truth value of a DataFrame is ambiguous`**
 
-### Cause
-- Import failures causing visualization functions to be set to `None`
-- Missing import statement for `MarineTrafficIntegration` class
-- Code attempting to call `None` objects as functions
-- No null checks before using imported modules
-
-### Fix
-- Added comprehensive null checks for all visualization functions (`create_ship_queue_chart`, `create_berth_utilization_chart`, `create_throughput_timeline`, `create_waiting_time_distribution`, `create_port_layout_chart`)
-- Added import statement for `MarineTrafficIntegration` with try-except handling
-- Implemented fallback behavior displaying warnings and raw data when functions are unavailable
-- Added null checks for `marine_traffic` object usage throughout the code
-
-### Learnings
-- Always implement null checks when using try-except import patterns
-- Provide meaningful fallback behavior instead of crashing
-- Import errors should be handled gracefully with user-friendly messages
-- Test all code paths, including error conditions
-- Systematic approach: fix imports first, then add null checks for all usage points
-
-## Session 5: Syntax Error and Missing Import Resolution
-**Date**: 2024-12-25
-**Error**: Try statement without except clause and NameError for cargo statistics functions
-
-### Cause
-- Incomplete try-except block missing the except clause
-- Missing imports for `load_focused_cargo_statistics`, `get_enhanced_cargo_analysis`, and `get_time_series_data` functions
-- Code attempting to use undefined functions
-- Syntax errors causing linter failures
-
-### Fix
-- Added missing except clause to handle exceptions during cargo statistics loading
-- Added imports for `load_focused_cargo_statistics`, `get_enhanced_cargo_analysis`, and `get_time_series_data` to the existing try-except import block
-- Implemented proper error handling with user-friendly error messages
-- Added null checks for all cargo statistics functions before usage
-- Provided fallback behavior with empty dictionaries when functions are unavailable
-
-### Learnings
-- Always complete try-except blocks with proper exception handling
-- Verify all function imports are included in import statements
-- Use systematic approach: fix syntax errors first, then add missing imports
-- Implement consistent error handling patterns across the application
-- Test import statements and function availability before usage
-
-## Best Practices Summary
-
-1. **Error Prevention**
-   - Validate all inputs and data structures
-   - Use defensive programming techniques
-   - Implement comprehensive error handling
-
-2. **Import Management**
-   - Use try-except blocks for optional imports
-   - Always check for None before using imported objects
-   - Provide fallback behavior for missing dependencies
-
-3. **Testing Strategy**
-   - Test all code paths, including error conditions
-   - Verify functionality in different environments
-   - Test UI components thoroughly
-
-4. **Documentation**
-   - Document all dependencies clearly
-   - Maintain debugging logs for future reference
-   - Update learnings after each debugging session
+*   **Symptom:** The application crashed with a `ValueError` when checking if a DataFrame was empty.
+*   **Root Cause:** The code was using `if berth_data:`, which is not a valid way to check if a pandas DataFrame is empty.
+*   **Resolution:** The condition was changed to `if not berth_data.empty:`, which is the correct way to check for an empty DataFrame.
