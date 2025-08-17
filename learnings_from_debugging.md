@@ -111,16 +111,33 @@ The issue was resolved by restarting the Streamlit application. This suggests th
 ### Resolution
 1. **Updated Tab4**: Changed from `load_vessel_arrivals()` to `load_combined_vessel_data()`
 2. **Improved Deduplication**: Implemented status priority logic:
-   - Priority order: 'arriving' (3) > 'in_port' (2) > 'departed' (1)
-   - Sort by priority before deduplication to preserve higher-priority statuses
-3. **Updated UI Metrics**: Modified metrics to show Total, Arriving, In Port, and Departed counts
-4. **Column Name Handling**: Added logic to handle different column names between datasets
+   ```python
+   # Priority: arriving > in_port > departed
+   status_priority = {'arriving': 3, 'in_port': 2, 'departed': 1}
+   combined_df['priority'] = combined_df['status'].map(status_priority)
+   combined_df = combined_df.sort_values('priority', ascending=False)
+   combined_df = combined_df.drop_duplicates(subset=['vessel_name', 'call_sign'], keep='first')
+   ```
+3. **Updated UI Metrics**: Changed metrics to show "Total Vessels", "Arriving", "In Port", "Departed"
+4. **Column Name Handling**: Added compatibility for different column names between datasets
+5. **Fixed Vessel Charts**: Updated `render_arriving_ships_list()` in `vessel_charts.py` to:
+   - Use `load_combined_vessel_data()` instead of `load_vessel_arrivals()`
+   - Filter for `status == 'arriving'` instead of `status == 'in_port'`
+   - Updated display messages and section titles
 
 ### Key Learnings
-- **Status Priority in Data Merging**: When combining datasets with different status interpretations, implement priority-based deduplication
-- **Data Source Verification**: Always verify what data sources are being used and how they differ
-- **Debug Data Values**: Create simple debug scripts to inspect actual data values when UI doesn't match expectations
-- **Consistent Function Usage**: Ensure UI components use the appropriate data loading functions for their purpose
+1. **Data Source Analysis**: Always verify what data sources are being used by different loading functions
+2. **Deduplication Strategy**: Consider business logic priority when merging overlapping datasets
+3. **Status Consistency**: Ensure UI functions use the correct data loading methods
+4. **Debugging Approach**: Use targeted debug scripts to isolate data loading vs UI display issues
+5. **UI Component Consistency**: Check all UI components that display vessel data to ensure they use consistent data sources and filters
+
+### Result
+- 34 vessels now correctly show as "arriving"
+- 59 vessels show as "departed" 
+- Total: 93 vessels
+- Data sources: 77 from 'arriving_ships', 16 from 'current_arrivals'
+- All UI components now consistently display arriving ships
 
 ```### Root Cause
 

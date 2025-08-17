@@ -1259,7 +1259,7 @@ def main():
                 st.plotly_chart(fig, use_container_width=True, key="activity_trend_chart")
             
             # Detailed vessel table
-            st.subheader("📋 Detailed Vessel Information")
+            st.subheader("📋 Arriving and Departering Vessels - Detailed Information")
             
             # Add filters
             col1, col2, col3 = st.columns(3)

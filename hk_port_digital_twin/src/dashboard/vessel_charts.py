@@ -260,33 +260,33 @@ def render_arriving_ships_list() -> None:
     """
     Renders a list of ships currently arriving at the port.
     
-    This function displays detailed information about vessels that have arrived
-    in the last 36 hours, including vessel name, ship type, agent, location,
-    and arrival time.
+    This function displays detailed information about vessels that are arriving,
+    including vessel name, ship type, agent, location, and arrival time.
     
     Returns:
         None (renders list directly to Streamlit)
     """
     try:
-        # Load vessel arrivals data
-        vessel_data = load_vessel_arrivals()
+        # Load combined vessel data to get arriving ships
+        from utils.data_loader import load_combined_vessel_data
+        vessel_data = load_combined_vessel_data()
         
         if vessel_data.empty:
-            st.info("No arriving ships data available")
+            st.info("No vessel data available")
             return
         
-        # Filter for vessels that are currently in port (not departed)
-        arriving_ships = vessel_data[vessel_data['status'] == 'in_port'].copy()
+        # Filter for vessels that are currently arriving
+        arriving_ships = vessel_data[vessel_data['status'] == 'arriving'].copy()
         
         if arriving_ships.empty:
-            st.info("No ships currently in port")
+            st.info("No ships currently arriving")
             return
         
         # Sort by arrival time (most recent first)
         arriving_ships = arriving_ships.sort_values('arrival_time', ascending=False, na_position='last')
         
         # Display the count
-        st.write(f"**{len(arriving_ships)} ships currently in port:**")
+        st.write(f"**{len(arriving_ships)} ships currently arriving:**")
         
         # Prepare data for display
         display_data = arriving_ships[[
@@ -426,7 +426,7 @@ def render_vessel_analytics_dashboard(vessel_analysis) -> None:
             st.write("")
             
             # Full width for the arriving ships list
-            st.write("**Ships Currently in Port**")
+            st.write("**Ships Currently Arriving**")
             render_arriving_ships_list()
             
     except Exception as e:
