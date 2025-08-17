@@ -809,6 +809,329 @@ def main():
                     
                     # Ensure years are integers
                     years = [int(year) for year in chart_data.index]
+                    
+                    fig.add_trace(go.Scatter(
+                        x=years,
+                        y=chart_data['Direct shipment cargo'],
+                        mode='lines+markers',
+                        name='Direct Shipment Cargo',
+                        line=dict(color='blue')
+                    ))
+                    
+                    fig.add_trace(go.Scatter(
+                        x=years,
+                        y=chart_data['Transhipment cargo'],
+                        mode='lines+markers',
+                        name='Transhipment Cargo',
+                        line=dict(color='red')
+                    ))
+                    
+                    fig.update_layout(
+                        xaxis_title="Year",
+                        yaxis_title="Throughput (000 tonnes)",
+                        height=400,
+                        xaxis=dict(tickmode='linear', dtick=1),  # Force integer years
+                        margin=dict(l=50, r=50, t=50, b=50)  # Center the chart
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True, key="shipment_trends_chart")
+                else:
+                    st.info("No shipment type analysis data available.")
+                    st.warning("Please ensure the Port Cargo Statistics CSV files are available in the raw_data directory.")
+
+        with cargo_tab2:
+            st.subheader("Transport Mode Analysis")
+            
+            # Get transport mode data from time series
+            transport_ts = time_series_data.get('transport_modes', pd.DataFrame())
+            
+            if not transport_ts.empty:
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.write("**2023 Transport Data**")
+                    # Get latest year data (2023)
+                    latest_data = transport_ts.loc[2023] if 2023 in transport_ts.index else transport_ts.iloc[-1]
+                    
+                    transport_breakdown = {
+                        'Waterborne': latest_data['Waterborne'],
+                        'Seaborne': latest_data['Seaborne'],
+                        'River': latest_data['River']
+                    }
+                    transport_df = pd.DataFrame(list(transport_breakdown.items()), 
+                                                columns=['Transport Mode', 'Throughput (000 tonnes)'])
+                    st.dataframe(transport_df, use_container_width=True)
+                    
+                    # Calculate percentages
+                    total = sum(transport_breakdown.values())
+                    waterborne_pct = (latest_data['Waterborne'] / total) * 100
+                    seaborne_pct = (latest_data['Seaborne'] / total) * 100
+                    river_pct = (latest_data['River'] / total) * 100
+                
+                with col2:
+                    st.write("**Modal Split Percentage**")
+                    st.metric("Waterborne", f"{waterborne_pct:.1f}%")
+                    st.metric("Seaborne", f"{seaborne_pct:.1f}%")
+                    st.metric("River", f"{river_pct:.1f}%")
+                    
+                # Show time series chart
+                st.write("**Historical Trends**")
+                chart_data = transport_ts[['Waterborne', 'Seaborne', 'River']]
+                
+                # Create plotly chart for better control over formatting
+                import plotly.graph_objects as go
+                fig = go.Figure()
+                
+                # Ensure years are integers
+                years = [int(year) for year in chart_data.index]
+                
+                fig.add_trace(go.Scatter(
+                    x=years,
+                    y=chart_data['Waterborne'],
+                    mode='lines+markers',
+                    name='Waterborne',
+                    line=dict(color='purple')
+                ))
+                
+                fig.add_trace(go.Scatter(
+                    x=years,
+                    y=chart_data['Seaborne'],
+                    mode='lines+markers',
+                    name='Seaborne',
+                    line=dict(color='green')
+                ))
+                
+                fig.add_trace(go.Scatter(
+                    x=years,
+                    y=chart_data['River'],
+                    mode='lines+markers',
+                    name='River',
+                    line=dict(color='orange')
+                ))
+                
+                fig.update_layout(
+                    xaxis_title="Year",
+                    yaxis_title="Throughput (000 tonnes)",
+                    height=400,
+                    xaxis=dict(tickmode='linear', dtick=1),  # Force integer years
+                    margin=dict(l=50, r=50, t=50, b=50)  # Center the chart
+                )
+                
+                # Center the chart
+                chart_col1, chart_col2, chart_col3 = st.columns([0.1, 0.8, 0.1])
+                with chart_col2:
+                    st.plotly_chart(fig, use_container_width=True, key="transport_trends_chart")
+                
+            else:
+                st.info("No transport mode analysis data available")
+                st.warning("Please ensure the Port Cargo Statistics CSV files are available in the raw_data directory.")
+
+        with cargo_tab3:
+            st.subheader("Time Series Analysis")
+            
+            if time_series_data:
+                # Display time series charts
+                import plotly.graph_objects as go
+                from plotly.subplots import make_subplots
+                
+                # Create subplots for different metrics
+                fig = make_subplots(
+                    rows=2, cols=2,
+                    subplot_titles=(
+                        'Direct Shipment Trends', 'Transhipment Trends',
+                        'Transport Mode Trends', 'River Transport Trends'
+                    ),
+                    specs=[[{"secondary_y": False}, {"secondary_y": False}],
+                           [{"secondary_y": False}, {"secondary_y": False}]]
+                )
+                
+                # Extract time series data
+                shipment_ts = time_series_data.get('shipment_types', pd.DataFrame())
+                transport_ts = time_series_data.get('transport_modes', pd.DataFrame())
+                
+                if not shipment_ts.empty:
+                    # Ensure years are integers
+                    years = [int(year) for year in shipment_ts.index.tolist()]
+                    direct_values = shipment_ts['Direct shipment cargo'].tolist()
+                    tranship_values = shipment_ts['Transhipment cargo'].tolist()
+                    
+                    # Direct shipment trend
+                    fig.add_trace(
+                        go.Scatter(x=years, y=direct_values, mode='lines+markers',
+                                 name='Direct Shipment', line=dict(color='blue')),
+                        row=1, col=1
+                    )
+                    
+                    # Transhipment trend
+                    fig.add_trace(
+                        go.Scatter(x=years, y=tranship_values, mode='lines+markers',
+                                 name='Transhipment', line=dict(color='red')),
+                        row=1, col=2
+                    )
+                
+                if not transport_ts.empty:
+                    # Ensure years are integers
+                    years = [int(year) for year in transport_ts.index.tolist()]
+                    waterborne_values = transport_ts['Waterborne'].tolist()
+                    seaborne_values = transport_ts['Seaborne'].tolist()
+                    river_values = transport_ts['River'].tolist()
+                    
+                    # Waterborne transport trend
+                    fig.add_trace(
+                        go.Scatter(x=years, y=waterborne_values, mode='lines+markers',
+                                 name='Waterborne', line=dict(color='purple')),
+                        row=2, col=1
+                    )
+                    
+                    # Seaborne transport trend
+                    fig.add_trace(
+                        go.Scatter(x=years, y=seaborne_values, mode='lines+markers',
+                                 name='Seaborne', line=dict(color='green')),
+                        row=2, col=1
+                    )
+                    
+                    # River transport trend
+                    fig.add_trace(
+                        go.Scatter(x=years, y=river_values, mode='lines+markers',
+                                 name='River', line=dict(color='orange')),
+                        row=2, col=2
+                    )
+                
+                fig.update_layout(
+                    height=600,
+                    title_text="Port Cargo Time Series Analysis (2014-2023)",
+                    showlegend=False,
+                    margin=dict(l=50, r=50, t=50, b=50)  # Center the chart
+                )
+                
+                fig.update_xaxes(title_text="Year", tickmode='linear', dtick=1)  # Force integer years
+                fig.update_yaxes(title_text="Throughput (000 tonnes)")
+                
+                # Center the chart
+                chart_col1, chart_col2, chart_col3 = st.columns([0.1, 0.8, 0.1])
+                with chart_col2:
+                    st.plotly_chart(fig, use_container_width=True, key="time_series_chart")
+            else:
+                st.info("No time series data available")
+                st.warning("Please ensure the Port Cargo Statistics CSV files are available in the raw_data directory.")
+
+        with cargo_tab4:
+            st.subheader("Forecasting")
+            
+            # Get forecasting data from cargo analysis
+            forecasting_data = cargo_analysis.get('forecasting_analysis', {})
+            
+            if forecasting_data:
+                st.write("**Forecast Summary**")
+                
+                # Display forecast metrics
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    forecast_period = forecasting_data.get('forecast_period', 'N/A')
+                    st.metric("Forecast Period", forecast_period)
+                
+                with col2:
+                    model_accuracy = forecasting_data.get('model_accuracy', 0)
+                    st.metric("Model Accuracy", f"{model_accuracy:.1%}" if model_accuracy else "N/A")
+                
+                with col3:
+                    trend_direction = forecasting_data.get('trend_direction', 'stable')
+                    st.metric("Trend Direction", trend_direction.title())
+                
+                # Display forecast charts if available
+                forecast_charts = forecasting_data.get('charts', {})
+                if forecast_charts:
+                    for chart_name, chart_data in forecast_charts.items():
+                        st.write(f"**{chart_name.replace('_', ' ').title()}**")
+                        if isinstance(chart_data, pd.DataFrame):
+                            st.line_chart(chart_data)
+                        else:
+                            st.info(f"Chart data for {chart_name} not available")
+            else:
+                st.info("No forecasting analysis available")
+                st.warning("Please ensure the cargo analysis module is properly configured.")
+
+        with cargo_tab5:
+            st.subheader("Cargo Types")
+            
+            # Get cargo type data from analysis
+            cargo_types_data = cargo_analysis.get('cargo_types_analysis', {})
+            
+            if cargo_types_data:
+                # Display cargo type breakdown
+                breakdown = cargo_types_data.get('breakdown', {})
+                if breakdown:
+                    st.write("**Cargo Type Distribution**")
+                    
+                    # Create DataFrame for display
+                    cargo_df = pd.DataFrame(list(breakdown.items()), 
+                                          columns=['Cargo Type', 'Volume (000 tonnes)'])
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.dataframe(cargo_df, use_container_width=True)
+                    
+                    with col2:
+                        # Create pie chart
+                        import plotly.express as px
+                        fig = px.pie(cargo_df, values='Volume (000 tonnes)', names='Cargo Type',
+                                   title="Cargo Type Distribution")
+                        st.plotly_chart(fig, use_container_width=True)
+                
+                # Display trends if available
+                trends = cargo_types_data.get('trends', {})
+                if trends:
+                    st.write("**Cargo Type Trends**")
+                    for cargo_type, trend_data in trends.items():
+                        if isinstance(trend_data, pd.DataFrame):
+                            st.write(f"**{cargo_type.title()}**")
+                            st.line_chart(trend_data)
+            else:
+                st.info("No cargo types analysis available")
+                st.warning("Please ensure the cargo analysis module is properly configured.")
+
+        with cargo_tab6:
+            st.subheader("Locations")
+            
+            # Get location data from analysis
+            locations_data = cargo_analysis.get('locations_analysis', {})
+            
+            if locations_data:
+                # Display location breakdown
+                breakdown = locations_data.get('breakdown', {})
+                if breakdown:
+                    st.write("**Handling Location Distribution**")
+                    
+                    # Create DataFrame for display
+                    location_df = pd.DataFrame(list(breakdown.items()), 
+                                             columns=['Location', 'Volume (000 tonnes)'])
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.dataframe(location_df, use_container_width=True)
+                    
+                    with col2:
+                        # Create bar chart
+                        import plotly.express as px
+                        fig = px.bar(location_df, x='Location', y='Volume (000 tonnes)',
+                                   title="Volume by Handling Location")
+                        fig.update_xaxes(tickangle=45)
+                        st.plotly_chart(fig, use_container_width=True)
+                
+                # Display location trends if available
+                trends = locations_data.get('trends', {})
+                if trends:
+                    st.write("**Location Trends**")
+                    for location, trend_data in trends.items():
+                        if isinstance(trend_data, pd.DataFrame):
+                            st.write(f"**{location}**")
+                            st.line_chart(trend_data)
+            else:
+                st.info("No locations analysis available")
+                st.warning("Please ensure the cargo analysis module is properly configured.")
     
     with tab4:
         st.subheader("🚢 Live Vessel Arrivals")
@@ -910,10 +1233,12 @@ def main():
             with col4:
                 st.write("**Activity Trend**")
                 # Create a simple trend chart
+                import numpy as np
+                import plotly.graph_objects as go
+                
                 hours = list(range(24))
                 arrivals = [max(0, int(len(vessel_data) * (0.3 + 0.7 * abs(np.sin(h/4))))) for h in hours]
                 
-                import plotly.graph_objects as go
                 fig = go.Figure()
                 fig.add_trace(go.Scatter(x=hours, y=arrivals, mode='lines+markers', name='Arrivals'))
                 fig.update_layout(
@@ -1288,110 +1613,210 @@ def main():
             st.info("Please ensure the vessel arrivals XML file is available and properly formatted.")
     
     with tab7:
-        st.subheader("🏗️ Live Berth Status")
-        st.markdown("Real-time berth occupancy and availability")
+        st.subheader("Analytics")
         
-        # Load berth data from the selected scenario
-        berth_data = data.get('berths')
+        # Data Export Section
+        st.subheader("📥 Data Export")
+        export_col1, export_col2, export_col3, export_col4 = st.columns(4)
         
-        if not berth_data.empty:
-            # Berth status overview
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                occupied = len(berth_data[berth_data['status'] == 'occupied'])
-                st.metric("Occupied Berths", occupied)
-            
-            with col2:
-                available = len(berth_data[berth_data['status'] == 'available'])
-                st.metric("Available Berths", available)
-            
-            with col3:
-                maintenance = len(berth_data[berth_data['status'] == 'maintenance'])
-                st.metric("Under Maintenance", maintenance)
-            
-            with col4:
-                total_berths = len(berth_data)
-                utilization = (occupied / total_berths * 100) if total_berths > 0 else 0
-                st.metric("Utilization Rate", f"{utilization:.1f}%")
-            
-            # Berth details table
-            st.subheader("📋 Berth Details")
-            st.dataframe(berth_data, use_container_width=True)
-        else:
-            st.info("No berth data available for the selected scenario.")
+        with export_col1:
+            # Export berth data
+            berth_csv = data['berths'].to_csv(index=False)
+            st.download_button(
+                label="📊 Export Berth Data",
+                data=berth_csv,
+                file_name=f"berth_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv"
+            )
+        
+        with export_col2:
+            # Export queue data
+            queue_csv = data['queue'].to_csv(index=False)
+            st.download_button(
+                label="🚢 Export Queue Data",
+                data=queue_csv,
+                file_name=f"queue_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv"
+            )
+        
+        with export_col3:
+            # Export timeline data
+            timeline_csv = data['timeline'].to_csv(index=False)
+            st.download_button(
+                label="📈 Export Timeline Data",
+                data=timeline_csv,
+                file_name=f"timeline_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv"
+            )
+        
+        with export_col4:
+            # Export all data as JSON
+            import json
+            export_data = {
+                'berths': data['berths'].to_dict('records'),
+                'queue': data['queue'].to_dict('records'),
+                'timeline': data['timeline'].to_dict('records'),
+                'waiting': data['waiting'].to_dict('records'),
+                'kpis': data['kpis'].to_dict('records'),
+                'export_timestamp': datetime.now().isoformat()
+            }
+            json_data = json.dumps(export_data, indent=2, default=str)
+            st.download_button(
+                label="📋 Export All (JSON)",
+                data=json_data,
+                file_name=f"port_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                mime="application/json"
+            )
+        
+        st.markdown("---")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("Throughput Timeline")
+            if create_throughput_timeline is not None:
+                fig_timeline = create_throughput_timeline(data['timeline'])
+                st.plotly_chart(fig_timeline, use_container_width=True, key="main_throughput_timeline_chart")
+            else:
+                st.warning("Throughput timeline visualization not available. Please check visualization module import.")
+                st.dataframe(data['timeline'], use_container_width=True)
+        
+        with col2:
+            st.subheader("Waiting Time Distribution")
+            # Convert DataFrame to list for visualization
+            waiting_times_list = data['waiting']['waiting_time'].tolist()
+            if create_waiting_time_distribution is not None:
+                fig_waiting = create_waiting_time_distribution(waiting_times_list)
+                st.plotly_chart(fig_waiting, use_container_width=True, key="main_waiting_time_chart")
+            else:
+                st.warning("Waiting time distribution visualization not available. Please check visualization module import.")
+                st.dataframe(data['waiting'], use_container_width=True)
     
     with tab8:
-        # Vessel Analytics tab (same for both consolidated and original modes)
-        st.subheader("🚢 Vessel Analytics Dashboard")
-        st.markdown("Real-time analysis of vessel distribution and activity patterns")
+        # Ships & Berths - Operational Impact Analysis
+        st.subheader("🚢 Ships & Berths")
+        st.markdown("Real-time analysis of ships and berths including queue management, berth utilization, and vessel tracking.")
         
-        try:
-            # Load comprehensive vessel analysis data (includes timestamps from all XML files)
-            vessel_analysis = get_comprehensive_vessel_analysis()
+        # Create tabs for different operational views
+        ops_tab1, ops_tab2, ops_tab3 = st.tabs(["🚢 Ship Queue", "🏗️ Berth Utilization", "📊 Live Operations"])
+        
+        with ops_tab1:
+            st.subheader("🚢 Ship Queue Analysis")
             
-            if vessel_analysis and vessel_analysis.get('data_summary', {}).get('total_vessels', 0) > 0:
-                # Display data summary
-                data_summary = vessel_analysis.get('data_summary', {})
-                st.write(f"**Data Summary:** {data_summary.get('total_vessels', 0)} vessels loaded from {data_summary.get('files_processed', 0)} files")
+            # Get simulation data if available
+            simulation_data = getattr(st.session_state, 'simulation_data', None)
+            
+            if simulation_data and hasattr(simulation_data, 'ship_queue'):
+                # Real simulation data
+                queue_data = simulation_data.ship_queue
                 
-                # Show data sources
-                data_sources = data_summary.get('data_sources', [])
-                if data_sources:
-                    st.write(f"**Data Sources:** {', '.join([src.replace('.xml', '') for src in data_sources])}")
+                # Queue metrics
+                queue_col1, queue_col2, queue_col3, queue_col4 = st.columns(4)
+                with queue_col1:
+                    st.metric("Ships in Queue", len(queue_data))
+                with queue_col2:
+                    avg_wait = sum(ship.get('waiting_time', 0) for ship in queue_data) / max(len(queue_data), 1)
+                    st.metric("Avg Wait Time", f"{avg_wait:.1f} hrs")
+                with queue_col3:
+                    priority_ships = sum(1 for ship in queue_data if ship.get('priority', 'normal') == 'high')
+                    st.metric("Priority Ships", priority_ships)
+                with queue_col4:
+                    total_cargo = sum(ship.get('cargo_volume', 0) for ship in queue_data)
+                    st.metric("Total Cargo", f"{total_cargo:,.0f} TEU")
                 
-                # Location breakdown
-                location_breakdown = vessel_analysis.get('location_type_breakdown', {})
-                if location_breakdown:
-                    st.write(f"**Locations:** {len(location_breakdown)} unique location types")
-                
-                # Ship category breakdown
-                category_breakdown = vessel_analysis.get('ship_category_breakdown', {})
-                if category_breakdown:
-                    st.write(f"**Ship Categories:** {len(category_breakdown)} different types")
-                
-                # Recent activity
-                recent_activity = vessel_analysis.get('recent_activity', {})
-                if recent_activity:
-                    st.write(f"**Recent Activity:** {recent_activity.get('vessels_last_24h', 0)} vessels in last 24 hours")
-                
-                # Display timestamp if available
-                from hk_port_digital_twin.src.dashboard.vessel_charts import _extract_latest_timestamp
-                latest_timestamp = _extract_latest_timestamp(vessel_analysis)
-                if latest_timestamp:
-                    st.caption(f"📅 Last updated at: {latest_timestamp}")
+                # Queue visualization
+                if queue_data:
+                    queue_df = pd.DataFrame(queue_data)
+                    
+                    # Queue timeline chart
+                    import plotly.express as px
+                    fig_queue = px.bar(
+                        queue_df,
+                        x='ship_id',
+                        y='waiting_time',
+                        color='ship_type',
+                        title='Ship Queue - Waiting Times',
+                        labels={'waiting_time': 'Waiting Time (hours)', 'ship_id': 'Ship ID'}
+                    )
+                    st.plotly_chart(fig_queue, use_container_width=True)
+                    
+                    # Detailed queue table
+                    st.subheader("📋 Queue Details")
+                    display_columns = ['ship_id', 'ship_type', 'arrival_time', 'waiting_time', 'cargo_volume', 'priority']
+                    available_columns = [col for col in display_columns if col in queue_df.columns]
+                    st.dataframe(queue_df[available_columns], use_container_width=True)
                 else:
-                    st.caption("📅 Last updated at: Not available")
-                
-                # Render the vessel analytics dashboard with comprehensive analysis data
-                render_vessel_analytics_dashboard(vessel_analysis)
-                
+                    st.info("No ships currently in queue")
             else:
-                st.warning("No vessel data available for analytics.")
-                st.info("Please ensure vessel data files are properly loaded from the raw_data directory.")
+                # Sample data for demonstration
+                st.info("📊 Using sample data - Start simulation for real-time queue data")
                 
-        except Exception as e:
-            st.error(f"Error loading vessel analytics: {str(e)}")
-            st.info("Using sample data for demonstration purposes.")
+                # Generate sample queue data
+                import numpy as np
+                sample_queue = [
+                    {'ship_id': f'SHIP-{i:03d}', 'ship_type': np.random.choice(['Container', 'Bulk', 'Tanker']),
+                     'arrival_time': f'{np.random.randint(0, 24):02d}:00', 'waiting_time': np.random.exponential(2),
+                     'cargo_volume': np.random.randint(500, 3000), 'priority': np.random.choice(['normal', 'high'], p=[0.8, 0.2])}
+                    for i in range(np.random.randint(5, 15))
+                ]
+                
+                # Sample metrics
+                queue_col1, queue_col2, queue_col3, queue_col4 = st.columns(4)
+                with queue_col1:
+                    st.metric("Ships in Queue", len(sample_queue))
+                with queue_col2:
+                    avg_wait = sum(ship['waiting_time'] for ship in sample_queue) / len(sample_queue)
+                    st.metric("Avg Wait Time", f"{avg_wait:.1f} hrs")
+                with queue_col3:
+                    priority_ships = sum(1 for ship in sample_queue if ship['priority'] == 'high')
+                    st.metric("Priority Ships", priority_ships)
+                with queue_col4:
+                    total_cargo = sum(ship['cargo_volume'] for ship in sample_queue)
+                    st.metric("Total Cargo", f"{total_cargo:,.0f} TEU")
+                
+                # Sample queue visualization
+                queue_df = pd.DataFrame(sample_queue)
+                import plotly.express as px
+                fig_queue = px.bar(
+                    queue_df,
+                    x='ship_id',
+                    y='waiting_time',
+                    color='ship_type',
+                    title='Ship Queue - Waiting Times (Sample Data)',
+                    labels={'waiting_time': 'Waiting Time (hours)', 'ship_id': 'Ship ID'}
+                )
+                st.plotly_chart(fig_queue, use_container_width=True)
+                
+                # Sample queue table
+                st.subheader("📋 Queue Details")
+                st.dataframe(queue_df, use_container_width=True)
+        
+        with ops_tab2:
+            st.subheader("🏗️ Berth Utilization Analysis")
+            st.info("Berth utilization analysis will be displayed here when simulation is running.")
             
-            # Fallback to sample data with proper structure
-            sample_vessel_analysis = {
-                'data_summary': {
-                    'total_vessels': 3,
-                    'files_processed': 1,
-                    'data_sources': ['sample_data']
-                },
-                'location_type_breakdown': {'berth': 2, 'anchorage': 1},
-                'ship_category_breakdown': {'container': 2, 'bulk_carrier': 1},
-                'file_breakdown': {
-                    'sample_data': {
-                        'earliest_timestamp': (datetime.now() - timedelta(hours=8)).isoformat(),
-                        'latest_timestamp': (datetime.now() - timedelta(hours=2)).isoformat()
-                    }
-                },
-                'analysis_timestamp': datetime.now().isoformat()
+            # Sample berth data
+            berth_data = {
+                'Berth ID': ['B001', 'B002', 'B003', 'B004', 'B005'],
+                'Status': ['Occupied', 'Available', 'Occupied', 'Maintenance', 'Occupied'],
+                'Current Ship': ['SHIP-001', '-', 'SHIP-003', '-', 'SHIP-005'],
+                'Utilization %': [85, 0, 92, 0, 78]
             }
-            render_vessel_analytics_dashboard(sample_vessel_analysis)
+            berth_df = pd.DataFrame(berth_data)
+            st.dataframe(berth_df, use_container_width=True)
+        
+        with ops_tab3:
+            st.subheader("📊 Live Operations")
+            st.info("Live operations dashboard will be displayed here when simulation is running.")
+            
+            # Sample operations metrics
+            ops_col1, ops_col2, ops_col3 = st.columns(3)
+            with ops_col1:
+                st.metric("Active Operations", "12")
+            with ops_col2:
+                st.metric("Throughput Today", "2,450 TEU")
+            with ops_col3:
+                st.metric("Efficiency Rate", "87.5%")
     
     with tab9:
         if use_consolidated:
