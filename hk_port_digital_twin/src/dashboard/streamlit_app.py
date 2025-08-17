@@ -13,7 +13,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from hk_port_digital_twin.src.utils.data_loader import RealTimeDataConfig, get_real_time_manager, load_container_throughput, load_vessel_arrivals, load_berth_configurations
+from hk_port_digital_twin.src.utils.data_loader import RealTimeDataConfig, get_real_time_manager, load_container_throughput, load_vessel_arrivals, load_berth_configurations, initialize_vessel_data_pipeline, load_all_vessel_data
 from hk_port_digital_twin.config.settings import SIMULATION_CONFIG, get_enhanced_simulation_config
 from hk_port_digital_twin.src.core.port_simulation import PortSimulation
 from hk_port_digital_twin.src.core.simulation_controller import SimulationController
@@ -268,6 +268,13 @@ def initialize_session_state():
                 manager = get_real_time_manager(config)
                 manager.start_real_time_updates()
                 st.session_state.real_time_manager = manager
+                
+                # Initialize vessel data pipeline
+                try:
+                    initialize_vessel_data_pipeline()
+                    logging.info("Vessel data pipeline initialized successfully")
+                except Exception as e:
+                    logging.warning(f"Could not initialize vessel data pipeline: {e}")
                 
             except Exception as e:
                 print(f"Warning: Could not initialize real-time data manager: {e}")

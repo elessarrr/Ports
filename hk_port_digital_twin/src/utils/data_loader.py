@@ -32,6 +32,8 @@ try:
     # Weather integration temporarily disabled for removal
     # from .weather_integration import HKObservatoryIntegration, get_weather_impact_for_simulation
     from .file_monitor import PortDataFileMonitor, create_default_port_monitor
+    from .vessel_data_fetcher import VesselDataFetcher
+    from .vessel_data_scheduler import VesselDataScheduler
     
     # Set weather integration to None (disabled)
     HKObservatoryIntegration = None
@@ -39,17 +41,28 @@ try:
     logger.info("Weather integration disabled - feature removal in progress")
 except ImportError:
     # Fallback for when modules are not available
-    logger.warning("File monitoring modules not available")
+    logger.warning("Some modules not available (file monitoring, vessel data pipeline)")
     HKObservatoryIntegration = None
     get_weather_impact_for_simulation = None
     PortDataFileMonitor = None
     create_default_port_monitor = None
+    VesselDataFetcher = None
+    VesselDataScheduler = None
 
 # Data file paths
 RAW_DATA_DIR = (Path(__file__).parent.parent.parent / ".." / "raw_data").resolve()
 CONTAINER_THROUGHPUT_FILE = RAW_DATA_DIR / "Total_container_throughput_by_mode_of_transport_(EN).csv"
 PORT_CARGO_STATS_DIR = RAW_DATA_DIR / "Port Cargo Statistics"
 VESSEL_ARRIVALS_XML = (Path(__file__).parent.parent.parent / ".." / "Arrived_in_last_36_hours.xml").resolve()
+
+# Vessel data pipeline configuration
+VESSEL_DATA_DIR = (Path(__file__).parent.parent.parent / "..").resolve()
+VESSEL_XML_FILES = [
+    'Arrived_in_last_36_hours.xml',
+    'Departed_in_last_36_hours.xml', 
+    'Expected_arrivals.xml',
+    'Expected_departures.xml'
+]
 
 def load_container_throughput() -> pd.DataFrame:
     """Load and process container throughput time series data.
@@ -733,6 +746,256 @@ def get_vessel_queue_analysis() -> Dict[str, any]:
         logger.error(f"Error in vessel queue analysis: {e}")
         return {}
 
+def load_all_vessel_data() -> Dict[str, pd.DataFrame]:
+    """Load vessel data from all available XML files.
+    
+    This function loads data from multiple vessel XML files including:
+    - Arrived vessels (last 36 hours)
+    - Departed vessels (last 36 hours) 
+    - Expected arrivals
+    - Expected departures
+    
+    Returns:
+        Dict[str, pd.DataFrame]: Dictionary mapping file names to vessel DataFrames
+    """
+    vessel_data = {}
+    
+    for xml_file in VESSEL_XML_FILES:
+        file_path = VESSEL_DATA_DIR / xml_file
+        
+        try:
+            if file_path.exists():
+                df = load_vessel_data_from_xml(file_path)
+                if not df.empty:
+                    vessel_data[xml_file] = df
+                    logger.info(f"Loaded {len(df)} vessels from {xml_file}")
+                else:
+                    logger.warning(f"No vessel data found in {xml_file}")
+            else:
+                logger.warning(f"Vessel data file not found: {xml_file}")
+                
+        except Exception as e:
+            logger.error(f"Error loading vessel data from {xml_file}: {e}")
+    
+    return vessel_data
+
+def load_vessel_data_from_xml(xml_file_path: Path) -> pd.DataFrame:
+    """Load vessel data from a specific XML file.
+    
+    Args:
+        xml_file_path (Path): Path to the XML file to load
+        
+    Returns:
+        pd.DataFrame: Processed vessel data with structured information
+    """
+    try:
+        if not xml_file_path.exists():
+            logger.error(f"XML file does not exist: {xml_file_path}")
+            return pd.DataFrame()
+        
+        if xml_file_path.stat().st_size == 0:
+            logger.warning(f"XML file is empty: {xml_file_path}")
+            return pd.DataFrame()
+        
+        # Read and clean XML content (skip comment lines)
+        with open(xml_file_path, 'r', encoding='utf-8') as file:
+            lines = file.readlines()
+        
+        # Filter out comment lines and keep only XML content
+        xml_lines = []
+        for line in lines:
+            line = line.strip()
+            if line and not line.startswith('This XML file') and not line.startswith('associated with it'):
+                # Escape unescaped ampersands for proper XML parsing
+                line = line.replace(' & ', ' &amp; ')
+                xml_lines.append(line)
+        
+        # Join the cleaned lines
+        content = '\n'.join(xml_lines)
+        
+        # Parse cleaned XML content
+        root = ET.fromstring(content)
+        
+        # Extract vessel data
+        vessels = []
+        for vessel_element in root.findall('G_SQL1'):
+            vessel_data = {}
+            
+            # Extract all vessel information
+            call_sign = vessel_element.find('CALL_SIGN')
+            vessel_name = vessel_element.find('VESSEL_NAME')
+            ship_type = vessel_element.find('SHIP_TYPE')
+            agent_name = vessel_element.find('AGENT_NAME')
+            current_location = vessel_element.find('CURRENT_LOCATION')
+            arrival_time = vessel_element.find('ARRIVAL_TIME')
+            departure_time = vessel_element.find('DEPARTURE_TIME')  # For departed vessels
+            expected_time = vessel_element.find('EXPECTED_TIME')    # For expected vessels
+            remark = vessel_element.find('REMARK')
+            
+            # Safely extract text content
+            vessel_data['call_sign'] = call_sign.text if call_sign is not None else None
+            vessel_data['vessel_name'] = vessel_name.text if vessel_name is not None else None
+            vessel_data['ship_type'] = ship_type.text if ship_type is not None else None
+            vessel_data['agent_name'] = agent_name.text if agent_name is not None else None
+            vessel_data['current_location'] = current_location.text if current_location is not None else None
+            vessel_data['remark'] = remark.text if remark is not None else None
+            
+            # Handle different time fields based on file type
+            time_str = None
+            if arrival_time is not None:
+                time_str = arrival_time.text
+                vessel_data['time_type'] = 'arrival'
+            elif departure_time is not None:
+                time_str = departure_time.text
+                vessel_data['time_type'] = 'departure'
+            elif expected_time is not None:
+                time_str = expected_time.text
+                vessel_data['time_type'] = 'expected'
+            
+            vessel_data['time_str'] = time_str
+            
+            # Parse time
+            if time_str:
+                try:
+                    vessel_data['timestamp'] = pd.to_datetime(
+                        time_str, 
+                        format='%d-%b-%Y %H:%M'
+                    )
+                except ValueError:
+                    logger.warning(f"Could not parse time: {time_str}")
+                    vessel_data['timestamp'] = None
+            else:
+                vessel_data['timestamp'] = None
+            
+            # Determine vessel status based on file and remark
+            file_name = xml_file_path.name.lower()
+            if 'departed' in file_name:
+                vessel_data['status'] = 'departed'
+            elif 'expected' in file_name:
+                vessel_data['status'] = 'expected'
+            elif vessel_data.get('remark') == 'Departed':
+                vessel_data['status'] = 'departed'
+            else:
+                vessel_data['status'] = 'in_port'
+            
+            # Categorize ship type and location
+            vessel_data['ship_category'] = _categorize_ship_type(vessel_data['ship_type'])
+            vessel_data['location_type'] = _categorize_location(vessel_data['current_location'])
+            
+            # Add source file information
+            vessel_data['source_file'] = xml_file_path.name
+            
+            vessels.append(vessel_data)
+        
+        # Create DataFrame
+        df = pd.DataFrame(vessels)
+        
+        # Sort by timestamp
+        if not df.empty and 'timestamp' in df.columns:
+            df = df.sort_values('timestamp', na_position='last')
+        
+        return df
+        
+    except Exception as e:
+        logger.error(f"Error loading vessel data from {xml_file_path}: {e}")
+        return pd.DataFrame()
+
+def get_comprehensive_vessel_analysis() -> Dict[str, any]:
+    """Perform comprehensive analysis across all vessel data files.
+    
+    Returns:
+        Dict: Comprehensive vessel analytics including trends and patterns
+    """
+    try:
+        all_vessel_data = load_all_vessel_data()
+        
+        if not all_vessel_data:
+            logger.warning("No vessel data available for comprehensive analysis")
+            return {}
+        
+        # Combine all vessel data
+        combined_df = pd.concat(all_vessel_data.values(), ignore_index=True)
+        
+        # Remove duplicates based on call_sign and timestamp
+        combined_df = combined_df.drop_duplicates(subset=['call_sign', 'timestamp'], keep='first')
+        
+        analysis = {
+            'data_summary': {
+                'total_vessels': len(combined_df),
+                'files_processed': len(all_vessel_data),
+                'data_sources': list(all_vessel_data.keys())
+            },
+            'status_breakdown': combined_df['status'].value_counts().to_dict(),
+            'ship_category_breakdown': combined_df['ship_category'].value_counts().to_dict(),
+            'location_type_breakdown': combined_df['location_type'].value_counts().to_dict(),
+            'file_breakdown': {}
+        }
+        
+        # Analyze each file separately
+        for file_name, df in all_vessel_data.items():
+            analysis['file_breakdown'][file_name] = {
+                'vessel_count': len(df),
+                'status_breakdown': df['status'].value_counts().to_dict(),
+                'ship_categories': df['ship_category'].value_counts().to_dict(),
+                'latest_timestamp': df['timestamp'].max().isoformat() if df['timestamp'].notna().any() else None,
+                'earliest_timestamp': df['timestamp'].min().isoformat() if df['timestamp'].notna().any() else None
+            }
+        
+        # Time-based analysis
+        if 'timestamp' in combined_df.columns and combined_df['timestamp'].notna().any():
+            now = datetime.now()
+            
+            # Recent activity (last 24 hours)
+            recent_vessels = combined_df[
+                (combined_df['timestamp'].notna()) & 
+                (combined_df['timestamp'] >= now - pd.Timedelta(hours=24))
+            ]
+            
+            analysis['recent_activity'] = {
+                'vessels_last_24h': len(recent_vessels),
+                'arrivals_last_24h': len(recent_vessels[recent_vessels['status'] == 'in_port']),
+                'departures_last_24h': len(recent_vessels[recent_vessels['status'] == 'departed']),
+                'expected_arrivals': len(combined_df[combined_df['status'] == 'expected'])
+            }
+        
+        analysis['analysis_timestamp'] = datetime.now().isoformat()
+        
+        logger.info(f"Comprehensive vessel analysis completed: {len(combined_df)} total vessels")
+        return analysis
+        
+    except Exception as e:
+        logger.error(f"Error in comprehensive vessel analysis: {e}")
+        return {}
+
+def initialize_vessel_data_pipeline() -> Optional[VesselDataScheduler]:
+    """Initialize the vessel data pipeline with scheduler.
+    
+    Returns:
+        Optional[VesselDataScheduler]: Initialized scheduler or None if failed
+    """
+    try:
+        if VesselDataFetcher is None or VesselDataScheduler is None:
+            logger.warning("Vessel data pipeline modules not available")
+            return None
+        
+        # Create fetcher instance
+        fetcher = VesselDataFetcher()
+        
+        # Create scheduler with fetcher callback
+        scheduler = VesselDataScheduler(fetcher.fetch_xml_files)
+        
+        # Start the scheduler
+        if scheduler.start(run_immediately=True):
+            logger.info("Vessel data pipeline initialized and started successfully")
+            return scheduler
+        else:
+            logger.error("Failed to start vessel data pipeline scheduler")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error initializing vessel data pipeline: {e}")
+        return None
+
 @dataclass
 class RealTimeDataConfig:
     """Configuration for real-time data processing."""
@@ -757,6 +1020,7 @@ class RealTimeDataManager:
         self.config = config or RealTimeDataConfig()
         self.weather_integration = None
         self.file_monitor = None
+        self.vessel_scheduler = None  # New: vessel data pipeline scheduler
         self.is_running = False
         self.data_cache = {}
         self.last_updates = {}
@@ -771,8 +1035,9 @@ class RealTimeDataManager:
         # Initialize components
         self._initialize_weather_integration()
         self._initialize_file_monitoring()
+        self._initialize_vessel_pipeline()
         
-        logger.info("Real-time data manager initialized with enhanced error handling")
+        logger.info("Real-time data manager initialized with enhanced error handling and vessel pipeline")
     
     def _initialize_weather_integration(self):
         """Initialize weather data integration."""
@@ -804,6 +1069,25 @@ class RealTimeDataManager:
         else:
             logger.info("File monitoring disabled or not available")
     
+    def _initialize_vessel_pipeline(self):
+        """Initialize vessel data pipeline scheduler."""
+        try:
+            # Check if vessel data pipeline is enabled
+            pipeline_enabled = os.getenv('VESSEL_DATA_PIPELINE_ENABLED', 'true').lower() == 'true'
+            
+            if pipeline_enabled:
+                self.vessel_scheduler = initialize_vessel_data_pipeline()
+                if self.vessel_scheduler:
+                    logger.info("Vessel data pipeline initialized successfully")
+                else:
+                    logger.warning("Failed to initialize vessel data pipeline")
+            else:
+                logger.info("Vessel data pipeline disabled via configuration")
+                
+        except Exception as e:
+            logger.error(f"Error initializing vessel data pipeline: {e}")
+            self.vessel_scheduler = None
+    
     def start_real_time_updates(self):
         """Start real-time data update processes."""
         if self.is_running:
@@ -833,6 +1117,14 @@ class RealTimeDataManager:
         if self.file_monitor:
             self.file_monitor.stop_all_monitoring()
         
+        # Stop vessel data scheduler
+        if self.vessel_scheduler:
+            try:
+                self.vessel_scheduler.stop()
+                logger.info("Vessel data scheduler stopped")
+            except Exception as e:
+                logger.error(f"Error stopping vessel data scheduler: {e}")
+        
         logger.info("Real-time data updates stopped")
     
     def _vessel_update_loop(self):
@@ -856,45 +1148,80 @@ class RealTimeDataManager:
                 time.sleep(300)  # Wait before retrying
     
     def _update_vessel_data(self):
-        """Update vessel arrival data with validation and enhanced caching."""
+        """Update comprehensive vessel data with validation and enhanced caching."""
         try:
             # Check circuit breaker
             if self._is_circuit_breaker_open('vessel_update'):
                 logger.warning("Skipping vessel data update - circuit breaker open")
                 return
             
-            vessel_data = load_vessel_arrivals()
-            if not vessel_data.empty:
-                # Validate and process data
-                validation_result = self.validate_and_process_data('vessel_arrivals', vessel_data)
+            # Load comprehensive vessel data from all XML files
+            all_vessel_data = load_all_vessel_data()
+            
+            if all_vessel_data:
+                # Store individual file data
+                for file_name, vessel_df in all_vessel_data.items():
+                    if not vessel_df.empty:
+                        cache_key = f'vessel_data_{file_name.replace(".xml", "").lower()}'
+                        
+                        # Validate and process data
+                        validation_result = self.validate_and_process_data(cache_key, vessel_df)
+                        
+                        if validation_result['status'] == 'success' and validation_result['validation_result'].get('valid', False):
+                            # Store in both local and global cache
+                            self.data_cache[cache_key] = vessel_df
+                            self.last_updates[cache_key] = datetime.now()
+                            data_cache.set(cache_key, vessel_df)
+                            
+                            # Trigger callbacks for specific vessel data types
+                            if cache_key in self.update_callbacks:
+                                for callback in self.update_callbacks[cache_key]:
+                                    try:
+                                        callback(vessel_df)
+                                    except Exception as e:
+                                        logger.error(f"Error in {cache_key} update callback: {e}")
                 
-                if validation_result['status'] == 'success' and validation_result['validation_result'].get('valid', False):
-                    # Store in both local and global cache
-                    self.data_cache['vessel_arrivals'] = vessel_data
-                    self.last_updates['vessel_arrivals'] = datetime.now()
-                    data_cache.set('vessel_arrivals', vessel_data)
-                    
-                    # Cross-reference with historical patterns
-                    try:
-                        historical_analysis = self._cross_reference_vessel_data(vessel_data)
-                        if historical_analysis:
-                            data_cache.set('vessel_historical_analysis', historical_analysis)
-                    except Exception as e:
-                        logger.warning(f"Error in historical cross-reference: {e}")
-                    
-                    # Trigger callbacks
-                    if 'vessel_arrivals' in self.update_callbacks:
-                        for callback in self.update_callbacks['vessel_arrivals']:
-                            try:
-                                callback(vessel_data)
-                            except Exception as e:
-                                logger.error(f"Error in vessel update callback: {e}")
-                    
-                    self._record_operation_success('vessel_update')
-                    logger.debug("Vessel data updated and validated successfully")
-                else:
+                # Perform comprehensive analysis
+                try:
+                    comprehensive_analysis = get_comprehensive_vessel_analysis()
+                    if comprehensive_analysis:
+                        self.data_cache['vessel_comprehensive_analysis'] = comprehensive_analysis
+                        self.last_updates['vessel_comprehensive_analysis'] = datetime.now()
+                        data_cache.set('vessel_comprehensive_analysis', comprehensive_analysis)
+                        
+                        # Cross-reference with historical patterns
+                        try:
+                            # Use the combined data for historical analysis
+                            combined_df = pd.concat(all_vessel_data.values(), ignore_index=True)
+                            historical_analysis = self._cross_reference_vessel_data(combined_df)
+                            if historical_analysis:
+                                data_cache.set('vessel_historical_analysis', historical_analysis)
+                        except Exception as e:
+                            logger.warning(f"Error in historical cross-reference: {e}")
+                        
+                        # Trigger callbacks for comprehensive analysis
+                        if 'vessel_comprehensive_analysis' in self.update_callbacks:
+                            for callback in self.update_callbacks['vessel_comprehensive_analysis']:
+                                try:
+                                    callback(comprehensive_analysis)
+                                except Exception as e:
+                                    logger.error(f"Error in comprehensive analysis callback: {e}")
+                        
+                        self._record_operation_success('vessel_update')
+                        logger.debug(f"Comprehensive vessel data updated: {comprehensive_analysis['data_summary']['total_vessels']} vessels from {comprehensive_analysis['data_summary']['files_processed']} files")
+                    else:
+                        logger.warning("Comprehensive vessel analysis returned empty results")
+                        
+                except Exception as e:
+                    logger.error(f"Error in comprehensive vessel analysis: {e}")
                     self._record_operation_failure('vessel_update')
-                    logger.warning(f"Vessel data validation failed: {validation_result}")
+                
+                # Maintain backward compatibility - store arrivals data separately
+                arrivals_data = all_vessel_data.get('Arrived_in_last_36_hours.xml')
+                if arrivals_data is not None and not arrivals_data.empty:
+                    self.data_cache['vessel_arrivals'] = arrivals_data
+                    data_cache.set('vessel_arrivals', arrivals_data)
+                    
             else:
                 logger.warning("No vessel data available for update")
                 

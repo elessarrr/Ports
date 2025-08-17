@@ -1,0 +1,31 @@
+2025-08-17 13:20:56,342 - vessel_data_pipeline - INFO - VesselDataFetcher initialized. Pipeline enabled: True
+2025-08-17 13:21:38,204 - vessel_data_pipeline - INFO - VesselDataFetcher initialized. Pipeline enabled: True
+2025-08-17 13:22:10,060 - vessel_data_pipeline - INFO - VesselDataFetcher initialized. Pipeline enabled: True
+2025-08-17 13:22:32,806 - vessel_data_pipeline - INFO - VesselDataFetcher initialized. Pipeline enabled: True
+2025-08-17 13:22:32,807 - vessel_data_pipeline - INFO - VesselDataFetcher initialized. Pipeline enabled: True
+2025-08-17 13:22:32,807 - vessel_data_pipeline - INFO - Starting vessel data fetch operation
+2025-08-17 13:22:32,807 - vessel_data_pipeline - INFO - Discovering XML files from portal (using mock data for now)
+2025-08-17 13:22:32,808 - vessel_data_pipeline - INFO - Downloading Arrived_in_last_36_hours.xml (attempt 1/3)
+2025-08-17 13:22:34,134 - vessel_data_pipeline - WARNING - Network error downloading Arrived_in_last_36_hours.xml (attempt 1): 404 Client Error: Not Found for url: https://example.com/mock_url
+2025-08-17 13:22:34,134 - vessel_data_pipeline - INFO - Waiting 5 seconds before retry...
+2025-08-17 13:22:39,135 - vessel_data_pipeline - INFO - Downloading Arrived_in_last_36_hours.xml (attempt 2/3)
+2025-08-17 13:22:39,363 - vessel_data_pipeline - WARNING - Network error downloading Arrived_in_last_36_hours.xml (attempt 2): 404 Client Error: Not Found for url: https://example.com/mock_url
+2025-08-17 13:22:39,364 - vessel_data_pipeline - INFO - Waiting 10 seconds before retry...
+2025-08-17 13:22:49,365 - vessel_data_pipeline - INFO - Downloading Arrived_in_last_36_hours.xml (attempt 3/3)
+2025-08-17 13:22:49,586 - vessel_data_pipeline - WARNING - Network error downloading Arrived_in_last_36_hours.xml (attempt 3): 404 Client Error: Not Found for url: https://example.com/mock_url
+2025-08-17 13:22:49,586 - vessel_data_pipeline - ERROR - Failed to download Arrived_in_last_36_hours.xml after 3 attempts
+2025-08-17 13:22:49,586 - vessel_data_pipeline - INFO - Fetch operation completed. Results: {'Arrived_in_last_36_hours.xml': False}
+2025-08-17 13:23:29,132 - vessel_data_pipeline - INFO - VesselDataFetcher initialized. Pipeline enabled: True
+2025-08-17 13:23:29,133 - vessel_data_pipeline - INFO - VesselDataFetcher initialized. Pipeline enabled: True
+2025-08-17 13:23:29,133 - vessel_data_pipeline - INFO - Starting vessel data fetch operation
+2025-08-17 13:23:29,133 - vessel_data_pipeline - INFO - Discovering XML files from portal (using mock data for now)
+2025-08-17 13:23:29,133 - vessel_data_pipeline - INFO - Downloading Arrived_in_last_36_hours.xml (attempt 1/3)
+2025-08-17 13:23:30,374 - vessel_data_pipeline - WARNING - Network error downloading Arrived_in_last_36_hours.xml (attempt 1): 404 Client Error: Not Found for url: https://example.com/mock_url
+2025-08-17 13:23:30,374 - vessel_data_pipeline - INFO - Waiting 5 seconds before retry...
+2025-08-17 13:23:35,379 - vessel_data_pipeline - INFO - Downloading Arrived_in_last_36_hours.xml (attempt 2/3)
+2025-08-17 13:23:35,638 - vessel_data_pipeline - WARNING - Network error downloading Arrived_in_last_36_hours.xml (attempt 2): 404 Client Error: Not Found for url: https://example.com/mock_url
+2025-08-17 13:23:35,638 - vessel_data_pipeline - INFO - Waiting 10 seconds before retry...
+2025-08-17 13:23:45,639 - vessel_data_pipeline - INFO - Downloading Arrived_in_last_36_hours.xml (attempt 3/3)
+2025-08-17 13:23:45,899 - vessel_data_pipeline - WARNING - Network error downloading Arrived_in_last_36_hours.xml (attempt 3): 404 Client Error: Not Found for url: https://example.com/mock_url
+2025-08-17 13:23:45,899 - vessel_data_pipeline - ERROR - Failed to download Arrived_in_last_36_hours.xml after 3 attempts
+2025-08-17 13:23:45,899 - vessel_data_pipeline - INFO - Fetch operation completed. Results: {'Arrived_in_last_36_hours.xml': False}
