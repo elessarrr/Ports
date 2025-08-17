@@ -5,6 +5,7 @@
       "description": [
         "Identify the reported error.",
         "Think through and plan the optimal way to fix the error, step by step.",
+        "Add debugging output as appropriate to try and troubleshoot the error",
         "Proceed with a fix only if it's the best approach."
       ]
     },

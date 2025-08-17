@@ -9,6 +9,7 @@ import plotly.express as px
 import pandas as pd
 from typing import Dict, Any, Optional
 from datetime import datetime
+from utils.data_loader import load_vessel_arrivals
 
 def render_vessel_location_distribution(vessel_analysis: Dict[str, Any]) -> None:
     """
@@ -134,9 +135,19 @@ def render_arrival_activity_trend(vessel_analysis: Dict[str, Any]) -> None:
         # Extract activity trend data
         activity_data = vessel_analysis.get('activity_trend', [])
         
+        # Log data status for debugging
+        st.info(f"📊 Data Status: Found {len(activity_data) if hasattr(activity_data, '__len__') else 0} activity trend data points")
+        
         if not activity_data:
             st.warning("No vessel activity trend data available")
+            st.info("💡 This could happen if: 1) No vessels have timestamps within the last 7 days, 2) Timestamp format issues, or 3) Data loading problems")
+            
+            # Show available keys for debugging
+            available_keys = list(vessel_analysis.keys()) if isinstance(vessel_analysis, dict) else []
+            st.write(f"Available data keys: {available_keys}")
             return
+        
+        # Data successfully loaded
         
         # Convert to DataFrame for Plotly
         # Handle both list of dicts and dict formats
@@ -245,6 +256,60 @@ def _extract_latest_timestamp(vessel_analysis: Dict[str, Any]) -> str:
         st.error(f"Error extracting timestamp: {str(e)}")
         return ""
 
+def render_arriving_ships_list() -> None:
+    """
+    Renders a list of ships currently arriving at the port.
+    
+    This function displays detailed information about vessels that have arrived
+    in the last 36 hours, including vessel name, ship type, agent, location,
+    and arrival time.
+    
+    Returns:
+        None (renders list directly to Streamlit)
+    """
+    try:
+        # Load vessel arrivals data
+        vessel_data = load_vessel_arrivals()
+        
+        if vessel_data.empty:
+            st.info("No arriving ships data available")
+            return
+        
+        # Filter for vessels that are currently in port (not departed)
+        arriving_ships = vessel_data[vessel_data['status'] == 'in_port'].copy()
+        
+        if arriving_ships.empty:
+            st.info("No ships currently in port")
+            return
+        
+        # Sort by arrival time (most recent first)
+        arriving_ships = arriving_ships.sort_values('arrival_time', ascending=False, na_position='last')
+        
+        # Display the count
+        st.write(f"**{len(arriving_ships)} ships currently in port:**")
+        
+        # Prepare data for display
+        display_data = arriving_ships[[
+            'vessel_name', 'ship_type', 'agent_name', 'current_location', 'arrival_time'
+        ]].copy()
+        
+        # Format arrival time for better display
+        display_data['arrival_time'] = display_data['arrival_time'].dt.strftime('%Y-%m-%d %H:%M')
+        
+        # Rename columns for better display
+        display_data.columns = ['Vessel Name', 'Ship Type', 'Agent', 'Current Location', 'Arrival Time']
+        
+        # Display as a table
+        st.dataframe(
+            display_data,
+            use_container_width=True,
+            hide_index=True
+        )
+        
+    except Exception as e:
+        st.error(f"Error loading arriving ships data: {str(e)}")
+
+
 def render_vessel_analytics_dashboard(vessel_analysis) -> None:
     """
     Renders the complete vessel analytics dashboard with all three charts.
@@ -322,11 +387,13 @@ def render_vessel_analytics_dashboard(vessel_analysis) -> None:
             processed_data = {
                 'location_distribution': vessel_analysis.get('location_type_breakdown', {}),
                 'category_distribution': vessel_analysis.get('ship_category_breakdown', {}),
-                'activity_trend': vessel_analysis.get('recent_activity', {}),
+                'activity_trend': vessel_analysis.get('activity_trend', []),
                 # Preserve original data for timestamp extraction
                 'file_breakdown': vessel_analysis.get('file_breakdown', {}),
                 'analysis_timestamp': vessel_analysis.get('analysis_timestamp')
             }
+            
+            # Data processed successfully
             
             vessel_analysis = processed_data
         else:
@@ -344,16 +411,23 @@ def render_vessel_analytics_dashboard(vessel_analysis) -> None:
             col1, col2 = st.columns(2)
             
             with col1:
-                st.write("**Vessel Locations**")
+                #st.write("**Vessel Locations**")
                 render_vessel_location_distribution(vessel_analysis)
             
             with col2:
-                st.write("**Ship Categories**")
+                #st.write("**Ship Categories**")
                 render_ship_category_distribution(vessel_analysis)
             
             # Full width for the activity trend chart
             st.write("**Recent Activity**")
             render_arrival_activity_trend(vessel_analysis)
+            
+            # Add some spacing
+            st.write("")
+            
+            # Full width for the arriving ships list
+            st.write("**Ships Currently in Port**")
+            render_arriving_ships_list()
             
     except Exception as e:
         st.error(f"Error rendering vessel analytics dashboard: {str(e)}")

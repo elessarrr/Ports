@@ -60,3 +60,53 @@ The resolution involved two steps:
 2.  **Importing the function:** The `load_berth_configurations` function was already being imported from `hk_port_digital_twin.src.utils.data_loader` at the top of `streamlit_app.py`, so no new import was needed.
 
 By making these changes, the application was able to correctly load the berth configurations, and the dashboard's functionality was restored.
+
+## Error 3: `DataFrame.sort_values() got an unexpected keyword argument 'na_last'`
+
+### Symptom
+
+The arriving ships list functionality failed with the following error:
+
+```
+Error loading arriving ships data: DataFrame.sort_values() got an unexpected keyword argument 'na_last'
+```
+
+This error occurred in the `render_arriving_ships_list()` function in `vessel_charts.py` when attempting to sort vessel data by arrival time.
+
+### Root Cause
+
+The error was caused by using an incorrect parameter name in the pandas `sort_values()` method. The code used `na_last=True`, but the correct parameter name is `na_position='last'`. This inconsistency occurred because different parts of the codebase were using different parameter names for handling null values during sorting.
+
+### Resolution
+
+The fix involved changing the parameter name from `na_last=True` to `na_position='last'` to match the correct pandas API.
+
+**Incorrect Code:**
+
+```python
+arriving_ships = arriving_ships.sort_values('arrival_time', ascending=False, na_last=True)
+```
+
+**Corrected Code:**
+
+```python
+arriving_ships = arriving_ships.sort_values('arrival_time', ascending=False, na_position='last')
+```
+
+### Prevention
+
+1. **Consistent Parameter Usage**: Ensure all pandas operations use consistent parameter names throughout the codebase
+2. **Code Review**: Review existing code patterns before implementing new functionality
+3. **Documentation Reference**: Always refer to the official pandas documentation for correct parameter names
+4. **Testing**: Test new functionality thoroughly to catch parameter errors early
+
+## How to document
+
+When documenting debugging insights, follow this format:
+
+1. **Error Description**: Brief description of the error
+2. **Symptom**: What was observed (error messages, unexpected behavior)
+3. **Root Cause**: The underlying issue that caused the problem
+4. **Resolution**: The specific fix applied
+5. **Prevention**: How to avoid this issue in the future
+6. **Code Examples**: Before and after code snippets when relevant

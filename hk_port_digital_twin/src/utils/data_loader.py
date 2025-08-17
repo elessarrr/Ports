@@ -664,9 +664,8 @@ def _parse_vessel_timestamp(time_str: str) -> Optional[pd.Timestamp]:
             return None
     
     # Data validation: Filter out obviously invalid dates
-    # Reject dates before 2020 or more than 2 years in the future
-    current_year = datetime.now().year
-    if parsed_timestamp.year < 2020 or parsed_timestamp.year > current_year + 2:
+    # Accept dates from 2020 onwards, including future dates for expected arrivals
+    if parsed_timestamp.year < 2020:
         logger.warning(f"Rejecting invalid timestamp (year {parsed_timestamp.year}): {time_str}")
         return None
     
@@ -985,6 +984,27 @@ def get_comprehensive_vessel_analysis() -> Dict[str, any]:
                 'departures_last_24h': len(recent_vessels[recent_vessels['status'] == 'departed']),
                 'expected_arrivals': len(combined_df[combined_df['status'] == 'expected'])
             }
+            
+            # Generate activity trend data for the chart (last 7 days, grouped by day)
+            activity_trend = []
+            for days_back in range(6, -1, -1):  # 7 days ago to today
+                day_start = now - pd.Timedelta(days=days_back)
+                day_end = day_start + pd.Timedelta(days=1)
+                
+                day_vessels = combined_df[
+                    (combined_df['timestamp'].notna()) & 
+                    (combined_df['timestamp'] >= day_start) & 
+                    (combined_df['timestamp'] < day_end)
+                ]
+                
+                activity_trend.append({
+                    'time': day_start.strftime('%Y-%m-%d'),
+                    'arrivals': len(day_vessels)
+                })
+            
+            analysis['activity_trend'] = activity_trend
+        else:
+            analysis['activity_trend'] = []
         
         analysis['analysis_timestamp'] = datetime.now().isoformat()
         
