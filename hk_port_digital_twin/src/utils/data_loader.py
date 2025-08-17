@@ -537,6 +537,104 @@ def _clean_cargo_statistics_data(df: pd.DataFrame, table_name: str) -> pd.DataFr
         logger.error(f"Error cleaning {table_name} data: {e}")
         return df
 
+def load_arriving_ships() -> pd.DataFrame:
+    """Load and process arriving ships data from XML file.
+    
+    Returns:
+        pd.DataFrame: Processed arriving ships data with structured information
+    """
+    arriving_ships_xml = Path("/Users/Bhavesh/Documents/GitHub/Ports/Ports/raw_data/Arrived_in_last_36_hours.xml")
+    logger.info(f"Attempting to load arriving ships from: {arriving_ships_xml}")
+    
+    try:
+        # Check if XML file exists
+        if not arriving_ships_xml.exists():
+            logger.error(f"Arriving ships XML file does not exist at {arriving_ships_xml}")
+            return pd.DataFrame()
+        
+        if arriving_ships_xml.stat().st_size == 0:
+            logger.warning(f"Arriving ships data file is empty: {arriving_ships_xml}")
+            return pd.DataFrame()
+        
+        # Read and clean XML content (skip comment lines)
+        with open(arriving_ships_xml, 'r', encoding='utf-8') as file:
+            lines = file.readlines()
+        
+        # Filter out comment lines and keep only XML content
+        xml_lines = []
+        for line in lines:
+            line = line.strip()
+            if line and not line.startswith('This XML file') and not line.startswith('associated with it'):
+                # Escape unescaped ampersands for proper XML parsing
+                line = line.replace(' & ', ' &amp; ')
+                xml_lines.append(line)
+        
+        # Join the cleaned lines
+        content = '\n'.join(xml_lines)
+        
+        logger.info("Parsing arriving ships XML file...")
+        # Parse cleaned XML content
+        root = ET.fromstring(content)
+        logger.info("Successfully parsed arriving ships XML file.")
+        
+        # Extract vessel data
+        vessels = []
+        for vessel_element in root.findall('G_SQL1'):
+            vessel_data = {}
+            
+            # Extract all vessel information
+            call_sign = vessel_element.find('CALL_SIGN')
+            vessel_name = vessel_element.find('VESSEL_NAME')
+            ship_type = vessel_element.find('SHIP_TYPE')
+            agent_name = vessel_element.find('AGENT_NAME')
+            current_location = vessel_element.find('CURRENT_LOCATION')
+            arrival_time = vessel_element.find('ARRIVAL_TIME')
+            remark = vessel_element.find('REMARK')
+            
+            # Safely extract text content
+            vessel_data['call_sign'] = call_sign.text if call_sign is not None else None
+            vessel_data['vessel_name'] = vessel_name.text if vessel_name is not None else None
+            vessel_data['ship_type'] = ship_type.text if ship_type is not None else None
+            vessel_data['agent_name'] = agent_name.text if agent_name is not None else None
+            vessel_data['current_location'] = current_location.text if current_location is not None else None
+            vessel_data['arrival_time_str'] = arrival_time.text if arrival_time is not None else None
+            vessel_data['remark'] = remark.text if remark is not None else None
+            
+            # Parse arrival time using robust parsing function
+            vessel_data['arrival_time'] = _parse_vessel_timestamp(vessel_data['arrival_time_str'])
+            
+            # Determine vessel status - for arriving ships, use remark to determine status
+            if vessel_data.get('remark') == 'Departed':
+                vessel_data['status'] = 'departed'
+            else:
+                vessel_data['status'] = 'arriving'
+            
+            # Categorize ship type
+            vessel_data['ship_category'] = _categorize_ship_type(vessel_data['ship_type'])
+            
+            # Determine if at berth or anchorage
+            vessel_data['location_type'] = _categorize_location(vessel_data['current_location'])
+            
+            # Add data source identifier
+            vessel_data['data_source'] = 'arriving_ships'
+            
+            vessels.append(vessel_data)
+        
+        # Create DataFrame
+        df = pd.DataFrame(vessels)
+        
+        # Sort by arrival time
+        if not df.empty and 'arrival_time' in df.columns:
+            df = df.sort_values('arrival_time', na_position='last')
+        
+        logger.info(f"Loaded arriving ships data: {len(df)} vessels")
+        return df
+        
+    except Exception as e:
+        logger.error(f"Error loading arriving ships data: {e}")
+        return pd.DataFrame()
+
+
 def load_vessel_arrivals() -> pd.DataFrame:
     logger.info(f"Attempting to load vessel arrivals from: {VESSEL_ARRIVALS_XML}")
     """Load and process real-time vessel arrival data from XML.
@@ -610,6 +708,9 @@ def load_vessel_arrivals() -> pd.DataFrame:
             # Determine if at berth or anchorage
             vessel_data['location_type'] = _categorize_location(vessel_data['current_location'])
             
+            # Add data source identifier
+            vessel_data['data_source'] = 'current_arrivals'
+            
             vessels.append(vessel_data)
         
         # Create DataFrame
@@ -624,6 +725,66 @@ def load_vessel_arrivals() -> pd.DataFrame:
         
     except Exception as e:
         logger.error(f"Error loading vessel arrivals data: {e}")
+        return pd.DataFrame()
+
+
+def load_combined_vessel_data() -> pd.DataFrame:
+    """Load and combine both current vessel arrivals and arriving ships data.
+    
+    Returns:
+        pd.DataFrame: Combined vessel data with arriving, in-port, and departed vessels
+    """
+    try:
+        # Load both datasets
+        current_vessels = load_vessel_arrivals()
+        arriving_ships = load_arriving_ships()
+        
+        # Combine the datasets
+        combined_data = []
+        
+        if not current_vessels.empty:
+            combined_data.append(current_vessels)
+            
+        if not arriving_ships.empty:
+            combined_data.append(arriving_ships)
+        
+        if not combined_data:
+            logger.warning("No vessel data available from either source")
+            return pd.DataFrame()
+        
+        # Concatenate all data
+        combined_df = pd.concat(combined_data, ignore_index=True)
+        
+        # Handle duplicates by merging status information
+        # If a vessel appears in both datasets, prioritize 'arriving' status over 'in_port'
+        if len(combined_data) > 1:
+            # Create a priority mapping for status values
+            status_priority = {'arriving': 3, 'in_port': 2, 'departed': 1}
+            
+            # Add priority column for sorting
+            combined_df['_status_priority'] = combined_df['status'].map(status_priority).fillna(0)
+            
+            # Sort by priority (highest first) and remove duplicates
+            combined_df = combined_df.sort_values('_status_priority', ascending=False)
+            combined_df = combined_df.drop_duplicates(subset=['call_sign', 'vessel_name'], keep='first')
+            
+            # Remove the temporary priority column
+            combined_df = combined_df.drop('_status_priority', axis=1)
+        else:
+            # If only one dataset, just remove duplicates normally
+            combined_df = combined_df.drop_duplicates(subset=['call_sign', 'vessel_name'], keep='first')
+        
+        # Sort by arrival time
+        if 'arrival_time' in combined_df.columns:
+            combined_df = combined_df.sort_values('arrival_time', na_position='last')
+        
+        logger.info(f"Combined vessel data loaded: {len(combined_df)} vessels total")
+        logger.info(f"Status breakdown: {combined_df['status'].value_counts().to_dict()}")
+        
+        return combined_df
+        
+    except Exception as e:
+        logger.error(f"Error loading combined vessel data: {e}")
         return pd.DataFrame()
 
 def _parse_vessel_timestamp(time_str: str) -> Optional[pd.Timestamp]:

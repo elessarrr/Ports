@@ -48,7 +48,81 @@ Could not load real-time berth data: name 'get_berth_config' is not defined
 
 This error indicated that the `get_berth_config` function was being called but was not defined or imported in the current scope.
 
-### Root Cause
+## Error 3: `ImportError: cannot import name 'load_combined_vessel_data'`
+
+### Symptom
+
+The Streamlit application failed to start with the following import error:
+
+```
+ImportError: cannot import name 'load_combined_vessel_data' from 'hk_port_digital_twin.src.utils.data_loader'
+```
+
+This error occurred in `streamlit_app.py` at line 16, during the import statement.
+
+### Root Cause Analysis
+
+Initial investigation revealed:
+1. The `load_combined_vessel_data` function was properly defined in `data_loader.py` at line 731
+2. The function had correct syntax and proper indentation
+3. All dependencies (`load_arriving_ships`, `load_vessel_arrivals`) were also properly defined
+4. Direct import testing via command line worked successfully
+
+### Resolution
+
+The issue was resolved by restarting the Streamlit application. This suggests the error was likely caused by:
+- A temporary Python module caching issue
+- The Streamlit development server not detecting recent changes to the `data_loader.py` file
+- A race condition during the previous application startup
+
+**Actions Taken:**
+1. Verified function existence and syntax in `data_loader.py`
+2. Tested direct import via command line (successful)
+3. Stopped the running Streamlit process
+4. Restarted the Streamlit application
+5. Confirmed successful loading with proper vessel data integration
+
+### Key Learnings
+
+- Streamlit's hot-reload mechanism may not always detect changes to imported modules
+- When encountering import errors for recently added functions, try restarting the development server
+- Always verify function definitions exist before assuming syntax or dependency issues
+- Use direct Python import testing to isolate whether the issue is with the module or the application server
+-6. **Data Deduplication Logic**: When combining datasets with overlapping records, consider status priority rather than simple "first wins" deduplication
+7. **Status Value Debugging**: Always verify actual data values in combined datasets, especially when UI metrics don't match expectations
+
+---
+
+## Issue 3: Missing Arriving Ships in Vessel Table
+
+### Symptom
+- No ships showing as "arriving" in the Live Vessel Arrivals tab
+- Metrics showing 0 arriving vessels despite data being loaded
+- Only "in_port" and "departed" statuses visible
+
+### Root Cause Analysis
+1. **Data Source Overlap**: Both `load_vessel_arrivals()` and `load_arriving_ships()` were loading from the same XML file (`Arrived_in_last_36_hours.xml`)
+2. **Status Assignment Difference**: 
+   - `load_vessel_arrivals()` assigns status as 'in_port' or 'departed'
+   - `load_arriving_ships()` assigns status as 'arriving' or 'departed'
+3. **Deduplication Logic**: The `drop_duplicates(keep='first')` was keeping the first occurrence (from vessel_arrivals), losing the 'arriving' status from the second dataset
+4. **UI Function Mismatch**: Tab4 was initially using `load_vessel_arrivals()` instead of `load_combined_vessel_data()`
+
+### Resolution
+1. **Updated Tab4**: Changed from `load_vessel_arrivals()` to `load_combined_vessel_data()`
+2. **Improved Deduplication**: Implemented status priority logic:
+   - Priority order: 'arriving' (3) > 'in_port' (2) > 'departed' (1)
+   - Sort by priority before deduplication to preserve higher-priority statuses
+3. **Updated UI Metrics**: Modified metrics to show Total, Arriving, In Port, and Departed counts
+4. **Column Name Handling**: Added logic to handle different column names between datasets
+
+### Key Learnings
+- **Status Priority in Data Merging**: When combining datasets with different status interpretations, implement priority-based deduplication
+- **Data Source Verification**: Always verify what data sources are being used and how they differ
+- **Debug Data Values**: Create simple debug scripts to inspect actual data values when UI doesn't match expectations
+- **Consistent Function Usage**: Ensure UI components use the appropriate data loading functions for their purpose
+
+```### Root Cause
 
 The `get_berth_config` function was called in `streamlit_app.py` to load berth configurations, but the function did not exist. The correct function for this purpose was `load_berth_configurations`, which is available in `src/utils/data_loader.py`.
 

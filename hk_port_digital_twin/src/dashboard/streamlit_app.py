@@ -13,7 +13,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from hk_port_digital_twin.src.utils.data_loader import RealTimeDataConfig, get_real_time_manager, load_container_throughput, load_vessel_arrivals, load_berth_configurations, initialize_vessel_data_pipeline, load_all_vessel_data, get_comprehensive_vessel_analysis
+from hk_port_digital_twin.src.utils.data_loader import RealTimeDataConfig, get_real_time_manager, load_container_throughput, load_vessel_arrivals, load_berth_configurations, initialize_vessel_data_pipeline, load_all_vessel_data, get_comprehensive_vessel_analysis, load_combined_vessel_data
 from hk_port_digital_twin.config.settings import SIMULATION_CONFIG, get_enhanced_simulation_config
 from hk_port_digital_twin.src.core.port_simulation import PortSimulation
 from hk_port_digital_twin.src.core.simulation_controller import SimulationController
@@ -66,10 +66,12 @@ def load_sample_data(scenario='normal', use_real_throughput_data=True):
     num_berths = 8
     num_occupied = np.random.randint(params['occupied_berths_range'][0], params['occupied_berths_range'][1] + 1)
     
-    # Create a list of statuses with 'occupied', 'available', and one 'maintenance'
-    statuses = ['occupied'] * num_occupied
-    statuses += ['available'] * (num_berths - num_occupied - 1)
-    statuses.append('maintenance')
+    # Ensure we don't exceed total berths and always have at least one maintenance berth
+    num_occupied = min(num_occupied, num_berths - 1)  # Reserve at least 1 berth for maintenance
+    num_available = num_berths - num_occupied - 1  # 1 berth for maintenance
+    
+    # Create a list of statuses with exact length matching num_berths
+    statuses = ['occupied'] * num_occupied + ['available'] * num_available + ['maintenance']
     np.random.shuffle(statuses)
     
     # Generate random utilization for occupied berths
@@ -1137,38 +1139,43 @@ def main():
         st.subheader("🚢 Live Vessel Arrivals")
         st.markdown("Real-time vessel arrival data and analytics for Hong Kong port")
         
-        # Load vessel arrivals data
+        # Load combined vessel data (both arriving and arrived vessels)
         try:
-            vessel_data = load_vessel_arrivals()
+            vessel_data = load_combined_vessel_data()
             if vessel_data is None or vessel_data.empty:
-                st.warning("⚠️ No vessel arrivals data available")
+                st.warning("⚠️ No vessel data available")
                 st.info("Please ensure vessel data files are available in the data directory.")
                 vessel_data = pd.DataFrame()
         except Exception as e:
-            st.error(f"Error loading vessel arrivals data: {str(e)}")
+            st.error(f"Error loading combined vessel data: {str(e)}")
             vessel_data = pd.DataFrame()
         
         if not vessel_data.empty:
             # Current vessel status
             st.subheader("📊 Current Vessel Status")
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
             
             with col1:
-                active_vessels = len(vessel_data)
-                st.metric("Active Vessels", active_vessels)
+                total_vessels = len(vessel_data)
+                st.metric("Total Vessels", total_vessels)
             
             with col2:
-                loaded_vessels = len(vessel_data[vessel_data.get('status', '') == 'loaded']) if 'status' in vessel_data.columns else 0
-                st.metric("Total Loaded", loaded_vessels)
+                arriving_vessels = len(vessel_data[vessel_data.get('status', '') == 'arriving']) if 'status' in vessel_data.columns else 0
+                st.metric("Arriving", arriving_vessels)
             
             with col3:
-                analysis_time = datetime.now().strftime("%H:%M")
-                st.metric("Analysis Time", analysis_time)
+                in_port_vessels = len(vessel_data[vessel_data.get('status', '') == 'in_port']) if 'status' in vessel_data.columns else 0
+                st.metric("In Port", in_port_vessels)
+            
+            with col4:
+                departed_vessels = len(vessel_data[vessel_data.get('status', '') == 'departed']) if 'status' in vessel_data.columns else 0
+                st.metric("Departed", departed_vessels)
             
             # Vessel locations
             st.subheader("📍 Vessel Locations")
-            if 'location' in vessel_data.columns:
-                location_counts = vessel_data['location'].value_counts().head(10)
+            location_column = 'current_location' if 'current_location' in vessel_data.columns else 'location'
+            if location_column in vessel_data.columns:
+                location_counts = vessel_data[location_column].value_counts().head(10)
                 
                 col1, col2 = st.columns(2)
                 
@@ -1189,8 +1196,9 @@ def main():
             
             # Ship categories
             st.subheader("🚢 Ship Categories")
-            if 'ship_type' in vessel_data.columns:
-                category_counts = vessel_data['ship_type'].value_counts().head(10)
+            ship_type_column = 'ship_category' if 'ship_category' in vessel_data.columns else 'ship_type'
+            if ship_type_column in vessel_data.columns:
+                category_counts = vessel_data[ship_type_column].value_counts().head(10)
                 
                 col1, col2 = st.columns(2)
                 
@@ -1257,15 +1265,15 @@ def main():
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                if 'ship_type' in vessel_data.columns:
-                    ship_types = ['All'] + list(vessel_data['ship_type'].unique())
+                if ship_type_column in vessel_data.columns:
+                    ship_types = ['All'] + list(vessel_data[ship_type_column].unique())
                     selected_type = st.selectbox("Filter by Ship Type", ship_types)
                 else:
                     selected_type = 'All'
             
             with col2:
-                if 'location' in vessel_data.columns:
-                    locations = ['All'] + list(vessel_data['location'].unique())
+                if location_column in vessel_data.columns:
+                    locations = ['All'] + list(vessel_data[location_column].unique())
                     selected_location = st.selectbox("Filter by Location", locations)
                 else:
                     selected_location = 'All'
@@ -1276,11 +1284,11 @@ def main():
             # Apply filters
             filtered_data = vessel_data.copy()
             
-            if selected_type != 'All' and 'ship_type' in vessel_data.columns:
-                filtered_data = filtered_data[filtered_data['ship_type'] == selected_type]
+            if selected_type != 'All' and ship_type_column in vessel_data.columns:
+                filtered_data = filtered_data[filtered_data[ship_type_column] == selected_type]
             
-            if selected_location != 'All' and 'location' in vessel_data.columns:
-                filtered_data = filtered_data[filtered_data['location'] == selected_location]
+            if selected_location != 'All' and location_column in vessel_data.columns:
+                filtered_data = filtered_data[filtered_data[location_column] == selected_location]
             
             # Display table
             if not show_all:
@@ -1428,7 +1436,7 @@ def main():
         try:
             with st.spinner("Loading live vessel data..."):
                 vessel_analysis = data.get('vessel_queue_analysis', {})
-                real_vessels = load_vessel_arrivals()
+                real_vessels = load_combined_vessel_data()
             
             if vessel_analysis:
                 # Display vessel queue analysis summary
@@ -1548,10 +1556,26 @@ def main():
                             st.plotly_chart(fig, use_container_width=True, key="activity_trend_chart")
                 
                 # Raw vessel data table
-                st.subheader("📋 Detailed Vessel Data")
+                st.subheader("📋 Detailed Vessel Information")
+                st.markdown("*Combined data showing arriving, in port, and departed vessels*")
+                
                 if not real_vessels.empty:
+                    # Display data summary
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Total Vessels", len(real_vessels))
+                    with col2:
+                        arriving_count = len(real_vessels[real_vessels['status'] == 'arriving'])
+                        st.metric("Arriving", arriving_count)
+                    with col3:
+                        in_port_count = len(real_vessels[real_vessels['status'] == 'in_port'])
+                        st.metric("In Port", in_port_count)
+                    with col4:
+                        departed_count = len(real_vessels[real_vessels['status'] == 'departed'])
+                        st.metric("Departed", departed_count)
+                    
                     # Add filters
-                    filter_col1, filter_col2, filter_col3 = st.columns(3)
+                    filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
                     
                     with filter_col1:
                         status_filter = st.selectbox(
@@ -1571,6 +1595,15 @@ def main():
                             ['All'] + list(real_vessels['ship_category'].unique())
                         )
                     
+                    with filter_col4:
+                        if 'data_source' in real_vessels.columns:
+                            source_filter = st.selectbox(
+                                "Filter by Data Source",
+                                ['All'] + list(real_vessels['data_source'].unique())
+                            )
+                        else:
+                            source_filter = 'All'
+                    
                     # Apply filters
                     filtered_vessels = real_vessels.copy()
                     if status_filter != 'All':
@@ -1579,12 +1612,14 @@ def main():
                         filtered_vessels = filtered_vessels[filtered_vessels['location_type'] == location_filter]
                     if category_filter != 'All':
                         filtered_vessels = filtered_vessels[filtered_vessels['ship_category'] == category_filter]
+                    if source_filter != 'All' and 'data_source' in real_vessels.columns:
+                        filtered_vessels = filtered_vessels[filtered_vessels['data_source'] == source_filter]
                     
                     # Display filtered data
                     st.write(f"**Showing {len(filtered_vessels)} of {len(real_vessels)} vessels**")
                     
                     # Select columns to display
-                    display_columns = ['vessel_name', 'call_sign', 'ship_category', 'location_type', 'status', 'arrival_time']
+                    display_columns = ['vessel_name', 'call_sign', 'ship_category', 'location_type', 'status', 'arrival_time', 'data_source']
                     available_columns = [col for col in display_columns if col in filtered_vessels.columns]
                     
                     if available_columns:
@@ -1614,6 +1649,12 @@ def main():
     
     with tab7:
         st.subheader("Analytics")
+        
+        # Check if data is properly loaded
+        if not data or 'berths' not in data:
+            st.error("❌ Data loading failed. Please check the scenario selection and try again.")
+            st.info("💡 Try switching to a different scenario or refreshing the page.")
+            return
         
         # Data Export Section
         st.subheader("📥 Data Export")
