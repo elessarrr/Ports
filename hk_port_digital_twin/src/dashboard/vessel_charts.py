@@ -8,6 +8,7 @@ import streamlit as st
 import plotly.express as px
 import pandas as pd
 from typing import Dict, Any, Optional
+from datetime import datetime
 
 def render_vessel_location_distribution(vessel_analysis: Dict[str, Any]) -> None:
     """
@@ -191,6 +192,59 @@ def render_arrival_activity_trend(vessel_analysis: Dict[str, Any]) -> None:
     except Exception as e:
         st.error(f"Error rendering arrival activity trend: {str(e)}")
 
+def _extract_latest_timestamp(vessel_analysis: Dict[str, Any]) -> str:
+    """
+    Extract the latest timestamp from vessel analysis data across all XML files.
+    
+    Args:
+        vessel_analysis: Dictionary containing vessel analysis data
+    
+    Returns:
+        str: Formatted latest timestamp or empty string if no timestamps found
+    """
+    try:
+        latest_timestamp = None
+        
+        # Check if we have file_breakdown with timestamps
+        if isinstance(vessel_analysis, dict) and 'file_breakdown' in vessel_analysis:
+            for file_name, file_data in vessel_analysis['file_breakdown'].items():
+                # Check both latest and earliest timestamps to find the most recent
+                for ts_key in ['latest_timestamp', 'earliest_timestamp']:
+                    timestamp_str = file_data.get(ts_key)
+                    if timestamp_str:
+                        try:
+                            # Parse the ISO timestamp
+                            ts = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                            if latest_timestamp is None or ts > latest_timestamp:
+                                latest_timestamp = ts
+                        except (ValueError, TypeError):
+                            continue
+        
+        # Fallback: check for analysis_timestamp
+        if latest_timestamp is None and isinstance(vessel_analysis, dict) and 'analysis_timestamp' in vessel_analysis:
+            analysis_ts = vessel_analysis.get('analysis_timestamp')
+            if analysis_ts:
+                try:
+                    latest_timestamp = datetime.fromisoformat(analysis_ts.replace('Z', '+00:00'))
+                except (ValueError, TypeError):
+                    pass
+        
+        # Fallback: check for timestamp column in DataFrame format
+        elif isinstance(vessel_analysis, pd.DataFrame) and 'timestamp' in vessel_analysis.columns:
+            timestamps = vessel_analysis['timestamp'].dropna()
+            if not timestamps.empty:
+                latest_timestamp = timestamps.max()
+        
+        # Format the timestamp for display
+        if latest_timestamp:
+            return latest_timestamp.strftime('%d-%b-%Y %H:%M')
+        else:
+            return ""
+            
+    except Exception as e:
+        st.error(f"Error extracting timestamp: {str(e)}")
+        return ""
+
 def render_vessel_analytics_dashboard(vessel_analysis) -> None:
     """
     Renders the complete vessel analytics dashboard with all three charts.
@@ -255,11 +309,26 @@ def render_vessel_analytics_dashboard(vessel_analysis) -> None:
             
             vessel_analysis = processed_data
         
-        # Check if processed data has any content
+        # Handle dictionary input from get_comprehensive_vessel_analysis()
         elif isinstance(vessel_analysis, dict):
             if not any(vessel_analysis.values()):
                 st.warning("No vessel analysis data available")
                 return
+            
+            # Store original data for timestamp extraction
+            original_vessel_analysis = vessel_analysis.copy()
+            
+            # Map the keys from get_comprehensive_vessel_analysis() to expected format
+            processed_data = {
+                'location_distribution': vessel_analysis.get('location_type_breakdown', {}),
+                'category_distribution': vessel_analysis.get('ship_category_breakdown', {}),
+                'activity_trend': vessel_analysis.get('recent_activity', {}),
+                # Preserve original data for timestamp extraction
+                'file_breakdown': vessel_analysis.get('file_breakdown', {}),
+                'analysis_timestamp': vessel_analysis.get('analysis_timestamp')
+            }
+            
+            vessel_analysis = processed_data
         else:
             st.warning("Invalid vessel analysis data format")
             return
@@ -268,8 +337,8 @@ def render_vessel_analytics_dashboard(vessel_analysis) -> None:
         main_col1, main_col2, main_col3 = st.columns([0.1, 0.8, 0.1])
         
         with main_col2:
-            st.subheader("🚢 Vessel Analytics Dashboard")
-            st.write("Real-time analysis of vessel distribution and activity patterns")
+            #st.subheader("🚢 Vessel Analytics Dashboard")
+            #st.write("Real-time analysis of vessel distribution and activity patterns")
             
             # Create two columns for the first row of charts
             col1, col2 = st.columns(2)

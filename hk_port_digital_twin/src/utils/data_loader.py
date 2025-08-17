@@ -9,6 +9,7 @@ This module provides functions to load and process various data sources includin
 
 import pandas as pd
 import numpy as np
+import os
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Callable
 import logging
@@ -53,10 +54,10 @@ except ImportError:
 RAW_DATA_DIR = (Path(__file__).parent.parent.parent / ".." / "raw_data").resolve()
 CONTAINER_THROUGHPUT_FILE = RAW_DATA_DIR / "Total_container_throughput_by_mode_of_transport_(EN).csv"
 PORT_CARGO_STATS_DIR = RAW_DATA_DIR / "Port Cargo Statistics"
-VESSEL_ARRIVALS_XML = (Path(__file__).parent.parent.parent / ".." / "Arrived_in_last_36_hours.xml").resolve()
+VESSEL_ARRIVALS_XML = (Path(__file__).parent.parent.parent / ".." / "raw_data" / "Arrived_in_last_36_hours.xml").resolve()
 
 # Vessel data pipeline configuration
-VESSEL_DATA_DIR = (Path(__file__).parent.parent.parent / "..").resolve()
+VESSEL_DATA_DIR = (Path(__file__).parent.parent.parent / ".." / "raw_data").resolve()
 VESSEL_XML_FILES = [
     'Arrived_in_last_36_hours.xml',
     'Departed_in_last_36_hours.xml', 
@@ -597,18 +598,8 @@ def load_vessel_arrivals() -> pd.DataFrame:
             vessel_data['arrival_time_str'] = arrival_time.text if arrival_time is not None else None
             vessel_data['remark'] = remark.text if remark is not None else None
             
-            # Parse arrival time
-            if vessel_data['arrival_time_str']:
-                try:
-                    vessel_data['arrival_time'] = pd.to_datetime(
-                        vessel_data['arrival_time_str'], 
-                        format='%d-%b-%Y %H:%M'
-                    )
-                except ValueError:
-                    logger.warning(f"Could not parse arrival time: {vessel_data['arrival_time_str']}")
-                    vessel_data['arrival_time'] = None
-            else:
-                vessel_data['arrival_time'] = None
+            # Parse arrival time using robust parsing function
+            vessel_data['arrival_time'] = _parse_vessel_timestamp(vessel_data['arrival_time_str'])
             
             # Determine vessel status
             vessel_data['status'] = 'departed' if vessel_data.get('remark') == 'Departed' else 'in_port'
@@ -634,6 +625,53 @@ def load_vessel_arrivals() -> pd.DataFrame:
     except Exception as e:
         logger.error(f"Error loading vessel arrivals data: {e}")
         return pd.DataFrame()
+
+def _parse_vessel_timestamp(time_str: str) -> Optional[pd.Timestamp]:
+    """Parse vessel timestamp from various date formats.
+    
+    Args:
+        time_str (str): Time string from XML data
+        
+    Returns:
+        Optional[pd.Timestamp]: Parsed timestamp or None if parsing fails
+    """
+    if not time_str:
+        return None
+    
+    # List of possible date formats found in the XML data
+    date_formats = [
+        '%d-%b-%Y %H:%M',  # Original expected format: 17-Aug-2025 12:30
+        '%Y/%m/%d %H:%M',  # Actual format in data: 2025/08/17 12:30
+        '%Y-%m-%d %H:%M',  # Alternative format: 2025-08-17 12:30
+        '%d/%m/%Y %H:%M',  # Alternative format: 17/08/2025 12:30
+    ]
+    
+    parsed_timestamp = None
+    
+    for date_format in date_formats:
+        try:
+            parsed_timestamp = pd.to_datetime(time_str, format=date_format)
+            break
+        except ValueError:
+            continue
+    
+    # If all specific formats fail, try pandas' flexible parsing as last resort
+    if parsed_timestamp is None:
+        try:
+            parsed_timestamp = pd.to_datetime(time_str)
+        except (ValueError, TypeError):
+            logger.warning(f"Could not parse time: {time_str}")
+            return None
+    
+    # Data validation: Filter out obviously invalid dates
+    # Reject dates before 2020 or more than 2 years in the future
+    current_year = datetime.now().year
+    if parsed_timestamp.year < 2020 or parsed_timestamp.year > current_year + 2:
+        logger.warning(f"Rejecting invalid timestamp (year {parsed_timestamp.year}): {time_str}")
+        return None
+    
+    return parsed_timestamp
+
 
 def _categorize_ship_type(ship_type: str) -> str:
     """Categorize ship type into standard categories.
@@ -854,18 +892,8 @@ def load_vessel_data_from_xml(xml_file_path: Path) -> pd.DataFrame:
             
             vessel_data['time_str'] = time_str
             
-            # Parse time
-            if time_str:
-                try:
-                    vessel_data['timestamp'] = pd.to_datetime(
-                        time_str, 
-                        format='%d-%b-%Y %H:%M'
-                    )
-                except ValueError:
-                    logger.warning(f"Could not parse time: {time_str}")
-                    vessel_data['timestamp'] = None
-            else:
-                vessel_data['timestamp'] = None
+            # Parse time using robust parsing function
+            vessel_data['timestamp'] = _parse_vessel_timestamp(time_str)
             
             # Determine vessel status based on file and remark
             file_name = xml_file_path.name.lower()

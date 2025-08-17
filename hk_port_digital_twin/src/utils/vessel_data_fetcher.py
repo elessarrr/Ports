@@ -39,7 +39,8 @@ class VesselDataFetcher:
         """
         # Configuration from environment variables
         self.base_url = os.getenv('HK_VESSEL_DATA_BASE_URL', 'https://data.gov.hk/en-data/dataset/hk-md-mardep-vessel-arrivals-and-departures')
-        self.data_directory = Path(os.getenv('VESSEL_DATA_DIRECTORY', '/Users/Bhavesh/Documents/GitHub/Ports/Ports/'))
+        # Set data directory to the raw_data folder as requested
+        self.data_directory = Path('/Users/Bhavesh/Documents/GitHub/Ports/Ports/raw_data')
         self.fetch_interval = int(os.getenv('VESSEL_DATA_FETCH_INTERVAL', '20'))
         self.pipeline_enabled = os.getenv('VESSEL_DATA_PIPELINE_ENABLED', 'true').lower() == 'true'
         
@@ -145,25 +146,53 @@ class VesselDataFetcher:
         """
         Discover available XML files from the government data portal.
         
-        This method scrapes the portal page to find actual download links for XML files.
-        For now, it returns a mock structure since we need to implement web scraping.
+        This method uses known Hong Kong Marine Department data sources to construct
+        download URLs for vessel data XML files.
         
         Returns:
             List[Dict[str, str]]: List of dictionaries with 'name' and 'url' keys
         """
-        # TODO: Implement actual web scraping to discover XML file URLs
-        # For now, return a mock structure based on the known file
-        self.logger.info("Discovering XML files from portal (using mock data for now)")
+        self.logger.info("Discovering XML files from Hong Kong Marine Department portal")
         
-        # Mock data - in real implementation, this would scrape the portal
-        mock_files = [
+        # Hong Kong Marine Department vessel data URLs via government API
+        # These are the official API endpoints for real-time vessel data
+        xml_files = [
             {
                 'name': 'Arrived_in_last_36_hours.xml',
-                'url': 'https://example.com/mock_url'  # This would be the actual download URL
+                'url': 'https://res.data.gov.hk/api/get-download-file?name=https%3A%2F%2Fwww.mardep.gov.hk%2Fe_files%2Fen%2Fopendata%2FRP05005i.XML'
+            },
+            {
+                'name': 'Departed_in_last_36_hours.xml', 
+                'url': 'https://res.data.gov.hk/api/get-download-file?name=https%3A%2F%2Fwww.mardep.gov.hk%2Fe_files%2Fen%2Fopendata%2FRP04005i.XML'
+            },
+            {
+                'name': 'Expected_arrivals.xml',
+                'url': 'https://res.data.gov.hk/api/get-download-file?name=https%3A%2F%2Fwww.mardep.gov.hk%2Fe_files%2Fen%2Fopendata%2FRP06005i.XML'
+            },
+            {
+                'name': 'Expected_departures.xml',
+                'url': 'https://res.data.gov.hk/api/get-download-file?name=https%3A%2F%2Fwww.mardep.gov.hk%2Fe_files%2Fen%2Fopendata%2FRP05505i.XML'
             }
         ]
         
-        return mock_files
+        # Verify URLs are accessible (basic connectivity check)
+        accessible_files = []
+        for file_info in xml_files:
+            try:
+                # Quick HEAD request to check if URL is accessible
+                response = self.session.head(file_info['url'], timeout=10)
+                if response.status_code == 200:
+                    accessible_files.append(file_info)
+                    self.logger.info(f"Verified access to {file_info['name']}")
+                else:
+                    self.logger.warning(f"URL not accessible for {file_info['name']}: HTTP {response.status_code}")
+            except Exception as e:
+                self.logger.warning(f"Could not verify access to {file_info['name']}: {str(e)}")
+                # Still include the file - download attempt will handle the error
+                accessible_files.append(file_info)
+        
+        self.logger.info(f"Discovered {len(accessible_files)} XML files for download")
+        return accessible_files
     
     def _download_single_file(self, file_name: str, file_url: str) -> bool:
         """

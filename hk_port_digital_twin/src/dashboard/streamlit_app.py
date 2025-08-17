@@ -13,7 +13,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from hk_port_digital_twin.src.utils.data_loader import RealTimeDataConfig, get_real_time_manager, load_container_throughput, load_vessel_arrivals, load_berth_configurations, initialize_vessel_data_pipeline, load_all_vessel_data
+from hk_port_digital_twin.src.utils.data_loader import RealTimeDataConfig, get_real_time_manager, load_container_throughput, load_vessel_arrivals, load_berth_configurations, initialize_vessel_data_pipeline, load_all_vessel_data, get_comprehensive_vessel_analysis
 from hk_port_digital_twin.config.settings import SIMULATION_CONFIG, get_enhanced_simulation_config
 from hk_port_digital_twin.src.core.port_simulation import PortSimulation
 from hk_port_digital_twin.src.core.simulation_controller import SimulationController
@@ -1637,50 +1637,71 @@ def main():
         st.markdown("Real-time analysis of vessel distribution and activity patterns")
         
         try:
-            # Load vessel arrivals data
-            vessel_data = load_vessel_arrivals()
+            # Load comprehensive vessel analysis data (includes timestamps from all XML files)
+            vessel_analysis = get_comprehensive_vessel_analysis()
             
-            if vessel_data is not None and not vessel_data.empty:
-                # Process vessel data for analytics
-                st.write(f"**Data Summary:** {len(vessel_data)} vessels loaded")
+            if vessel_analysis and vessel_analysis.get('data_summary', {}).get('total_vessels', 0) > 0:
+                # Display data summary
+                data_summary = vessel_analysis.get('data_summary', {})
+                st.write(f"**Data Summary:** {data_summary.get('total_vessels', 0)} vessels loaded from {data_summary.get('files_processed', 0)} files")
+                
+                # Show data sources
+                data_sources = data_summary.get('data_sources', [])
+                if data_sources:
+                    st.write(f"**Data Sources:** {', '.join([src.replace('.xml', '') for src in data_sources])}")
                 
                 # Location breakdown
-                if 'location' in vessel_data.columns:
-                    location_counts = vessel_data['location'].value_counts()
-                    st.write(f"**Locations:** {len(location_counts)} unique locations")
+                location_breakdown = vessel_analysis.get('location_type_breakdown', {})
+                if location_breakdown:
+                    st.write(f"**Locations:** {len(location_breakdown)} unique location types")
                 
                 # Ship category breakdown
-                if 'ship_category' in vessel_data.columns:
-                    category_counts = vessel_data['ship_category'].value_counts()
-                    st.write(f"**Ship Categories:** {len(category_counts)} different types")
+                category_breakdown = vessel_analysis.get('ship_category_breakdown', {})
+                if category_breakdown:
+                    st.write(f"**Ship Categories:** {len(category_breakdown)} different types")
                 
-                # Activity trend analysis
-                if 'arrival_time' in vessel_data.columns:
-                    vessel_data['arrival_time'] = pd.to_datetime(vessel_data['arrival_time'], errors='coerce')
-                    recent_arrivals = vessel_data[vessel_data['arrival_time'] >= datetime.now() - timedelta(hours=24)]
-                    st.write(f"**Recent Activity:** {len(recent_arrivals)} arrivals in last 24 hours")
+                # Recent activity
+                recent_activity = vessel_analysis.get('recent_activity', {})
+                if recent_activity:
+                    st.write(f"**Recent Activity:** {recent_activity.get('vessels_last_24h', 0)} vessels in last 24 hours")
                 
-                # Render the vessel analytics dashboard
-                render_vessel_analytics_dashboard(vessel_data)
+                # Display timestamp if available
+                from hk_port_digital_twin.src.dashboard.vessel_charts import _extract_latest_timestamp
+                latest_timestamp = _extract_latest_timestamp(vessel_analysis)
+                if latest_timestamp:
+                    st.caption(f"📅 Last updated at: {latest_timestamp}")
+                else:
+                    st.caption("📅 Last updated at: Not available")
+                
+                # Render the vessel analytics dashboard with comprehensive analysis data
+                render_vessel_analytics_dashboard(vessel_analysis)
                 
             else:
                 st.warning("No vessel data available for analytics.")
-                st.info("Please ensure vessel arrival data is properly loaded.")
+                st.info("Please ensure vessel data files are properly loaded from the raw_data directory.")
                 
         except Exception as e:
             st.error(f"Error loading vessel analytics: {str(e)}")
             st.info("Using sample data for demonstration purposes.")
             
-            # Fallback to sample data
-            sample_vessel_data = pd.DataFrame({
-                'vessel_name': ['Sample Vessel 1', 'Sample Vessel 2', 'Sample Vessel 3'],
-                'location': ['Terminal A', 'Terminal B', 'Terminal A'],
-                'ship_category': ['Container', 'Bulk', 'Container'],
-                'arrival_time': [datetime.now() - timedelta(hours=2), 
-                               datetime.now() - timedelta(hours=5),
-                               datetime.now() - timedelta(hours=8)]
-            })
-            render_vessel_analytics_dashboard(sample_vessel_data)
+            # Fallback to sample data with proper structure
+            sample_vessel_analysis = {
+                'data_summary': {
+                    'total_vessels': 3,
+                    'files_processed': 1,
+                    'data_sources': ['sample_data']
+                },
+                'location_type_breakdown': {'berth': 2, 'anchorage': 1},
+                'ship_category_breakdown': {'container': 2, 'bulk_carrier': 1},
+                'file_breakdown': {
+                    'sample_data': {
+                        'earliest_timestamp': (datetime.now() - timedelta(hours=8)).isoformat(),
+                        'latest_timestamp': (datetime.now() - timedelta(hours=2)).isoformat()
+                    }
+                },
+                'analysis_timestamp': datetime.now().isoformat()
+            }
+            render_vessel_analytics_dashboard(sample_vessel_analysis)
     
     with tab9:
         if use_consolidated:
