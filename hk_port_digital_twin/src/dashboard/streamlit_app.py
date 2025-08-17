@@ -25,6 +25,7 @@ from hk_port_digital_twin.src.utils.visualization import create_kpi_summary_char
 HKObservatoryIntegration = None  # Disabled
 from hk_port_digital_twin.src.utils.data_loader import load_focused_cargo_statistics, get_enhanced_cargo_analysis, get_time_series_data
 from hk_port_digital_twin.src.dashboard.scenario_tab_consolidation import ConsolidatedScenariosTab
+from hk_port_digital_twin.src.dashboard.vessel_charts import render_vessel_analytics_dashboard
 
 try:
     from hk_port_digital_twin.src.dashboard.marine_traffic_integration import MarineTrafficIntegration
@@ -215,14 +216,26 @@ def get_real_berth_data(berth_config):
     
     # Fallback to sample data
     data = load_sample_data()
-    berth_metrics = {
-        'total_berths': len(data['berths']),
-        'occupied_berths': len(data['berths'][data['berths']['status'] == 'occupied']),
-        'available_berths': len(data['berths'][data['berths']['status'] == 'available']),
-        'utilization_rate': len(data['berths'][data['berths']['status'] == 'occupied']) / len(data['berths']) * 100,
-        'berth_types': data['berths']['berth_type'].value_counts().to_dict()
-    }
-    return data['berths'], berth_metrics
+    if 'berths' in data and data['berths'] is not None and not data['berths'].empty:
+        berth_metrics = {
+            'total_berths': len(data['berths']),
+            'occupied_berths': len(data['berths'][data['berths']['status'] == 'occupied']),
+            'available_berths': len(data['berths'][data['berths']['status'] == 'available']),
+            'utilization_rate': len(data['berths'][data['berths']['status'] == 'occupied']) / len(data['berths']) * 100,
+            'berth_types': data['berths']['berth_type'].value_counts().to_dict()
+        }
+        return data['berths'], berth_metrics
+    else:
+        # Return empty DataFrame and default metrics if berths data is not available
+        empty_berths = pd.DataFrame(columns=['berth_id', 'name', 'status', 'ship_id', 'berth_type', 'crane_count', 'max_capacity_teu', 'is_occupied', 'utilization', 'x', 'y'])
+        berth_metrics = {
+            'total_berths': 0,
+            'occupied_berths': 0,
+            'available_berths': 0,
+            'utilization_rate': 0,
+            'berth_types': {}
+        }
+        return empty_berths, berth_metrics
 
 
 def initialize_session_state():
@@ -429,11 +442,15 @@ def create_sidebar():
 
 
 def load_data(scenario: str):
-    """Loads data for a given scenario."""
+    """Loads data for a given scenario with caching to prevent regeneration on UI interactions."""
     try:
-        # Load data using the utility function
-        data = load_sample_data(scenario)
-        return data
+        # Check if data is already cached for this scenario
+        cache_key = f"data_{scenario}"
+        if cache_key not in st.session_state:
+            # Load data using the utility function and cache it
+            st.session_state[cache_key] = load_sample_data(scenario)
+        
+        return st.session_state[cache_key]
     except Exception as e:
         st.error(f"Error loading data for scenario '{scenario}': {e}")
         return {}
@@ -458,8 +475,16 @@ def main():
     
     # Get current scenario from session state
     scenario = st.session_state.scenario_manager.get_current_scenario()
+    
+    # Check if scenario has changed and clear cache if needed
+    if 'current_scenario' not in st.session_state or st.session_state.current_scenario != scenario:
+        # Clear cached data when scenario changes
+        keys_to_remove = [key for key in st.session_state.keys() if key.startswith('data_')]
+        for key in keys_to_remove:
+            del st.session_state[key]
+        st.session_state.current_scenario = scenario
 
-    # Load data based on the selected scenario
+    # Load data based on the selected scenario (now cached)
     data = load_data(scenario)
     
     # Header
@@ -470,147 +495,55 @@ def main():
     use_consolidated = st.session_state.get('use_consolidated_scenarios', True)
     
     if use_consolidated:
-        # New consolidated structure - 5 tabs as per plan
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
-            "🌊 Live Map", "🛳️ Live Vessels", "🏗️ Live Berths", "🎯 Scenarios", "⚙️ Settings"
+        # New consolidated structure
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
+            "📊 Overview",  "📈 Analytics", "📦 Cargo Statistics","🛳️ Live Vessels", "🏗️ Live Berths", 
+            "🌊 Live Map",  "🚢 Ships & Berths", "🚢 Vessel Analytics", "🎯 Scenarios", "⚙️ Settings"
         ])
     else:
         # Original structure with separate scenario tabs
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12, tab13 = st.tabs([
-            "📊 Overview", "🚢 Ships & Berths", "📈 Analytics", "📦 Cargo Statistics", 
-            "🌊 Live Map", "🛳️ Live Vessels", "🏗️ Live Berths", "🎯 Scenario Analysis", 
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12, tab13, tab14 = st.tabs([
+            "📊 Overview", "📈 Analytics", "📦 Cargo Statistics", "🛳️ Live Vessels", "🏗️ Live Berths",
+            "🌊 Live Map", "🚢 Ships & Berths", "🚢 Vessel Analytics", "🎯 Scenario Analysis", 
             "📊 Performance Analytics", "📦 Cargo Analysis", "🔬 Advanced Analysis", 
             "💰 Investment Analysis", "⚙️ Settings"
         ])
     
     with tab1:
-        if use_consolidated:
-            # Live Map content (previously tab5)
-            st.subheader("🌊 Live Maritime Traffic")
-            st.markdown("Real-time vessel tracking around Hong Kong waters")
-            
-            # Initialize MarineTraffic integration
-            if MarineTrafficIntegration is not None:
-                marine_traffic = MarineTrafficIntegration()
-            else:
-                st.warning("⚠️ MarineTraffic integration not available")
-                st.info("The marine traffic visualization module could not be loaded.")
-                marine_traffic = None
-            
-            # Display integration options
-            col1, col2 = st.columns([3, 1])
-            
-            with col2:
-                st.subheader("Map Options")
-                
-                # Map type selection
-                map_type = st.selectbox(
-                    "Map Type",
-                    ["Satellite", "Terrain", "Basic"],
-                    index=0
-                )
-                
-                # Zoom level
-                zoom_level = st.slider("Zoom Level", 8, 15, 11)
-                
-                # Show vessel types
-                show_cargo = st.checkbox("Cargo Ships", True)
-                show_tanker = st.checkbox("Tankers", True)
-                show_passenger = st.checkbox("Passenger Ships", True)
-                
-                # Refresh button
-                if st.button("🔄 Refresh Map"):
-                    st.rerun()
-                
-                # Information box
-                st.info(
-                    "💡 **Note**: This is a live map integration with MarineTraffic. "
-                    "Vessel data is updated in real-time and shows actual ships "
-                    "in Hong Kong waters."
-                )
-                
-                # API status (if available)
-                if marine_traffic is not None:
-                    if marine_traffic.api_key:
-                        st.success("✅ API Connected")
-                        
-                        # Show some sample API data
-                        st.subheader("Live Data Sample")
-                        try:
-                            sample_data = marine_traffic.get_vessel_data_api()
-                            if sample_data and 'data' in sample_data:
-                                vessels = sample_data['data'][:3]  # Show first 3 vessels
-                                for vessel in vessels:
-                                    st.text(f"🚢 {vessel.get('SHIPNAME', 'Unknown')}")
-                                    st.text(f"   Type: {vessel.get('TYPE_NAME', 'N/A')}")
-                                    st.text(f"   Speed: {vessel.get('SPEED', 'N/A')} knots")
-                                    st.text("---")
-                        except Exception as e:
-                            st.warning(f"API Error: {str(e)}")
-                    else:
-                        st.warning("⚠️ API Key Required")
-                        st.text("Set MARINETRAFFIC_API_KEY in .env for live data")
+        st.subheader("Port Overview")
+        
+        # KPI Summary
+        # Center the forecast chart
+        col1, col2, col3 = st.columns([0.5, 2, 0.5])
+        
+        with col2:
+            # Load real forecast data if available
+            try:
+                if get_enhanced_cargo_analysis is not None:
+                    cargo_analysis = get_enhanced_cargo_analysis()
+                    forecasts = cargo_analysis.get('forecasts', {})
                 else:
-                    st.warning("⚠️ MarineTraffic integration not available")
-                    st.text("Module could not be loaded")
-            
-            with col1:
-                # Display the embedded map
-                if marine_traffic is not None:
-                    marine_traffic.render_live_map_iframe(height=600)
-                else:
-                    st.error("❌ Marine Traffic Map Unavailable")
-                    st.info("The marine traffic integration module could not be loaded. Please check the module dependencies.")
-                
-                # Additional information
-                st.markdown(
-                    "**Live Maritime Traffic around Hong Kong**\n\n"
-                    "This map shows real-time vessel positions, including:"
-                )
-                
-                col_info1, col_info2, col_info3 = st.columns(3)
-                with col_info1:
-                    st.markdown("🚢 **Container Ships**\nCargo vessels carrying containers")
-                with col_info2:
-                    st.markdown("🛢️ **Tankers**\nOil and chemical tankers")
-                with col_info3:
-                    st.markdown("🚢 **Other Vessels**\nPassenger ships, tugs, etc.")
-        else:
-            # Original Overview content for non-consolidated mode
-            st.subheader("Port Overview")
-            
-            # KPI Summary
-            # Center the forecast chart
-            col1, col2, col3 = st.columns([0.5, 2, 0.5])
-            
-            with col2:
-                # Load real forecast data if available
-                try:
-                    if get_enhanced_cargo_analysis is not None:
-                        cargo_analysis = get_enhanced_cargo_analysis()
-                        forecasts = cargo_analysis.get('forecasts', {})
-                    else:
-                        forecasts = {}
-                except Exception:
                     forecasts = {}
-                if forecasts:
-                    # Convert forecast data to expected format for create_kpi_summary_chart
-                    kpi_dict = {}
-                    forecast_categories = ['direct_shipment', 'transhipment', 'seaborne', 'river']
-                    
-                    for category in forecast_categories:
-                        if category in forecasts:
-                            # Get the first forecast data (assuming it's the main metric)
-                            category_data = forecasts[category]
-                            if category_data:
-                                first_metric = list(category_data.keys())[0]
-                                forecast_info = category_data[first_metric]
-                                
-                                # Ensure years are integers
-                                hist_years = [int(year) for year in forecast_info.get('historical_data', {}).keys()]
-                                hist_values = list(forecast_info.get('historical_data', {}).values())
-                                forecast_years = [int(year) for year in forecast_info.get('forecast_years', [])]
-                                forecast_values = forecast_info.get('forecast_values', [])
+            except Exception:
+                forecasts = {}
+            if forecasts:
+                # Convert forecast data to expected format for create_kpi_summary_chart
+                kpi_dict = {}
+                forecast_categories = ['direct_shipment', 'transhipment', 'seaborne', 'river']
+                
+                for category in forecast_categories:
+                    if category in forecasts:
+                        # Get the first forecast data (assuming it's the main metric)
+                        category_data = forecasts[category]
+                        if category_data:
+                            first_metric = list(category_data.keys())[0]
+                            forecast_info = category_data[first_metric]
+                            
+                            # Ensure years are integers
+                            hist_years = [int(year) for year in forecast_info.get('historical_data', {}).keys()]
+                            hist_values = list(forecast_info.get('historical_data', {}).values())
+                            forecast_years = [int(year) for year in forecast_info.get('forecast_years', [])]
+                            forecast_values = forecast_info.get('forecast_values', [])
                             
                             kpi_dict[category] = {
                                 'historical_years': hist_years,
@@ -656,7 +589,13 @@ def main():
                 # Show real-time simulation metrics
                 sim_metrics = data['metrics']
                 st.metric("Ships in Queue", sim_metrics['queue_length'])
-                st.metric("Available Berths", len(data['berths'][data['berths']['status'] == 'available']))
+                # Safe access to berths data with fallback
+                berths_df = data.get('berths', pd.DataFrame())
+                if not berths_df.empty and 'status' in berths_df.columns:
+                    available_berths = len(berths_df[berths_df['status'] == 'available'])
+                else:
+                    available_berths = 0
+                st.metric("Available Berths", available_berths)
                 st.metric("Ships Processed", sim_metrics['ships_processed'])
                 st.metric("Berth Utilization", f"{sim_metrics['berth_utilization']:.1%}")
             else:
@@ -667,9 +606,17 @@ def main():
                     active_vessels = vessel_analysis.get('current_status', {}).get('active_vessels', 0)
                     st.metric("Live Vessels", active_vessels)
                 else:
-                    st.metric("Active Ships", len(data['queue']))
+                    # Safe access to queue data with fallback
+                    queue_length = len(data.get('queue', [])) if 'queue' in data and data['queue'] is not None else 0
+                    st.metric("Active Ships", queue_length)
                 
-                st.metric("Available Berths", len(data['berths'][data['berths']['status'] == 'available']))
+                # Safe access to berths data with fallback
+                berths_df = data.get('berths', pd.DataFrame())
+                if not berths_df.empty and 'status' in berths_df.columns:
+                    available_berths = len(berths_df[berths_df['status'] == 'available'])
+                else:
+                    available_berths = 0
+                st.metric("Available Berths", available_berths)
                 
                 # Show recent arrivals if available
                 if vessel_analysis and 'recent_activity' in vessel_analysis:
@@ -682,263 +629,81 @@ def main():
         
         # Port Layout
         st.subheader("Port Layout")
-        if create_port_layout_chart is not None:
+        if create_port_layout_chart is not None and 'berths' in data and data['berths'] is not None:
             fig_layout = create_port_layout_chart(data['berths'])
             st.plotly_chart(fig_layout, use_container_width=True, key="port_layout_chart")
         else:
-            st.info("Port layout visualization not available. Please ensure visualization module is properly installed.")
+            if 'berths' not in data or data['berths'] is None:
+                st.warning("Berth data not available. Please check data loading.")
+            else:
+                st.info("Port layout visualization not available. Please ensure visualization module is properly installed.")
     
     with tab2:
-        if use_consolidated:
-            # Live Vessels content (previously tab6)
-            st.subheader("🚢 Live Vessel Arrivals")
-            st.markdown("Real-time vessel arrival data from Hong Kong Marine Department")
+        st.subheader("Ships & Berths")
+
+        # If simulation is running, use real-time data, otherwise use sample data
+        if st.session_state.simulation_running:
+            sim_status = st.session_state.simulation_controller.get_current_status()
+            berth_stats = st.session_state.simulation_controller.get_berth_statistics()
+
+            # Create a DataFrame for the queue
+            queue_df = pd.DataFrame(sim_status['ship_queue'], columns=['Ship ID', 'Type', 'TEUs', 'Arrival', 'Waiting Time'])
             
-            # Load real-time vessel data
-            try:
-                vessel_data = load_vessel_arrivals()
-                if vessel_data is not None and not vessel_data.empty:
-                    # Current status overview
-                    st.subheader("📊 Current Status")
-                    
-                    col1, col2, col3, col4 = st.columns(4)
-                    
-                    with col1:
-                        total_vessels = len(vessel_data)
-                        st.metric("Total Vessels", total_vessels)
-                    
-                    with col2:
-                        # Count vessels by status if available
-                        if 'status' in vessel_data.columns:
-                            active_vessels = len(vessel_data[vessel_data['status'].str.contains('Active', na=False)])
-                        else:
-                            active_vessels = total_vessels  # Assume all are active if no status column
-                        st.metric("Active Vessels", active_vessels)
-                    
-                    with col3:
-                        # Recent arrivals (last 24 hours)
-                        if 'arrival_time' in vessel_data.columns:
-                            recent_arrivals = len(vessel_data[pd.to_datetime(vessel_data['arrival_time'], errors='coerce') > datetime.now() - timedelta(hours=24)])
-                        else:
-                            recent_arrivals = "N/A"
-                        st.metric("24h Arrivals", recent_arrivals)
-                    
-                    with col4:
-                        # Average waiting time (if available)
-                        if 'waiting_time' in vessel_data.columns:
-                            avg_wait = vessel_data['waiting_time'].mean()
-                            st.metric("Avg Wait Time", f"{avg_wait:.1f}h" if pd.notna(avg_wait) else "N/A")
-                        else:
-                            st.metric("Avg Wait Time", "N/A")
-                    
-                    # Location and ship category breakdown
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        st.subheader("📍 Location Breakdown")
-                        if 'location' in vessel_data.columns:
-                            location_counts = vessel_data['location'].value_counts()
-                            if not location_counts.empty:
-                                fig_location = px.pie(
-                                    values=location_counts.values,
-                                    names=location_counts.index,
-                                    title="Vessels by Location"
-                                )
-                                st.plotly_chart(fig_location, use_container_width=True)
-                            else:
-                                st.info("No location data available")
-                        else:
-                            st.info("Location data not available in current dataset")
-                    
-                    with col2:
-                        st.subheader("🚢 Ship Category")
-                        if 'ship_type' in vessel_data.columns:
-                            type_counts = vessel_data['ship_type'].value_counts()
-                            if not type_counts.empty:
-                                fig_type = px.bar(
-                                    x=type_counts.index,
-                                    y=type_counts.values,
-                                    title="Vessels by Type",
-                                    labels={'x': 'Ship Type', 'y': 'Count'}
-                                )
-                                st.plotly_chart(fig_type, use_container_width=True)
-                            else:
-                                st.info("No ship type data available")
-                        else:
-                            st.info("Ship type data not available in current dataset")
-                    
-                    # Recent activity trends
-                    st.subheader("📈 Recent Activity Trends")
-                    if 'arrival_time' in vessel_data.columns:
-                        # Convert arrival_time to datetime
-                        vessel_data['arrival_datetime'] = pd.to_datetime(vessel_data['arrival_time'], errors='coerce')
-                        
-                        # Filter last 7 days
-                        recent_data = vessel_data[vessel_data['arrival_datetime'] > datetime.now() - timedelta(days=7)]
-                        
-                        if not recent_data.empty:
-                            # Group by date
-                            daily_arrivals = recent_data.groupby(recent_data['arrival_datetime'].dt.date).size()
-                            
-                            fig_trend = px.line(
-                                x=daily_arrivals.index,
-                                y=daily_arrivals.values,
-                                title="Daily Vessel Arrivals (Last 7 Days)",
-                                labels={'x': 'Date', 'y': 'Number of Arrivals'}
-                            )
-                            st.plotly_chart(fig_trend, use_container_width=True)
-                        else:
-                            st.info("No recent arrival data available for trend analysis")
-                    else:
-                        st.info("Arrival time data not available for trend analysis")
-                    
-                    # Detailed vessel data table
-                    st.subheader("📋 Detailed Vessel Data")
-                    
-                    # Add filters
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        if 'ship_type' in vessel_data.columns:
-                            ship_types = ['All'] + list(vessel_data['ship_type'].unique())
-                            selected_type = st.selectbox("Filter by Ship Type", ship_types)
-                        else:
-                            selected_type = 'All'
-                    
-                    with col2:
-                        if 'location' in vessel_data.columns:
-                            locations = ['All'] + list(vessel_data['location'].unique())
-                            selected_location = st.selectbox("Filter by Location", locations)
-                        else:
-                            selected_location = 'All'
-                    
-                    with col3:
-                        # Export button
-                        csv = vessel_data.to_csv(index=False)
-                        st.download_button(
-                            label="📥 Export CSV",
-                            data=csv,
-                            file_name=f"vessel_arrivals_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                            mime="text/csv"
-                        )
-                    
-                    # Apply filters
-                    filtered_data = vessel_data.copy()
-                    if selected_type != 'All' and 'ship_type' in vessel_data.columns:
-                        filtered_data = filtered_data[filtered_data['ship_type'] == selected_type]
-                    if selected_location != 'All' and 'location' in vessel_data.columns:
-                        filtered_data = filtered_data[filtered_data['location'] == selected_location]
-                    
-                    # Display filtered data
-                    st.dataframe(filtered_data, use_container_width=True, height=400)
-                    
-                    st.info(f"Showing {len(filtered_data)} of {len(vessel_data)} vessels")
-                    
-                else:
-                    st.warning("⚠️ No vessel arrival data available")
-                    st.info("Unable to load real-time vessel data. Please check data source connectivity.")
-                    
-            except Exception as e:
-                st.error(f"❌ Error loading vessel data: {str(e)}")
-                st.info("Please check the data source configuration and try again.")
+            # Create a dictionary for berth utilization
+            berth_util_dict = {b['berth_id']: b['utilization'] for b in berth_stats['berth_details']}
+            berths_df = pd.DataFrame(berth_stats['berth_details'])
+
+
         else:
-            # Original Ships & Berths content for non-consolidated mode
-            st.subheader("Ships & Berths")
-
-            # If simulation is running, use real-time data, otherwise use sample data
-            if st.session_state.simulation_running:
-                sim_status = st.session_state.simulation_controller.get_current_status()
-                berth_stats = st.session_state.simulation_controller.get_berth_statistics()
-
-                # Create a DataFrame for the queue
-                queue_df = pd.DataFrame(sim_status['ship_queue'], columns=['Ship ID', 'Type', 'TEUs', 'Arrival', 'Waiting Time'])
-                
-                # Create a dictionary for berth utilization
-                berth_util_dict = {b['berth_id']: b['utilization'] for b in berth_stats['berth_details']}
-                berths_df = pd.DataFrame(berth_stats['berth_details'])
-
-
-            else:
-                # Fallback to sample data if simulation not running
-                queue_df = data['queue']
+            # Fallback to sample data if simulation not running
+            queue_df = data.get('queue', pd.DataFrame())
+            if 'berths' in data and data['berths'] is not None and not data['berths'].empty:
                 berth_util_dict = dict(zip(data['berths']['berth_id'], data['berths']['utilization']))
                 berths_df = data['berths']
+            else:
+                berth_util_dict = {}
+                berths_df = pd.DataFrame(columns=['berth_id', 'name', 'status', 'ship_id', 'berth_type', 'crane_count', 'max_capacity_teu', 'is_occupied', 'utilization', 'x', 'y'])
 
 
-            col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2)
 
-            with col1:
-                st.subheader("Ship Queue")
-                # Convert DataFrame to list of dictionaries for visualization
-                queue_list = queue_df.to_dict('records')
-                if create_ship_queue_chart is not None:
-                    fig_queue = create_ship_queue_chart(queue_list)
-                    st.plotly_chart(fig_queue, use_container_width=True, key="main_ship_queue_chart")
-                else:
-                    st.warning("Ship queue visualization not available. Please check visualization module import.")
-                    st.dataframe(queue_df, use_container_width=True)
-
-                # Ship queue table
+        with col1:
+            st.subheader("Ship Queue")
+            # Convert DataFrame to list of dictionaries for visualization
+            queue_list = queue_df.to_dict('records')
+            if create_ship_queue_chart is not None:
+                fig_queue = create_ship_queue_chart(queue_list)
+                st.plotly_chart(fig_queue, use_container_width=True, key="main_ship_queue_chart")
+            else:
+                st.warning("Ship queue visualization not available. Please check visualization module import.")
                 st.dataframe(queue_df, use_container_width=True)
 
-            with col2:
-                st.subheader("Berth Utilization")
-                if create_berth_utilization_chart is not None:
-                    fig_berth = create_berth_utilization_chart(berth_util_dict)
-                    st.plotly_chart(fig_berth, use_container_width=True, key="main_berth_utilization_chart")
-                else:
-                    st.warning("Berth utilization visualization not available. Please check visualization module import.")
-                    st.dataframe(pd.Series(berth_util_dict).reset_index(), use_container_width=True)
-                
-                # Berth status table
-                st.dataframe(berths_df, use_container_width=True)
+            # Ship queue table
+            st.dataframe(queue_df, use_container_width=True)
+
+        with col2:
+            st.subheader("Berth Utilization")
+            if create_berth_utilization_chart is not None:
+                fig_berth = create_berth_utilization_chart(berth_util_dict)
+                st.plotly_chart(fig_berth, use_container_width=True, key="main_berth_utilization_chart")
+            else:
+                st.warning("Berth utilization visualization not available. Please check visualization module import.")
+                st.dataframe(pd.Series(berth_util_dict).reset_index(), use_container_width=True)
+            
+            # Berth status table
+            st.dataframe(berths_df, use_container_width=True)
 
     
     with tab3:
-        if use_consolidated:
-            # Live Berth Status content for consolidated mode
-            st.subheader("🏗️ Live Berth Status")
-            st.markdown("Real-time berth occupancy and availability")
-            
-            # Load berth data from the selected scenario
-            berth_data = data.get('berths')
-            
-            if berth_data is not None and not berth_data.empty:
-                # Berth status overview
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
-                    occupied = len(berth_data[berth_data['status'] == 'occupied'])
-                    st.metric("Occupied Berths", occupied)
-                
-                with col2:
-                    available = len(berth_data[berth_data['status'] == 'available'])
-                    st.metric("Available Berths", available)
-                
-                with col3:
-                    maintenance = len(berth_data[berth_data['status'] == 'maintenance'])
-                    st.metric("Under Maintenance", maintenance)
-                
-                with col4:
-                    total_berths = len(berth_data)
-                    utilization = (occupied / total_berths * 100) if total_berths > 0 else 0
-                    st.metric("Utilization Rate", f"{utilization:.1f}%")
-                
-                # Berth details table
-                st.subheader("📋 Berth Details")
-                st.dataframe(berth_data, use_container_width=True)
-            else:
-                st.info("No berth data available for the selected scenario.")
-        else:
-            # Original Analytics content for non-consolidated mode
-            st.subheader("Analytics")
-            
-            # Data Export Section
-            st.subheader("📥 Data Export")
-            export_col1, export_col2, export_col3, export_col4 = st.columns(4)
-            
-            with export_col1:
-                # Export berth data
+        st.subheader("Analytics")
+        
+        # Data Export Section
+        st.subheader("📥 Data Export")
+        export_col1, export_col2, export_col3, export_col4 = st.columns(4)
+        
+        with export_col1:
+            # Export berth data
+            if 'berths' in data and data['berths'] is not None and not data['berths'].empty:
                 berth_csv = data['berths'].to_csv(index=False)
                 st.download_button(
                     label="📊 Export Berth Data",
@@ -946,9 +711,12 @@ def main():
                     file_name=f"berth_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                     mime="text/csv"
                 )
-            
-            with export_col2:
-                # Export queue data
+            else:
+                st.button("📊 Export Berth Data", disabled=True, help="No berth data available")
+        
+        with export_col2:
+            # Export queue data
+            if 'queue' in data and data['queue'] is not None and not data['queue'].empty:
                 queue_csv = data['queue'].to_csv(index=False)
                 st.download_button(
                     label="🚢 Export Queue Data",
@@ -956,9 +724,12 @@ def main():
                     file_name=f"queue_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                     mime="text/csv"
                 )
-            
-            with export_col3:
-                # Export timeline data
+            else:
+                st.button("🚢 Export Queue Data", disabled=True, help="No queue data available")
+        
+        with export_col3:
+            # Export timeline data
+            if 'timeline' in data and data['timeline'] is not None and not data['timeline'].empty:
                 timeline_csv = data['timeline'].to_csv(index=False)
                 st.download_button(
                     label="📈 Export Timeline Data",
@@ -966,88 +737,80 @@ def main():
                     file_name=f"timeline_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                     mime="text/csv"
                 )
-            
-            with export_col4:
-                # Export all data as JSON
-                import json
-                export_data = {
-                    'berths': data['berths'].to_dict('records'),
-                    'queue': data['queue'].to_dict('records'),
-                    'timeline': data['timeline'].to_dict('records'),
-                    'waiting': data['waiting'].to_dict('records'),
-                    'kpis': data['kpis'].to_dict('records'),
-                    'export_timestamp': datetime.now().isoformat()
-                }
-                json_data = json.dumps(export_data, indent=2, default=str)
-                st.download_button(
-                    label="📋 Export All (JSON)",
-                    data=json_data,
-                    file_name=f"port_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                    mime="application/json"
-                )
-            
-            st.markdown("---")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("Throughput Timeline")
-                if create_throughput_timeline is not None:
-                    fig_timeline = create_throughput_timeline(data['timeline'])
-                    st.plotly_chart(fig_timeline, use_container_width=True, key="main_throughput_timeline_chart")
-                else:
-                    st.warning("Throughput timeline visualization not available. Please check visualization module import.")
-                    st.dataframe(data['timeline'], use_container_width=True)
-            
-            with col2:
-                st.subheader("Waiting Time Distribution")
-                # Convert DataFrame to list for visualization
-                waiting_times_list = data['waiting']['waiting_time'].tolist()
-                if create_waiting_time_distribution is not None:
-                    fig_waiting = create_waiting_time_distribution(waiting_times_list)
-                    st.plotly_chart(fig_waiting, use_container_width=True, key="main_waiting_time_chart")
-                else:
-                    st.warning("Waiting time distribution visualization not available. Please check visualization module import.")
-                    st.dataframe(data['waiting'], use_container_width=True)
+            else:
+                st.button("📈 Export Timeline Data", disabled=True, help="No timeline data available")
+        
+        with export_col4:
+            # Export all data as JSON
+            import json
+            export_data = {
+                'berths': data['berths'].to_dict('records') if 'berths' in data and data['berths'] is not None and not data['berths'].empty else [],
+                'queue': data['queue'].to_dict('records') if 'queue' in data and data['queue'] is not None and not data['queue'].empty else [],
+                'timeline': data['timeline'].to_dict('records') if 'timeline' in data and data['timeline'] is not None and not data['timeline'].empty else [],
+                'waiting': data['waiting'].to_dict('records') if 'waiting' in data and data['waiting'] is not None and not data['waiting'].empty else [],
+                'kpis': data['kpis'].to_dict('records') if 'kpis' in data and data['kpis'] is not None and not data['kpis'].empty else [],
+                'export_timestamp': datetime.now().isoformat()
+            }
+            json_data = json.dumps(export_data, indent=2, default=str)
+            st.download_button(
+                label="📋 Export All (JSON)",
+                data=json_data,
+                file_name=f"port_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                mime="application/json"
+            )
+        
+        st.markdown("---")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("Throughput Timeline")
+            if create_throughput_timeline is not None:
+                fig_timeline = create_throughput_timeline(data['timeline'])
+                st.plotly_chart(fig_timeline, use_container_width=True, key="main_throughput_timeline_chart")
+            else:
+                st.warning("Throughput timeline visualization not available. Please check visualization module import.")
+                st.dataframe(data['timeline'], use_container_width=True)
+        
+        with col2:
+            st.subheader("Waiting Time Distribution")
+            # Convert DataFrame to list for visualization
+            waiting_times_list = data['waiting']['waiting_time'].tolist()
+            if create_waiting_time_distribution is not None:
+                fig_waiting = create_waiting_time_distribution(waiting_times_list)
+                st.plotly_chart(fig_waiting, use_container_width=True, key="main_waiting_time_chart")
+            else:
+                st.warning("Waiting time distribution visualization not available. Please check visualization module import.")
+                st.dataframe(data['waiting'], use_container_width=True)
     
     with tab4:
-        if use_consolidated:
-            # Consolidated Scenarios content for consolidated mode
-            st.subheader("🎯 Scenarios")
-            st.markdown("Scenario analysis and comparison")
-            
-            # Use the consolidated scenarios tab
-            consolidated_tab = ConsolidatedScenariosTab()
-            consolidated_tab.render()
-        else:
-            # Original Port Cargo Statistics content for non-consolidated mode
-            st.subheader("📦 Port Cargo Statistics")
-            st.markdown("Comprehensive analysis of Hong Kong port cargo throughput data with time series analysis and forecasting")
-            
-            # Load enhanced cargo analysis
-            try:
-                if load_focused_cargo_statistics is None or get_enhanced_cargo_analysis is None or get_time_series_data is None:
-                    st.warning("⚠️ Cargo statistics analysis not available")
-                    st.info("Please ensure the data loader module is properly installed and configured.")
-                    focused_data = {}
-                    cargo_analysis = {}
-                    time_series_data = {}
-                else:
-                    with st.spinner("Loading enhanced cargo statistics..."):
-                        # Load focused data (Tables 1 & 2)
-                        focused_data = load_focused_cargo_statistics()
-                        
-                        # Get enhanced analysis with forecasting
-                        cargo_analysis = get_enhanced_cargo_analysis()
-                        
-                        # Get time series data for visualization
-                        time_series_data = get_time_series_data(focused_data)
-            except Exception as e:
-                st.error(f"Error loading cargo statistics: {str(e)}")
-                st.info("Please ensure the Port Cargo Statistics CSV files are available in the raw_data directory.")
+        st.subheader("📦 Port Cargo Statistics")
+        st.markdown("Comprehensive analysis of Hong Kong port cargo throughput data with time series analysis and forecasting")
+        
+        # Load enhanced cargo analysis
+        try:
+            if load_focused_cargo_statistics is None or get_enhanced_cargo_analysis is None or get_time_series_data is None:
+                st.warning("⚠️ Cargo statistics analysis not available")
+                st.info("Please ensure the data loader module is properly installed and configured.")
                 focused_data = {}
                 cargo_analysis = {}
                 time_series_data = {}
+            else:
+                with st.spinner("Loading enhanced cargo statistics..."):
+                    # Load focused data (Tables 1 & 2)
+                    focused_data = load_focused_cargo_statistics()
+                    
+                    # Get enhanced analysis with forecasting
+                    cargo_analysis = get_enhanced_cargo_analysis()
+                    
+                    # Get time series data for visualization
+                    time_series_data = get_time_series_data(focused_data)
+        except Exception as e:
+            st.error(f"Error loading cargo statistics: {str(e)}")
+            st.info("Please ensure the Port Cargo Statistics CSV files are available in the raw_data directory.")
+            focused_data = {}
+            cargo_analysis = {}
+            time_series_data = {}
         
         # Display data summary
         st.subheader("📊 Data Summary")
@@ -1542,135 +1305,76 @@ def main():
             else:
                 st.info("No analysis summary available")
 
+
+
     with tab5:
-        if use_consolidated:
-            # Settings content for consolidated mode
-            st.subheader("⚙️ Settings")
-            st.markdown("Dashboard preferences and configuration")
+        st.subheader("🌊 Live Maritime Traffic")
+        st.markdown("Real-time vessel tracking around Hong Kong waters")
+        
+        # Initialize MarineTraffic integration
+        if MarineTrafficIntegration is not None:
+            marine_traffic = MarineTrafficIntegration()
+        else:
+            st.warning("⚠️ MarineTraffic integration not available")
+            st.info("The marine traffic visualization module could not be loaded.")
+            marine_traffic = None
+        
+        # Display integration options
+        col1, col2 = st.columns([3, 1])
+        
+        with col2:
+            st.subheader("Map Options")
             
-            # Dashboard Preferences
-            st.subheader("📊 Dashboard Preferences")
-            
-            # Use consolidated scenarios toggle
-            new_use_consolidated = st.checkbox(
-                "Use Consolidated Scenarios",
-                value=st.session_state.get('use_consolidated_scenarios', False),
-                help="Switch between consolidated 5-tab view and original 13-tab view"
+            # Map type selection
+            map_type = st.selectbox(
+                "Map Type",
+                ["Satellite", "Terrain", "Basic"],
+                index=0
             )
             
-            if new_use_consolidated != st.session_state.get('use_consolidated_scenarios', False):
-                st.session_state.use_consolidated_scenarios = new_use_consolidated
+            # Zoom level
+            zoom_level = st.slider("Zoom Level", 8, 15, 11)
+            
+            # Show vessel types
+            show_cargo = st.checkbox("Cargo Ships", True)
+            show_tanker = st.checkbox("Tankers", True)
+            show_passenger = st.checkbox("Passenger Ships", True)
+            
+            # Refresh button
+            if st.button("🔄 Refresh Map"):
                 st.rerun()
             
-            # Section Navigation
-            st.subheader("🧭 Section Navigation")
-            st.info("Use the tabs above to navigate between different sections of the dashboard.")
+            # Information box
+            st.info(
+                "💡 **Note**: This is a live map integration with MarineTraffic. "
+                "Vessel data is updated in real-time and shows actual ships "
+                "in Hong Kong waters."
+            )
             
-            # Simulation Configuration
-            st.subheader("🔧 Simulation Configuration")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.write("**Performance Settings**")
-                st.slider("Simulation Speed", 1, 10, 5, help="Adjust simulation execution speed")
-                st.checkbox("Enable Real-time Updates", True, help="Update data in real-time")
-                
-                st.write("**Data Settings**")
-                st.selectbox("Data Source", ["Real-time", "Historical", "Synthetic"], index=0)
-                st.number_input("Data Refresh Interval (seconds)", 1, 300, 30)
-            
-            with col2:
-                st.write("**Display Settings**")
-                st.selectbox("Theme", ["Light", "Dark", "Auto"], index=0)
-                st.checkbox("Show Advanced Metrics", False, help="Display additional technical metrics")
-                
-                st.write("**Export Settings**")
-                st.selectbox("Default Export Format", ["CSV", "JSON", "Excel"], index=0)
-                st.checkbox("Include Metadata in Exports", True)
-            
-            # System Information
-            st.subheader("ℹ️ System Information")
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.metric("Dashboard Version", "2.0.0")
-            
-            with col2:
-                st.metric("Last Updated", datetime.now().strftime("%Y-%m-%d"))
-            
-            with col3:
-                st.metric("Active Scenarios", len(list_available_scenarios()))
-        else:
-            # Original Live Maritime Traffic content for non-consolidated mode
-            st.subheader("🌊 Live Maritime Traffic")
-            st.markdown("Real-time vessel tracking around Hong Kong waters")
-            
-            # Initialize MarineTraffic integration
-            if MarineTrafficIntegration is not None:
-                marine_traffic = MarineTrafficIntegration()
+            # API status (if available)
+            if marine_traffic is not None:
+                if marine_traffic.api_key:
+                    st.success("✅ API Connected")
+                    
+                    # Show some sample API data
+                    st.subheader("Live Data Sample")
+                    try:
+                        sample_data = marine_traffic.get_vessel_data_api()
+                        if sample_data and 'data' in sample_data:
+                            vessels = sample_data['data'][:3]  # Show first 3 vessels
+                            for vessel in vessels:
+                                st.text(f"🚢 {vessel.get('SHIPNAME', 'Unknown')}")
+                                st.text(f"   Type: {vessel.get('TYPE_NAME', 'N/A')}")
+                                st.text(f"   Speed: {vessel.get('SPEED', 'N/A')} knots")
+                                st.text("---")
+                    except Exception as e:
+                        st.warning(f"API Error: {str(e)}")
+                else:
+                    st.warning("⚠️ API Key Required")
+                    st.text("Set MARINETRAFFIC_API_KEY in .env for live data")
             else:
                 st.warning("⚠️ MarineTraffic integration not available")
-                st.info("The marine traffic visualization module could not be loaded.")
-                marine_traffic = None
-            
-            # Display integration options
-            col1, col2 = st.columns([3, 1])
-            
-            with col2:
-                st.subheader("Map Options")
-                
-                # Map type selection
-                map_type = st.selectbox(
-                    "Map Type",
-                    ["Satellite", "Terrain", "Basic"],
-                    index=0
-                )
-                
-                # Zoom level
-                zoom_level = st.slider("Zoom Level", 8, 15, 11)
-                
-                # Show vessel types
-                show_cargo = st.checkbox("Cargo Ships", True)
-                show_tanker = st.checkbox("Tankers", True)
-                show_passenger = st.checkbox("Passenger Ships", True)
-                
-                # Refresh button
-                if st.button("🔄 Refresh Map"):
-                    st.rerun()
-                
-                # Information box
-                st.info(
-                    "💡 **Note**: This is a live map integration with MarineTraffic. "
-                    "Vessel data is updated in real-time and shows actual ships "
-                    "in Hong Kong waters."
-                )
-                
-                # API status (if available)
-                if marine_traffic is not None:
-                    if marine_traffic.api_key:
-                        st.success("✅ API Connected")
-                        
-                        # Show some sample API data
-                        st.subheader("Live Data Sample")
-                        try:
-                            sample_data = marine_traffic.get_vessel_data_api()
-                            if sample_data and 'data' in sample_data:
-                                vessels = sample_data['data'][:3]  # Show first 3 vessels
-                                for vessel in vessels:
-                                    st.text(f"🚢 {vessel.get('SHIPNAME', 'Unknown')}")
-                                    st.text(f"   Type: {vessel.get('TYPE_NAME', 'N/A')}")
-                                    st.text(f"   Speed: {vessel.get('SPEED', 'N/A')} knots")
-                                    st.text("---")
-                        except Exception as e:
-                            st.warning(f"API Error: {str(e)}")
-                    else:
-                        st.warning("⚠️ API Key Required")
-                        st.text("Set MARINETRAFFIC_API_KEY in .env for live data")
-                else:
-                    st.warning("⚠️ MarineTraffic integration not available")
-                    st.text("Module could not be loaded")
+                st.text("Module could not be loaded")
         
         with col1:
             # Display the embedded map
@@ -1921,6 +1625,57 @@ def main():
             st.info("No berth data available for the selected scenario.")
     
     with tab8:
+        # Vessel Analytics tab (same for both consolidated and original modes)
+        st.subheader("🚢 Vessel Analytics Dashboard")
+        st.markdown("Real-time analysis of vessel distribution and activity patterns")
+        
+        try:
+            # Load vessel arrivals data
+            vessel_data = load_vessel_arrivals()
+            
+            if vessel_data is not None and not vessel_data.empty:
+                # Process vessel data for analytics
+                st.write(f"**Data Summary:** {len(vessel_data)} vessels loaded")
+                
+                # Location breakdown
+                if 'location' in vessel_data.columns:
+                    location_counts = vessel_data['location'].value_counts()
+                    st.write(f"**Locations:** {len(location_counts)} unique locations")
+                
+                # Ship category breakdown
+                if 'ship_category' in vessel_data.columns:
+                    category_counts = vessel_data['ship_category'].value_counts()
+                    st.write(f"**Ship Categories:** {len(category_counts)} different types")
+                
+                # Activity trend analysis
+                if 'arrival_time' in vessel_data.columns:
+                    vessel_data['arrival_time'] = pd.to_datetime(vessel_data['arrival_time'], errors='coerce')
+                    recent_arrivals = vessel_data[vessel_data['arrival_time'] >= datetime.now() - timedelta(hours=24)]
+                    st.write(f"**Recent Activity:** {len(recent_arrivals)} arrivals in last 24 hours")
+                
+                # Render the vessel analytics dashboard
+                render_vessel_analytics_dashboard(vessel_data)
+                
+            else:
+                st.warning("No vessel data available for analytics.")
+                st.info("Please ensure vessel arrival data is properly loaded.")
+                
+        except Exception as e:
+            st.error(f"Error loading vessel analytics: {str(e)}")
+            st.info("Using sample data for demonstration purposes.")
+            
+            # Fallback to sample data
+            sample_vessel_data = pd.DataFrame({
+                'vessel_name': ['Sample Vessel 1', 'Sample Vessel 2', 'Sample Vessel 3'],
+                'location': ['Terminal A', 'Terminal B', 'Terminal A'],
+                'ship_category': ['Container', 'Bulk', 'Container'],
+                'arrival_time': [datetime.now() - timedelta(hours=2), 
+                               datetime.now() - timedelta(hours=5),
+                               datetime.now() - timedelta(hours=8)]
+            })
+            render_vessel_analytics_dashboard(sample_vessel_data)
+    
+    with tab9:
         if use_consolidated:
             # Initialize and render the consolidated scenarios tab
             consolidated_tab = ConsolidatedScenariosTab()
@@ -1980,10 +1735,10 @@ def main():
                                title="Processing Efficiency by Scenario")
                     st.plotly_chart(fig, use_container_width=True)
     
-    # Handle tab9 based on consolidated mode
+    # Handle tab10 based on consolidated mode
     if use_consolidated:
-        # In consolidated mode, tab9 is Settings
-        with tab9:
+        # In consolidated mode, tab10 is Settings
+        with tab10:
             st.subheader("⚙️ Settings")
             st.markdown("Configure simulation parameters and system settings")
             
@@ -2089,30 +1844,33 @@ def main():
                         st.session_state.simulation_controller.reset()
                     st.success("Simulation reset successfully!")
     else:
-        # In original mode, tab9 is Performance Analytics
-        with tab9:
-            st.subheader("📊 Performance Analytics")
-            st.markdown("Detailed performance metrics and analytics")
-            st.info("Performance analytics content would be displayed here.")
+        # In original mode, tab9 is Scenario Analysis
+        # (content already handled above in tab9)
+        pass
     
     # Additional tabs for original structure
     if not use_consolidated:
         with tab10:
+            st.subheader("📊 Performance Analytics")
+            st.markdown("Detailed performance metrics and analytics")
+            st.info("Performance analytics content would be displayed here.")
+        
+        with tab11:
             st.subheader("📦 Cargo Analysis")
             st.markdown("Advanced cargo flow and logistics analysis")
             st.info("Cargo analysis content would be displayed here.")
         
-        with tab11:
+        with tab12:
             st.subheader("🔬 Advanced Analysis")
             st.markdown("Advanced simulation and predictive analytics")
             st.info("Advanced analysis content would be displayed here.")
         
-        with tab12:
+        with tab13:
             st.subheader("💰 Investment Analysis")
             st.markdown("Investment planning and ROI analysis")
             st.info("Investment analysis content would be displayed here.")
         
-        with tab13:
+        with tab14:
             st.subheader("⚙️ Settings")
             st.markdown("Configure simulation parameters and system settings")
             

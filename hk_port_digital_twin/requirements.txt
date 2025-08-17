@@ -2,3 +2,6 @@ streamlit
 pandas
 plotly
 watchdog
+requests
+schedule
+python-dotenv

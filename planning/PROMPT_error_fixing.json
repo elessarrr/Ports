@@ -29,7 +29,7 @@
       "step": "Dependency Analysis & Update",
       "description": [
         "Check if the new or changed code has any dependencies (or if it replaced any code with dependencies).",
-        "Search across the whole folder/project for impacted or dependent files.",
+        "Search across the whole folder/project for impacted or dependent files.",        
         "Update all related dependencies accordingly."
       ]
     },

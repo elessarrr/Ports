@@ -695,3 +695,7 @@ hk_port_digital_twin/
 **Deliverable**: Comprehensive, production-ready Digital Twin system with advanced features and robust performance
 
 This priority-based roadmap ensures that at any point in development, we have a functional, demonstrable system that can be presented with confidence, while systematically building toward a world-class conference demo focused on sophisticated simulation and scenario analysis capabilities.
+
+## Backlog Items
+
+- **Automated Data Fetching Pipeline**: Build a pipeline to fetch `Arrived_in_last_36_hours.xml` every time the app starts to ensure real-time vessel arrival data is always current

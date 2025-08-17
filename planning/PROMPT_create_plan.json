@@ -42,8 +42,8 @@
     {
       "step": "Detailed Step-by-Step Plan in Markdown",
       "description": [
-        "Draft a `.md` file containing a detailed, ordered list of steps to implement the change.",
-        "Provide enough detail and explanations so that a hardworking junior developer with no real-world experience can complete the task correctly.",
+        "Draft a `.md` file containing a detailed, ordered list of steps to implement the change.",        
+        "Provide enough detail and explanations, but also keep the scope of each step small/atomic enough, so that a hardworking junior developer with no real-world experience can complete each step correctly.",
         "Include context for each step, explaining 'why' as well as 'what' to do.",
         "Do not write any actual code in the plan—focus on instructions."
       ]
