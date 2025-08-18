@@ -1335,13 +1335,7 @@ def main():
             })
             st.dataframe(sample_data, use_container_width=True)
 
-
-
-
-    
-
-    
-    with tab7:
+    with tab5:
         st.subheader("Analytics")
         
         # Check if data is properly loaded
@@ -1427,7 +1421,7 @@ def main():
                 st.warning("Waiting time distribution visualization not available. Please check visualization module import.")
                 st.dataframe(data['waiting'], use_container_width=True)
     
-    with tab8:
+    with tab6:
         # Ships & Berths - Operational Impact Analysis
         st.subheader("🚢 Ships & Berths")
         st.markdown("Real-time analysis of ships and berths including queue management, berth utilization, and vessel tracking.")
