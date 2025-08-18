@@ -505,16 +505,16 @@ def main():
     
     if use_consolidated:
         # New consolidated structure
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-            "📊 Overview", "🚢 Vessel Analytics", "📦 Cargo Statistics", "🛳️ Live Vessels", 
-            "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "⚙️ Settings"
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
+            "📊 Overview", "🚢 Vessel Analytics", "📦 Cargo Statistics", "🛳️ Live Vessels", "🏗️ Live Berths", 
+            "🌊 Live Map", "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "⚙️ Settings"
         ])
     else:
         # Original structure with separate scenario tabs
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
-            "📊 Overview", "🚢 Vessel Analytics", "📦 Cargo Statistics", "🛳️ Live Vessels",
-            "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "⚙️ Settings",
-            "📊 Performance Analytics", "📦 Cargo Analysis"
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12, tab13, tab14 = st.tabs([
+            "📊 Overview", "🚢 Vessel Analytics", "📦 Cargo Statistics", "🛳️ Live Vessels", "🏗️ Live Berths",
+            "🌊 Live Map", "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "⚙️ Settings",
+            "📊 Performance Analytics", "📦 Cargo Analysis", "🔬 Advanced Analysis", "💰 Investment Analysis"
         ])
     
     with tab1:
@@ -1337,9 +1337,315 @@ def main():
 
 
 
-
+    with tab5:
+        st.subheader("🌊 Live Maritime Traffic")
+        st.markdown("Real-time vessel tracking around Hong Kong waters")
+        
+        # Initialize MarineTraffic integration
+        if MarineTrafficIntegration is not None:
+            marine_traffic = MarineTrafficIntegration()
+        else:
+            st.warning("⚠️ MarineTraffic integration not available")
+            st.info("The marine traffic visualization module could not be loaded.")
+            marine_traffic = None
+        
+        # Display integration options
+        col1, col2 = st.columns([3, 1])
+        
+        with col2:
+            st.subheader("Map Options")
+            
+            # Map type selection
+            map_type = st.selectbox(
+                "Map Type",
+                ["Satellite", "Terrain", "Basic"],
+                index=0
+            )
+            
+            # Zoom level
+            zoom_level = st.slider("Zoom Level", 8, 15, 11)
+            
+            # Show vessel types
+            show_cargo = st.checkbox("Cargo Ships", True)
+            show_tanker = st.checkbox("Tankers", True)
+            show_passenger = st.checkbox("Passenger Ships", True)
+            
+            # Refresh button
+            if st.button("🔄 Refresh Map"):
+                st.rerun()
+            
+            # Information box
+            st.info(
+                "💡 **Note**: This is a live map integration with MarineTraffic. "
+                "Vessel data is updated in real-time and shows actual ships "
+                "in Hong Kong waters."
+            )
+            
+            # API status (if available)
+            if marine_traffic is not None:
+                if marine_traffic.api_key:
+                    st.success("✅ API Connected")
+                    
+                    # Show some sample API data
+                    st.subheader("Live Data Sample")
+                    try:
+                        sample_data = marine_traffic.get_vessel_data_api()
+                        if sample_data and 'data' in sample_data:
+                            vessels = sample_data['data'][:3]  # Show first 3 vessels
+                            for vessel in vessels:
+                                st.text(f"🚢 {vessel.get('SHIPNAME', 'Unknown')}")
+                                st.text(f"   Type: {vessel.get('TYPE_NAME', 'N/A')}")
+                                st.text(f"   Speed: {vessel.get('SPEED', 'N/A')} knots")
+                                st.text("---")
+                    except Exception as e:
+                        st.warning(f"API Error: {str(e)}")
+                else:
+                    st.warning("⚠️ API Key Required")
+                    st.text("Set MARINETRAFFIC_API_KEY in .env for live data")
+            else:
+                st.warning("⚠️ MarineTraffic integration not available")
+                st.text("Module could not be loaded")
+        
+        with col1:
+            # Display the embedded map
+            if marine_traffic is not None:
+                marine_traffic.render_live_map_iframe(height=600)
+            else:
+                st.error("❌ Marine Traffic Map Unavailable")
+                st.info("The marine traffic integration module could not be loaded. Please check the module dependencies.")
+            
+            # Additional information
+            st.markdown(
+                "**Live Maritime Traffic around Hong Kong**\n\n"
+                "This map shows real-time vessel positions, including:"
+            )
+            
+            col_info1, col_info2, col_info3 = st.columns(3)
+            with col_info1:
+                st.markdown("🚢 **Container Ships**\nCargo vessels carrying containers")
+            with col_info2:
+                st.markdown("🛢️ **Tankers**\nOil and chemical tankers")
+            with col_info3:
+                st.markdown("🚢 **Other Vessels**\nPassenger ships, tugs, etc.")
     
-
+    with tab6:
+        st.subheader("🛳️ Live Vessel Arrivals")
+        st.markdown("Real-time vessel arrivals data from Hong Kong Marine Department")
+        
+        # Load real vessel data
+        try:
+            with st.spinner("Loading live vessel data..."):
+                vessel_analysis = data.get('vessel_queue_analysis', {})
+                real_vessels = load_combined_vessel_data()
+            
+            if vessel_analysis:
+                # Display vessel queue analysis summary
+                st.subheader("📊 Current Vessel Status")
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    active_vessels = vessel_analysis.get('current_status', {}).get('active_vessels', 0)
+                    st.metric("Active Vessels", active_vessels)
+                with col2:
+                    total_loaded = vessel_analysis.get('current_status', {}).get('total_vessels_loaded', 0)
+                    st.metric("Total Loaded", total_loaded)
+                with col3:
+                    analysis_time = vessel_analysis.get('timestamps', {}).get('analysis_time', '')
+                    if analysis_time:
+                        time_str = analysis_time.split('T')[1][:5] if 'T' in analysis_time else analysis_time[:5]
+                        st.metric("Analysis Time", time_str)
+                    else:
+                        st.metric("Analysis Time", "N/A")
+                
+                # Location breakdown
+                st.subheader("📍 Vessel Locations")
+                location_breakdown = vessel_analysis.get('location_breakdown', {})
+                if location_breakdown:
+                    location_col1, location_col2 = st.columns(2)
+                    with location_col1:
+                        st.write("**Current Distribution**")
+                        location_df = pd.DataFrame([
+                            {'Location Type': loc_type.replace('_', ' ').title(), 'Count': count}
+                            for loc_type, count in location_breakdown.items()
+                        ])
+                        st.dataframe(location_df, use_container_width=True)
+                    
+                    with location_col2:
+                        # Create a simple pie chart for location distribution
+                        if len(location_breakdown) > 0:
+                            import plotly.express as px
+                            fig = px.pie(
+                                values=list(location_breakdown.values()),
+                                names=[name.replace('_', ' ').title() for name in location_breakdown.keys()],
+                                title="Vessel Location Distribution"
+                            )
+                            fig.update_layout(margin=dict(l=50, r=50, t=50, b=50))  # Center the chart
+                            
+                            # Center the chart
+                            chart_col1, chart_col2, chart_col3 = st.columns([0.1, 0.8, 0.1])
+                            with chart_col2:
+                                st.plotly_chart(fig, use_container_width=True, key="vessel_location_chart")
+                
+                # Ship category breakdown
+                st.subheader("🚢 Ship Categories")
+                ship_breakdown = vessel_analysis.get('ship_category_breakdown', {})
+                if ship_breakdown:
+                    ship_col1, ship_col2 = st.columns(2)
+                    with ship_col1:
+                        st.write("**Ship Types**")
+                        ship_df = pd.DataFrame([
+                            {'Ship Category': cat.replace('_', ' ').title(), 'Count': count}
+                            for cat, count in ship_breakdown.items()
+                        ])
+                        st.dataframe(ship_df, use_container_width=True)
+                    
+                    with ship_col2:
+                        # Create a bar chart for ship categories
+                        if len(ship_breakdown) > 0:
+                            import plotly.express as px
+                            fig = px.bar(
+                                x=list(ship_breakdown.keys()),
+                                y=list(ship_breakdown.values()),
+                                title="Ship Category Distribution",
+                                labels={'x': 'Ship Category', 'y': 'Number of Vessels'}
+                            )
+                            fig.update_xaxes(tickangle=45)
+                            fig.update_layout(margin=dict(l=50, r=50, t=50, b=50))  # Center the chart
+                            
+                            # Center the chart
+                            chart_col1, chart_col2, chart_col3 = st.columns([0.1, 0.8, 0.1])
+                            with chart_col2:
+                                st.plotly_chart(fig, use_container_width=True, key="ship_category_chart")
+                
+                # Recent activity
+                st.subheader("🕐 Recent Activity")
+                recent_activity = vessel_analysis.get('recent_activity', {})
+                if recent_activity:
+                    activity_col1, activity_col2 = st.columns(2)
+                    with activity_col1:
+                        st.write("**Activity Summary**")
+                        arrivals_24h = recent_activity.get('arrivals_last_24h', 0)
+                        arrivals_12h = recent_activity.get('arrivals_last_12h', 0)
+                        arrivals_6h = recent_activity.get('arrivals_last_6h', 0)
+                        
+                        st.metric("Last 24 Hours", f"{arrivals_24h} arrivals")
+                        st.metric("Last 12 Hours", f"{arrivals_12h} arrivals")
+                        st.metric("Last 6 Hours", f"{arrivals_6h} arrivals")
+                    
+                    with activity_col2:
+                        # Activity trend chart
+                        activity_data = {
+                            'Time Period': ['Last 6h', 'Last 12h', 'Last 24h'],
+                            'Arrivals': [arrivals_6h, arrivals_12h, arrivals_24h]
+                        }
+                        activity_df = pd.DataFrame(activity_data)
+                        
+                        import plotly.express as px
+                        fig = px.line(
+                            activity_df, 
+                            x='Time Period', 
+                            y='Arrivals',
+                            title="Arrival Activity Trend",
+                            markers=True
+                        )
+                        fig.update_layout(margin=dict(l=50, r=50, t=50, b=50))  # Center the chart
+                        
+                        # Center the chart
+                        chart_col1, chart_col2, chart_col3 = st.columns([0.1, 0.8, 0.1])
+                        with chart_col2:
+                            st.plotly_chart(fig, use_container_width=True, key="activity_trend_chart")
+                
+                # Raw vessel data table
+                st.subheader("📋 Detailed Vessel Information")
+                st.markdown("*Combined data showing arriving, in port, and departed vessels*")
+                
+                if not real_vessels.empty:
+                    # Display data summary
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Total Vessels", len(real_vessels))
+                    with col2:
+                        arriving_count = len(real_vessels[real_vessels['status'] == 'arriving'])
+                        st.metric("Arriving", arriving_count)
+                    with col3:
+                        in_port_count = len(real_vessels[real_vessels['status'] == 'in_port'])
+                        st.metric("In Port", in_port_count)
+                    with col4:
+                        departed_count = len(real_vessels[real_vessels['status'] == 'departed'])
+                        st.metric("Departed", departed_count)
+                    
+                    # Add filters
+                    filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
+                    
+                    with filter_col1:
+                        status_filter = st.selectbox(
+                            "Filter by Status",
+                            ['All'] + list(real_vessels['status'].unique())
+                        )
+                    
+                    with filter_col2:
+                        location_filter = st.selectbox(
+                            "Filter by Location Type",
+                            ['All'] + list(real_vessels['location_type'].unique())
+                        )
+                    
+                    with filter_col3:
+                        category_filter = st.selectbox(
+                            "Filter by Ship Category",
+                            ['All'] + list(real_vessels['ship_category'].unique())
+                        )
+                    
+                    with filter_col4:
+                        if 'data_source' in real_vessels.columns:
+                            source_filter = st.selectbox(
+                                "Filter by Data Source",
+                                ['All'] + list(real_vessels['data_source'].unique())
+                            )
+                        else:
+                            source_filter = 'All'
+                    
+                    # Apply filters
+                    filtered_vessels = real_vessels.copy()
+                    if status_filter != 'All':
+                        filtered_vessels = filtered_vessels[filtered_vessels['status'] == status_filter]
+                    if location_filter != 'All':
+                        filtered_vessels = filtered_vessels[filtered_vessels['location_type'] == location_filter]
+                    if category_filter != 'All':
+                        filtered_vessels = filtered_vessels[filtered_vessels['ship_category'] == category_filter]
+                    if source_filter != 'All' and 'data_source' in real_vessels.columns:
+                        filtered_vessels = filtered_vessels[filtered_vessels['data_source'] == source_filter]
+                    
+                    # Display filtered data
+                    st.write(f"**Showing {len(filtered_vessels)} of {len(real_vessels)} vessels**")
+                    
+                    # Select columns to display
+                    display_columns = ['vessel_name', 'call_sign', 'ship_category', 'location_type', 'status', 'arrival_time', 'data_source']
+                    available_columns = [col for col in display_columns if col in filtered_vessels.columns]
+                    
+                    if available_columns:
+                        st.dataframe(
+                            filtered_vessels[available_columns].sort_values('arrival_time', ascending=False),
+                            use_container_width=True
+                        )
+                    else:
+                        st.dataframe(filtered_vessels, use_container_width=True)
+                    
+                    # Export vessel data
+                    vessel_csv = filtered_vessels.to_csv(index=False)
+                    st.download_button(
+                        label="📥 Export Vessel Data",
+                        data=vessel_csv,
+                        file_name=f"vessel_arrivals_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv"
+                    )
+                else:
+                    st.info("No vessel data available")
+            else:
+                st.info("No vessel analysis data available")
+                
+        except Exception as e:
+            st.error(f"Error loading vessel data: {str(e)}")
+            st.info("Please ensure the vessel arrivals XML file is available and properly formatted.")
     
     with tab7:
         st.subheader("Analytics")
@@ -1553,7 +1859,7 @@ def main():
             with ops_col3:
                 st.metric("Efficiency Rate", "87.5%")
     
-    with tab7:
+    with tab9:
         if use_consolidated:
             # Initialize and render the consolidated scenarios tab
             consolidated_tab = ConsolidatedScenariosTab()
@@ -1616,7 +1922,7 @@ def main():
     # Handle tab10 based on consolidated mode
     if use_consolidated:
         # In consolidated mode, tab10 is Settings
-        with tab8:
+        with tab10:
             st.subheader("⚙️ Settings")
             st.markdown("Configure simulation parameters and system settings")
             
@@ -1728,16 +2034,135 @@ def main():
     
     # Additional tabs for original structure
     if not use_consolidated:
-        with tab9:
+        with tab10:
             st.subheader("📊 Performance Analytics")
             st.markdown("Detailed performance metrics and analytics")
             st.info("Performance analytics content would be displayed here.")
         
-        with tab10:
+        with tab11:
             st.subheader("📦 Cargo Analysis")
             st.markdown("Advanced cargo flow and logistics analysis")
             st.info("Cargo analysis content would be displayed here.")
-
+        
+        with tab12:
+            st.subheader("🔬 Advanced Analysis")
+            st.markdown("Advanced simulation and predictive analytics")
+            st.info("Advanced analysis content would be displayed here.")
+        
+        with tab13:
+            st.subheader("💰 Investment Analysis")
+            st.markdown("Investment planning and ROI analysis")
+            st.info("Investment analysis content would be displayed here.")
+        
+        with tab14:
+            st.subheader("⚙️ Settings")
+            st.markdown("Configure simulation parameters and system settings")
+            
+            # Dashboard Preferences
+            st.subheader("🎛️ Dashboard Preferences")
+            
+            pref_col1, pref_col2 = st.columns(2)
+            
+            with pref_col1:
+                st.write("**Tab Structure**")
+                use_consolidated_checkbox = st.checkbox(
+                    "Use consolidated scenarios tab", 
+                    value=st.session_state.get('use_consolidated_scenarios', True),
+                    help="Switch between original tab structure and new consolidated scenarios tab",
+                    key="settings_consolidated_checkbox"
+                )
+                
+                if use_consolidated_checkbox != st.session_state.get('use_consolidated_scenarios', True):
+                    st.session_state.use_consolidated_scenarios = use_consolidated_checkbox
+                    st.rerun()
+                
+                show_navigation = st.checkbox(
+                    "Show section navigation", 
+                    value=st.session_state.get('show_section_navigation', True),
+                    help="Show navigation sidebar in consolidated scenarios tab",
+                    key="settings_show_navigation"
+                )
+                st.session_state.show_section_navigation = show_navigation
+            
+            with pref_col2:
+                st.write("**Section Behavior**")
+                sections_expanded = st.checkbox(
+                    "Expand sections by default", 
+                    value=st.session_state.get('scenarios_sections_expanded', True),
+                    help="Default expanded state for scenario sections",
+                    key="settings_sections_expanded"
+                )
+                st.session_state.scenarios_sections_expanded = sections_expanded
+                
+                remember_states = st.checkbox(
+                    "Remember section states", 
+                    value=st.session_state.get('remember_section_states', True),
+                    help="Remember which sections are expanded/collapsed",
+                    key="settings_remember_states"
+                )
+                st.session_state.remember_section_states = remember_states
+            
+            # Simulation settings
+            st.subheader("🔧 Simulation Configuration")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.write("**Performance Settings**")
+                auto_refresh = st.checkbox("Auto-refresh dashboard", value=True, key="settings_auto_refresh")
+                refresh_interval = st.slider("Refresh interval (seconds)", 1, 30, 5, key="settings_refresh_interval")
+                
+                st.write("**Data Settings**")
+                use_real_data = st.checkbox("Use real-time data", value=True, key="settings_use_real_data")
+                cache_duration = st.slider("Cache duration (minutes)", 1, 60, 10, key="settings_cache_duration")
+            
+            with col2:
+                st.write("**Display Settings**")
+                show_debug_info = st.checkbox("Show debug information", value=False, key="settings_show_debug")
+                chart_theme = st.selectbox("Chart theme", ["plotly", "plotly_white", "plotly_dark"], index=0, key="settings_chart_theme")
+                
+                st.write("**Export Settings**")
+                default_export_format = st.selectbox("Default export format", ["CSV", "Excel", "JSON"], index=0, key="settings_export_format")
+            
+            # System information
+            st.subheader("📊 System Information")
+            
+            info_col1, info_col2, info_col3 = st.columns(3)
+            
+            with info_col1:
+                st.metric("Dashboard Version", "1.0.0")
+                st.metric("Streamlit Version", st.__version__)
+            
+            with info_col2:
+                st.metric("Active Sessions", "1")
+                st.metric("Uptime", "Running")
+            
+            with info_col3:
+                st.metric("Data Sources", "3")
+                st.metric("Last Update", datetime.now().strftime("%H:%M:%S"))
+            
+            # Reset options
+            st.subheader("🔄 Reset Options")
+            
+            reset_col1, reset_col2, reset_col3 = st.columns(3)
+            
+            with reset_col1:
+                if st.button("🗑️ Clear Cache", key="settings_clear_cache"):
+                    st.cache_data.clear()
+                    st.success("Cache cleared successfully!")
+            
+            with reset_col2:
+                if st.button("🔄 Reset Session", key="settings_reset_session"):
+                    for key in list(st.session_state.keys()):
+                        del st.session_state[key]
+                    st.success("Session reset successfully!")
+                    st.rerun()
+            
+            with reset_col3:
+                if st.button("📊 Reset Simulation", key="settings_reset_simulation"):
+                    if hasattr(st.session_state, 'simulation_controller'):
+                        st.session_state.simulation_controller.reset()
+                    st.success("Simulation reset successfully!")
 
 
 if __name__ == "__main__":
