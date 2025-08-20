@@ -543,7 +543,7 @@ def load_arriving_ships() -> pd.DataFrame:
     Returns:
         pd.DataFrame: Processed arriving ships data with structured information
     """
-    arriving_ships_xml = Path("/Users/Bhavesh/Documents/GitHub/Ports/Ports/raw_data/Arrived_in_last_36_hours.xml")
+    arriving_ships_xml = Path("/Users/Bhavesh/Documents/GitHub/Ports/Ports/raw_data/Expected_arrivals.xml")
     logger.info(f"Attempting to load arriving ships from: {arriving_ships_xml}")
     
     try:
@@ -603,11 +603,9 @@ def load_arriving_ships() -> pd.DataFrame:
             # Parse arrival time using robust parsing function
             vessel_data['arrival_time'] = _parse_vessel_timestamp(vessel_data['arrival_time_str'])
             
-            # Determine vessel status - for arriving ships, use remark to determine status
-            if vessel_data.get('remark') == 'Departed':
-                vessel_data['status'] = 'departed'
-            else:
-                vessel_data['status'] = 'arriving'
+            # Determine vessel status - vessels in Expected_arrivals.xml are expected to arrive
+            # They should have 'arriving' status since they haven't arrived yet
+            vessel_data['status'] = 'arriving'
             
             # Categorize ship type
             vessel_data['ship_category'] = _categorize_ship_type(vessel_data['ship_type'])
@@ -756,10 +754,13 @@ def load_combined_vessel_data() -> pd.DataFrame:
         combined_df = pd.concat(combined_data, ignore_index=True)
         
         # Handle duplicates by merging status information
-        # If a vessel appears in both datasets, prioritize 'arriving' status over 'in_port'
+        # If a vessel appears in both datasets, prioritize actual status over expected status
+        # Priority: 'in_port' (actual) > 'departed' (actual) > 'arriving' (expected)
         if len(combined_data) > 1:
             # Create a priority mapping for status values
-            status_priority = {'arriving': 3, 'in_port': 2, 'departed': 1}
+            # Vessels that have actually arrived ('in_port', 'departed') should take priority
+            # over vessels that are expected to arrive ('arriving')
+            status_priority = {'in_port': 3, 'departed': 2, 'arriving': 1}
             
             # Add priority column for sorting
             combined_df['_status_priority'] = combined_df['status'].map(status_priority).fillna(0)

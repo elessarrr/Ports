@@ -26,6 +26,9 @@ HKObservatoryIntegration = None  # Disabled
 from hk_port_digital_twin.src.utils.data_loader import load_focused_cargo_statistics, get_enhanced_cargo_analysis, get_time_series_data
 from hk_port_digital_twin.src.dashboard.scenario_tab_consolidation import ConsolidatedScenariosTab
 from hk_port_digital_twin.src.dashboard.vessel_charts import render_vessel_analytics_dashboard
+from hk_port_digital_twin.src.dashboard.executive_dashboard import ExecutiveDashboard
+from hk_port_digital_twin.src.utils.strategic_visualization import StrategicVisualization, render_strategic_controls
+from hk_port_digital_twin.src.core.strategic_simulation_controller import StrategicSimulationController
 
 try:
     from hk_port_digital_twin.src.dashboard.marine_traffic_integration import MarineTrafficIntegration
@@ -504,16 +507,16 @@ def main():
     use_consolidated = st.session_state.get('use_consolidated_scenarios', True)
     
     if use_consolidated:
-        # New consolidated structure
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+        # New consolidated structure with Strategic Simulations
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
             "📊 Overview", "🚢 Vessel Analytics", "📦 Cargo Statistics", "🛳️ Live Vessels", 
-            "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "⚙️ Settings"
+            "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "🎯 Strategic Simulations", "⚙️ Settings"
         ])
     else:
         # Original structure with separate scenario tabs
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
             "📊 Overview", "🚢 Vessel Analytics", "📦 Cargo Statistics", "🛳️ Live Vessels",
-            "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "⚙️ Settings",
+            "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "🎯 Strategic Simulations", "⚙️ Settings",
             "📊 Performance Analytics", "📦 Cargo Analysis"
         ])
     
@@ -1259,7 +1262,7 @@ def main():
                 st.plotly_chart(fig, use_container_width=True, key="activity_trend_chart")
             
             # Detailed vessel table
-            st.subheader("📋 Arriving and Departering Vessels - Detailed Information")
+            st.subheader("📋 Arriving and Departing Vessels - Detailed Information")
             
             # Add filters
             col1, col2, col3 = st.columns(3)
@@ -1731,6 +1734,120 @@ def main():
             st.subheader("📦 Cargo Analysis")
             st.markdown("Advanced cargo flow and logistics analysis")
             st.info("Cargo analysis content would be displayed here.")
+        
+        with tab11:
+            st.subheader("🎯 Strategic Simulations")
+            st.markdown("Executive-level strategic planning and business intelligence")
+            
+            # Initialize strategic components
+            if 'strategic_controller' not in st.session_state:
+                # Get or create port simulation instance
+                if 'simulation_controller' not in st.session_state or st.session_state.simulation_controller is None:
+                    # Initialize basic simulation controller first
+                    sample_data = load_sample_data()
+                    # Load proper berth configurations (list of dicts, not DataFrame)
+                    berth_configs = load_berth_configurations()
+                    # Create config dictionary for PortSimulation
+                    config = {
+                        'berths': berth_configs,
+                        'queue': sample_data['queue'],
+                        'ai_optimization': True,
+                        'optimization_interval': 1.0
+                    }
+                    port_sim = PortSimulation(config)
+                    st.session_state.simulation_controller = SimulationController(port_sim)
+                
+                # Create strategic controller using the port simulation
+                port_sim = st.session_state.simulation_controller.simulation
+                st.session_state.strategic_controller = StrategicSimulationController(port_sim)
+            
+            if 'executive_dashboard' not in st.session_state:
+                st.session_state.executive_dashboard = ExecutiveDashboard(port_simulation=port_sim)
+            
+            if 'strategic_viz' not in st.session_state:
+                st.session_state.strategic_viz = StrategicVisualization()
+            
+            # Strategic simulation controls
+            st.subheader("🎮 Simulation Controls")
+            render_strategic_controls(st.session_state.strategic_controller)
+            
+            # Executive dashboard
+            st.subheader("📊 Executive Dashboard")
+            st.session_state.executive_dashboard.render_executive_summary()
+            
+            # Business intelligence metrics
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.session_state.executive_dashboard.render_business_impact_charts()
+            
+            with col2:
+                st.session_state.executive_dashboard.render_strategic_planning_tools()
+            
+            # Real-time metrics
+            st.subheader("⚡ Real-Time Business Metrics")
+            st.session_state.executive_dashboard.render_realtime_metrics()
+            
+            # Strategic insights
+            st.subheader("💡 Strategic Insights")
+            st.session_state.executive_dashboard.render_strategic_insights()
+    
+    # Handle Strategic Simulations tab for consolidated mode
+    if use_consolidated:
+        with tab9:
+            st.subheader("🎯 Strategic Simulations")
+            st.markdown("Executive-level strategic planning and business intelligence")
+            
+            # Initialize strategic components
+            if 'strategic_controller' not in st.session_state:
+                # Get or create port simulation instance
+                if 'simulation_controller' not in st.session_state or st.session_state.simulation_controller is None:
+                    # Initialize basic simulation controller first
+                    sample_data = load_sample_data()
+                    # Create config dictionary for PortSimulation
+                    config = {
+                        'berths': load_berth_configurations(),
+                        'queue': sample_data['queue'],
+                        'ai_optimization': True,
+                        'optimization_interval': 1.0
+                    }
+                    port_sim = PortSimulation(config)
+                    st.session_state.simulation_controller = SimulationController(port_sim)
+                
+                # Create strategic controller using the port simulation
+                port_sim = st.session_state.simulation_controller.simulation
+                st.session_state.strategic_controller = StrategicSimulationController(port_sim)
+            
+            if 'executive_dashboard' not in st.session_state:
+                st.session_state.executive_dashboard = ExecutiveDashboard(port_simulation=port_sim)
+            
+            if 'strategic_viz' not in st.session_state:
+                st.session_state.strategic_viz = StrategicVisualization()
+            
+            # Strategic simulation controls
+            st.subheader("🎮 Simulation Controls")
+            render_strategic_controls(st.session_state.strategic_controller)
+            
+            # Executive dashboard
+            st.subheader("📊 Executive Dashboard")
+            st.session_state.executive_dashboard.render_executive_summary()
+            
+            # Business intelligence metrics
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.session_state.executive_dashboard.render_business_impact_charts()
+            
+            with col2:
+                st.session_state.executive_dashboard.render_strategic_planning_tools()
+            
+            # Real-time metrics
+            st.subheader("⚡ Real-Time Business Metrics")
+            st.session_state.executive_dashboard.render_realtime_metrics()
+            
+            # Strategic insights
+            st.subheader("💡 Strategic Insights")
+            st.session_state.executive_dashboard.render_strategic_insights()
 
 
 
