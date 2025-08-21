@@ -8,10 +8,16 @@
 # metrics and strategic considerations that align with executive-level concerns such as
 # capacity optimization, maintenance planning, and competitive advantage through AI.
 
-from dataclasses import dataclass
-from typing import Dict, List, Optional
+from dataclasses import dataclass, field
+from typing import List, Optional, Dict
 from enum import Enum
-from .scenario_parameters import ScenarioParameters
+
+from .scenario_parameters import (
+    ScenarioParameters, 
+    PEAK_SEASON_PARAMETERS,
+    NORMAL_OPERATIONS_PARAMETERS,
+    LOW_SEASON_PARAMETERS
+)
 
 class StrategicScenarioType(Enum):
     """Strategic scenario types for business intelligence and executive decision-making."""
@@ -33,98 +39,73 @@ class BusinessMetricType(Enum):
 
 @dataclass
 class StrategicBusinessMetrics:
-    """Business metrics and KPIs for strategic scenario evaluation."""
+    """Business metrics for strategic scenario evaluation.
     
-    # Revenue and financial metrics
-    target_revenue_per_hour: float  # Target revenue per operational hour
-    cost_per_delayed_ship: float    # Financial impact of ship delays
-    maintenance_cost_per_day: float # Daily cost of maintenance operations
+    Defines key performance indicators and financial metrics used to
+    evaluate the business impact of strategic operational decisions.
+    """
+    target_revenue_per_hour: float = 0.0  # Target revenue per operational hour
+    cost_per_delayed_ship: float = 0.0    # Financial impact of ship delays
+    maintenance_cost_per_day: float = 0.0 # Daily cost of maintenance operations
     
-    # Efficiency and performance metrics
-    target_throughput_increase: float      # Expected throughput improvement (%)
-    customer_satisfaction_target: float    # Target customer satisfaction score
-    operational_efficiency_target: float   # Target operational efficiency improvement
+    # Performance targets
+    target_throughput_increase: float = 0.0      # Expected throughput improvement (%)
+    customer_satisfaction_target: float = 0.0    # Target customer satisfaction score
+    operational_efficiency_target: float = 0.0   # Target operational efficiency improvement
     
     # Strategic planning metrics
-    capacity_utilization_target: float     # Strategic capacity utilization goal
-    competitive_advantage_score: float     # Competitive positioning metric
-    ai_optimization_benefit: float         # Expected AI optimization benefit (%)
+    capacity_utilization_target: float = 0.0     # Strategic capacity utilization goal
+    competitive_advantage_score: float = 0.0     # Competitive positioning metric
+    ai_optimization_benefit: float = 0.0         # Expected AI optimization benefit (%)
 
 @dataclass
-class StrategicScenarioParameters(ScenarioParameters):
-    """Extended scenario parameters for strategic business simulations.
+class StrategicScenarioParameters:
+    """Strategic scenario parameters for business simulations.
     
-    Inherits all operational parameters from ScenarioParameters and adds
-    business-focused metrics and strategic considerations for executive
-    decision-making and ROI analysis.
+    Contains both operational parameters and strategic business metrics
+    for executive decision-making and ROI analysis.
     """
     
+    # Base scenario parameters
+    base_scenario: ScenarioParameters = None
+    
     # Strategic scenario identification
-    strategic_type: StrategicScenarioType
-    business_objective: str
-    executive_summary: str
+    strategic_type: StrategicScenarioType = StrategicScenarioType.PEAK_SEASON_CAPACITY_OPTIMIZATION
+    business_objective: str = ""
+    executive_summary: str = ""
     
     # Business metrics and KPIs
-    business_metrics: StrategicBusinessMetrics
+    business_metrics: Optional[StrategicBusinessMetrics] = None
     
     # Strategic planning parameters
-    planning_horizon_days: int              # Planning horizon for this scenario
-    investment_required: float              # Required investment for optimization
-    expected_roi_percentage: float          # Expected return on investment
+    planning_horizon_days: int = 90              # Planning horizon for this scenario
+    investment_required: float = 0.0              # Required investment for optimization
+    expected_roi_percentage: float = 0.0          # Expected return on investment
     
     # Competitive and market factors
-    market_demand_multiplier: float         # Market demand adjustment
-    competitor_efficiency_baseline: float   # Competitor efficiency for comparison
+    market_demand_multiplier: float = 1.0         # Market demand adjustment
+    competitor_efficiency_baseline: float = 0.0   # Competitor efficiency for comparison
     
     # Risk and mitigation factors
-    risk_factors: List[str]                 # Identified risk factors
-    mitigation_strategies: List[str]        # Risk mitigation approaches
+    risk_factors: List[str] = field(default_factory=list)                 # Identified risk factors
+    mitigation_strategies: List[str] = field(default_factory=list)        # Risk mitigation approaches
+    
+    # Convenience properties to access base scenario attributes
+    @property
+    def scenario_name(self) -> str:
+        return self.base_scenario.scenario_name
+    
+    @property
+    def scenario_description(self) -> str:
+        return self.base_scenario.scenario_description
 
 # Strategic Scenario Definitions
 
 # Peak Season Capacity Optimization Scenario
 # Business Objective: Demonstrate AI-driven capacity optimization during peak demand
 PEAK_SEASON_CAPACITY_OPTIMIZATION = StrategicScenarioParameters(
-    # Base scenario parameters (inheriting from PEAK_SEASON_PARAMETERS structure)
-    scenario_name="Peak Season Capacity Optimization",
-    scenario_description="Strategic simulation demonstrating AI-driven capacity optimization "
-                        "during peak season to maximize throughput and revenue while "
-                        "maintaining service quality. Showcases competitive advantage "
-                        "through intelligent resource allocation.",
-    
-    # Enhanced peak season operational parameters
-    arrival_rate_multiplier=1.5,        # 50% increase in ship arrivals
-    peak_hour_multiplier=2.3,           # Higher peak hour concentration
-    weekend_multiplier=0.9,             # Extended weekend operations
-    
-    ship_type_distribution={
-        'container': 0.85,  # Focus on high-value container ships
-        'bulk': 0.12,       # Reduced bulk to prioritize containers
-        'mixed': 0.03       # Minimal mixed cargo
-    },
-    
-    container_volume_multipliers={
-        'container': 1.4,   # 40% more containers per ship
-        'bulk': 1.2,        # Increased bulk volumes
-        'mixed': 1.1        # Slightly increased mixed cargo
-    },
-    average_ship_size_multiplier=1.35,  # 35% larger ships
-    
-    # AI-optimized operational efficiency
-    crane_efficiency_multiplier=1.25,   # 25% AI-driven efficiency gain
-    docking_time_multiplier=0.85,       # 15% faster AI-optimized docking
-    processing_rate_multiplier=1.3,     # 30% faster AI-optimized processing
-    
-    # Aggressive capacity utilization
-    target_berth_utilization=0.90,      # 90% utilization target
-    berth_availability_factor=0.98,     # 98% berth availability
-    
-    # Strategic priority optimization
-    large_ship_priority_boost=1.8,      # Strong preference for large ships
-    container_ship_priority_boost=1.6,  # High priority for container ships
-    
-    primary_months=[10, 11, 12, 1],     # Peak season months
-    secondary_months=[9, 2],            # Transition months
+    # Base scenario from existing parameters
+    base_scenario=PEAK_SEASON_PARAMETERS,
     
     # Strategic scenario specific parameters
     strategic_type=StrategicScenarioType.PEAK_SEASON_CAPACITY_OPTIMIZATION,
@@ -169,46 +150,8 @@ PEAK_SEASON_CAPACITY_OPTIMIZATION = StrategicScenarioParameters(
 # Maintenance Window Optimization Scenario
 # Business Objective: Minimize revenue loss during necessary maintenance operations
 MAINTENANCE_WINDOW_OPTIMIZATION = StrategicScenarioParameters(
-    # Base scenario parameters optimized for maintenance periods
-    scenario_name="Maintenance Window Optimization",
-    scenario_description="Strategic simulation demonstrating intelligent maintenance "
-                        "scheduling to minimize revenue impact while ensuring "
-                        "equipment reliability. Showcases AI-driven maintenance "
-                        "planning and resource reallocation.",
-    
-    # Maintenance-adjusted operational parameters
-    arrival_rate_multiplier=0.8,        # 20% reduced arrivals during maintenance
-    peak_hour_multiplier=1.6,           # Compressed peak hours
-    weekend_multiplier=1.2,             # Extended weekend operations
-    
-    ship_type_distribution={
-        'container': 0.70,  # Reduced container focus during maintenance
-        'bulk': 0.25,       # Increased bulk cargo (less time-sensitive)
-        'mixed': 0.05       # Standard mixed cargo
-    },
-    
-    container_volume_multipliers={
-        'container': 0.9,   # Slightly reduced container volumes
-        'bulk': 1.1,        # Increased bulk to compensate
-        'mixed': 1.0        # Normal mixed cargo
-    },
-    average_ship_size_multiplier=0.95,  # Slightly smaller ships
-    
-    # Maintenance-constrained efficiency
-    crane_efficiency_multiplier=0.85,   # 15% reduced efficiency (maintenance)
-    docking_time_multiplier=1.15,       # 15% longer docking (reduced capacity)
-    processing_rate_multiplier=0.9,     # 10% slower processing
-    
-    # Reduced capacity during maintenance
-    target_berth_utilization=0.70,      # 70% utilization (maintenance impact)
-    berth_availability_factor=0.80,     # 80% berth availability (20% in maintenance)
-    
-    # Adjusted priorities for maintenance operations
-    large_ship_priority_boost=1.3,      # Moderate preference for large ships
-    container_ship_priority_boost=1.2,  # Slight container priority
-    
-    primary_months=[3, 4, 5, 6],        # Maintenance season months
-    secondary_months=[2, 7],            # Transition months
+    # Base scenario from existing parameters
+    base_scenario=NORMAL_OPERATIONS_PARAMETERS,
     
     # Strategic scenario specific parameters
     strategic_type=StrategicScenarioType.MAINTENANCE_WINDOW_OPTIMIZATION,

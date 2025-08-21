@@ -17,7 +17,7 @@ modifying its core logic, instead providing scenario-specific inputs that influe
 optimization decisions.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 from enum import Enum
 import logging
@@ -47,12 +47,43 @@ class OperationalMode(Enum):
     REDUCED_CAPACITY = "reduced_capacity"
 
 @dataclass
+class DemoBusinessMetrics:
+    """Demo-specific business metrics for enhanced presentation.
+    
+    These metrics are designed for comprehensive demo scenarios that showcase
+    both operational efficiency and strategic business intelligence capabilities.
+    """
+    
+    # Expected Operational Metrics
+    expected_throughput_teu_per_hour: float = 0.0
+    expected_berth_utilization: float = 0.0
+    expected_waiting_time_hours: float = 0.0
+    expected_crane_efficiency: float = 0.0
+    
+    # Expected Financial Metrics
+    expected_revenue_per_hour: float = 0.0
+    expected_cost_savings_percentage: float = 0.0
+    expected_roi_percentage: float = 0.0
+    
+    # Strategic Business Metrics
+    customer_satisfaction_target: float = 0.0
+    competitive_advantage_score: float = 0.0
+    sustainability_impact_score: float = 0.0
+    
+    # Demo Presentation Metrics
+    key_performance_indicators: List[str] = field(default_factory=list)
+    business_value_proposition: str = ""
+    executive_summary_points: List[str] = field(default_factory=list)
+
+@dataclass
 class ScenarioParameters:
     """Defines operational parameters for a specific scenario.
     
     This dataclass encapsulates all the parameters that vary between different
     operational scenarios (Peak/Normal/Low season). These parameters are extracted
     from historical data analysis and used to modify simulation behavior.
+    
+    Enhanced with business metrics for comprehensive demo presentation.
     """
     
     # Scenario identification
@@ -87,6 +118,13 @@ class ScenarioParameters:
     # Seasonal timing (months when this scenario is most applicable)
     primary_months: List[int]           # List of month numbers (1-12)
     secondary_months: List[int]         # Months with partial applicability
+    
+    # Enhanced Business Metrics for Demo
+    business_metrics: Optional[DemoBusinessMetrics] = None
+    
+    # Demo-specific features
+    demo_highlights: List[str] = field(default_factory=list)
+    competitive_differentiators: List[str] = field(default_factory=list)
 
 
 # Pre-defined scenario parameters based on Hong Kong Port historical data analysis
@@ -135,7 +173,48 @@ PEAK_SEASON_PARAMETERS = ScenarioParameters(
     
     # Timing: Peak months based on historical patterns
     primary_months=[10, 11, 12, 1],     # Oct-Dec, Jan
-    secondary_months=[9, 2]             # Sep, Feb (transition periods)
+    secondary_months=[9, 2],            # Sep, Feb (transition periods)
+    
+    # Enhanced Business Metrics for Demo
+    business_metrics=DemoBusinessMetrics(
+        expected_throughput_teu_per_hour=450.0,
+        expected_berth_utilization=85.0,
+        expected_waiting_time_hours=2.5,
+        expected_crane_efficiency=92.0,
+        expected_revenue_per_hour=125000.0,
+        expected_cost_savings_percentage=18.0,
+        expected_roi_percentage=24.5,
+        customer_satisfaction_target=88.0,
+        competitive_advantage_score=85.0,
+        sustainability_impact_score=78.0,
+        key_performance_indicators=[
+            "40% increased throughput capacity",
+            "85% berth utilization optimization",
+            "24.5% ROI improvement",
+            "18% operational cost reduction"
+        ],
+        business_value_proposition="Maximize revenue during peak demand periods while maintaining operational excellence",
+        executive_summary_points=[
+            "Handles 40% more cargo volume during peak season",
+            "Optimizes berth allocation for larger container ships",
+            "Delivers 24.5% ROI through enhanced operational efficiency",
+            "Maintains 88% customer satisfaction under high-volume conditions"
+        ]
+    ),
+    
+    # Demo-specific features
+    demo_highlights=[
+        "Peak season capacity optimization",
+        "Advanced berth allocation for large vessels",
+        "Real-time efficiency monitoring",
+        "Predictive demand management"
+    ],
+    competitive_differentiators=[
+        "AI-driven capacity optimization",
+        "Dynamic resource allocation",
+        "Predictive analytics for demand forecasting",
+        "Integrated business intelligence dashboard"
+    ]
 )
 
 # Normal Operations Scenario (baseline)
@@ -180,7 +259,48 @@ NORMAL_OPERATIONS_PARAMETERS = ScenarioParameters(
     
     # Timing: Most months of the year
     primary_months=[3, 4, 5, 6, 7, 8],  # Mar-Aug (spring/summer)
-    secondary_months=[2, 9]             # Feb, Sep (transition periods)
+    secondary_months=[2, 9],            # Feb, Sep (transition periods)
+    
+    # Enhanced Business Metrics for Demo
+    business_metrics=DemoBusinessMetrics(
+        expected_throughput_teu_per_hour=320.0,
+        expected_berth_utilization=75.0,
+        expected_waiting_time_hours=3.2,
+        expected_crane_efficiency=85.0,
+        expected_revenue_per_hour=95000.0,
+        expected_cost_savings_percentage=12.0,
+        expected_roi_percentage=16.8,
+        customer_satisfaction_target=82.0,
+        competitive_advantage_score=75.0,
+        sustainability_impact_score=72.0,
+        key_performance_indicators=[
+            "Baseline operational efficiency",
+            "75% optimal berth utilization",
+            "16.8% steady ROI performance",
+            "12% cost optimization"
+        ],
+        business_value_proposition="Maintain consistent operational excellence and reliable service delivery",
+        executive_summary_points=[
+            "Provides stable baseline operations throughout the year",
+            "Maintains 75% berth utilization for optimal resource usage",
+            "Delivers consistent 16.8% ROI with reliable performance",
+            "Ensures 82% customer satisfaction with predictable service levels"
+        ]
+    ),
+    
+    # Demo-specific features
+    demo_highlights=[
+        "Consistent operational performance",
+        "Balanced resource utilization",
+        "Predictable service delivery",
+        "Stable financial returns"
+    ],
+    competitive_differentiators=[
+        "Reliable operational consistency",
+        "Optimized resource allocation",
+        "Predictable performance metrics",
+        "Stable customer satisfaction"
+    ]
 )
 
 # Low Season Scenario (typically mid-year)
@@ -226,7 +346,48 @@ LOW_SEASON_PARAMETERS = ScenarioParameters(
     
     # Timing: Low season months
     primary_months=[5, 6, 7, 8],        # May-Aug (summer low season)
-    secondary_months=[4, 9]             # Apr, Sep (transition periods)
+    secondary_months=[4, 9],            # Apr, Sep (transition periods)
+    
+    # Enhanced Business Metrics for Demo
+    business_metrics=DemoBusinessMetrics(
+        expected_throughput_teu_per_hour=225.0,
+        expected_berth_utilization=65.0,
+        expected_waiting_time_hours=4.1,
+        expected_crane_efficiency=78.0,
+        expected_revenue_per_hour=68000.0,
+        expected_cost_savings_percentage=22.0,
+        expected_roi_percentage=28.5,
+        customer_satisfaction_target=85.0,
+        competitive_advantage_score=82.0,
+        sustainability_impact_score=88.0,
+        key_performance_indicators=[
+            "Optimal maintenance window utilization",
+            "22% cost savings through efficiency",
+            "28.5% ROI via operational optimization",
+            "88% sustainability improvement"
+        ],
+        business_value_proposition="Maximize operational efficiency and sustainability during low-demand periods",
+        executive_summary_points=[
+            "Optimizes maintenance schedules during reduced cargo volumes",
+            "Achieves 22% cost savings through strategic resource allocation",
+            "Delivers highest ROI (28.5%) through operational optimization",
+            "Enhances sustainability (88% score) with eco-friendly practices"
+        ]
+    ),
+    
+    # Demo-specific features
+    demo_highlights=[
+        "Strategic maintenance optimization",
+        "Cost-efficient resource allocation",
+        "Sustainability-focused operations",
+        "Highest ROI achievement"
+    ],
+    competitive_differentiators=[
+        "Proactive maintenance scheduling",
+        "Cost optimization strategies",
+        "Environmental sustainability focus",
+        "Maximum ROI during low-demand periods"
+    ]
 )
 
 # Dictionary for easy access to all scenarios

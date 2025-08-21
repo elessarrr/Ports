@@ -9,6 +9,49 @@ This document outlines the debugging process for resolving two critical errors i
 The Streamlit application crashed with the following error:
 
 ```
+
+## Error 3: `NameError: name 'UnifiedSimulationFramework' is not defined`
+
+### Symptom
+
+The Streamlit application failed to start with the following error:
+
+```
+NameError: name 'UnifiedSimulationFramework' is not defined
+Traceback:
+File "/Users/Bhavesh/Documents/GitHub/Ports/Ports/hk_port_digital_twin/src/dashboard/streamlit_app.py", line 1760, in <module>
+    main()
+File "/Users/Bhavesh/Documents/GitHub/Ports/Ports/hk_port_digital_twin/src/dashboard/streamlit_app.py", line 1752, in main
+    st.session_state.unified_simulations_tab = UnifiedSimulationsTab()
+File "/Users/Bhavesh/Documents/GitHub/Ports/Ports/hk_port_digital_twin/src/dashboard/unified_simulations_tab.py", line 84, in __init__
+    self.unified_framework = UnifiedSimulationFramework()
+```
+
+### Root Cause
+
+The error was caused by an incorrect class name reference in `unified_simulations_tab.py`. The code was trying to instantiate `UnifiedSimulationFramework()`, but this class does not exist. The correct class name is `UnifiedSimulationController`, which was properly imported but not used correctly.
+
+### Resolution
+
+The fix involved correcting the class name reference in the initialization.
+
+**Incorrect Code:**
+
+```python
+self.unified_framework = UnifiedSimulationFramework()
+```
+
+**Corrected Code:**
+
+```python
+self.unified_framework = UnifiedSimulationController()
+```
+
+### Key Learnings
+
+1. **Import vs Usage Consistency**: Even when the correct class is imported, ensure the instantiation uses the correct class name.
+2. **Class Naming Conventions**: During refactoring, verify that all references to renamed classes are updated consistently across the codebase.
+3. **Error Tracing**: The error traceback clearly pointed to the exact line and file where the undefined name was being used, making diagnosis straightforward.
 AttributeError: 'list' object has no attribute 'empty'
 ```
 

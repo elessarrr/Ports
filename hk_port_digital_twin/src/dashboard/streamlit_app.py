@@ -29,6 +29,7 @@ from hk_port_digital_twin.src.dashboard.vessel_charts import render_vessel_analy
 from hk_port_digital_twin.src.dashboard.executive_dashboard import ExecutiveDashboard
 from hk_port_digital_twin.src.utils.strategic_visualization import StrategicVisualization, render_strategic_controls
 from hk_port_digital_twin.src.core.strategic_simulation_controller import StrategicSimulationController
+from hk_port_digital_twin.src.dashboard.unified_simulations_tab import UnifiedSimulationsTab
 
 try:
     from hk_port_digital_twin.src.dashboard.marine_traffic_integration import MarineTrafficIntegration
@@ -507,16 +508,16 @@ def main():
     use_consolidated = st.session_state.get('use_consolidated_scenarios', True)
     
     if use_consolidated:
-        # New consolidated structure with Strategic Simulations
+        # New consolidated structure with Unified Simulations as tab8, Settings as tab9
         tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
             "📊 Overview", "🚢 Vessel Analytics", "📦 Cargo Statistics", "🛳️ Live Vessels", 
-            "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "🎯 Strategic Simulations", "⚙️ Settings"
+            "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "🎯 Unified Simulations", "⚙️ Settings"
         ])
     else:
-        # Original structure with separate scenario tabs
+        # Original structure with Unified Simulations as tab8, Settings as tab9
         tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
             "📊 Overview", "🚢 Vessel Analytics", "📦 Cargo Statistics", "🛳️ Live Vessels",
-            "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "🎯 Strategic Simulations", "⚙️ Settings",
+            "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "🎯 Unified Simulations", "⚙️ Settings",
             "📊 Performance Analytics", "📦 Cargo Analysis"
         ])
     
@@ -1610,244 +1611,133 @@ def main():
                                title="Processing Efficiency by Scenario")
                     st.plotly_chart(fig, use_container_width=True)
     
-    # Handle tab10 based on consolidated mode
-    if use_consolidated:
-        # In consolidated mode, tab10 is Settings
-        with tab8:
-            st.subheader("⚙️ Settings")
-            st.markdown("Configure simulation parameters and system settings")
+    # Unified Simulations tab - always tab8 regardless of mode
+    with tab8:
+        # Initialize unified simulations tab
+        if 'unified_simulations_tab' not in st.session_state:
+            st.session_state.unified_simulations_tab = UnifiedSimulationsTab()
+        
+        # Render the unified simulations interface
+        st.session_state.unified_simulations_tab.render()
+    
+    # Settings tab - always tab9 regardless of mode
+    with tab9:
+        st.subheader("⚙️ Settings")
+        st.markdown("Configure simulation parameters and system settings")
+        
+        # Dashboard Preferences
+        st.subheader("🎛️ Dashboard Preferences")
+        
+        pref_col1, pref_col2 = st.columns(2)
+        
+        with pref_col1:
+            st.write("**Tab Structure**")
+            use_consolidated_checkbox = st.checkbox(
+                "Use consolidated scenarios tab", 
+                value=st.session_state.get('use_consolidated_scenarios', True),
+                help="Switch between original tab structure and new consolidated scenarios tab"
+            )
             
-            # Dashboard Preferences
-            st.subheader("🎛️ Dashboard Preferences")
+            if use_consolidated_checkbox != st.session_state.get('use_consolidated_scenarios', True):
+                st.session_state.use_consolidated_scenarios = use_consolidated_checkbox
+                st.rerun()
             
-            pref_col1, pref_col2 = st.columns(2)
+            show_navigation = st.checkbox(
+                "Show section navigation", 
+                value=st.session_state.get('show_section_navigation', True),
+                help="Show navigation sidebar in consolidated scenarios tab"
+            )
+            st.session_state.show_section_navigation = show_navigation
+        
+        with pref_col2:
+            st.write("**Section Behavior**")
+            sections_expanded = st.checkbox(
+                "Expand sections by default", 
+                value=st.session_state.get('scenarios_sections_expanded', True),
+                help="Default expanded state for scenario sections"
+            )
+            st.session_state.scenarios_sections_expanded = sections_expanded
             
-            with pref_col1:
-                st.write("**Tab Structure**")
-                use_consolidated_checkbox = st.checkbox(
-                    "Use consolidated scenarios tab", 
-                    value=st.session_state.get('use_consolidated_scenarios', True),
-                    help="Switch between original tab structure and new consolidated scenarios tab"
-                )
-                
-                if use_consolidated_checkbox != st.session_state.get('use_consolidated_scenarios', True):
-                    st.session_state.use_consolidated_scenarios = use_consolidated_checkbox
-                    st.rerun()
-                
-                show_navigation = st.checkbox(
-                    "Show section navigation", 
-                    value=st.session_state.get('show_section_navigation', True),
-                    help="Show navigation sidebar in consolidated scenarios tab"
-                )
-                st.session_state.show_section_navigation = show_navigation
+            remember_states = st.checkbox(
+                "Remember section states", 
+                value=st.session_state.get('remember_section_states', True),
+                help="Remember which sections are expanded/collapsed"
+            )
+            st.session_state.remember_section_states = remember_states
+        
+        # Simulation settings
+        st.subheader("🔧 Simulation Configuration")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**Performance Settings**")
+            auto_refresh = st.checkbox("Auto-refresh dashboard", value=True)
+            refresh_interval = st.slider("Refresh interval (seconds)", 1, 30, 5)
             
-            with pref_col2:
-                st.write("**Section Behavior**")
-                sections_expanded = st.checkbox(
-                    "Expand sections by default", 
-                    value=st.session_state.get('scenarios_sections_expanded', True),
-                    help="Default expanded state for scenario sections"
-                )
-                st.session_state.scenarios_sections_expanded = sections_expanded
-                
-                remember_states = st.checkbox(
-                    "Remember section states", 
-                    value=st.session_state.get('remember_section_states', True),
-                    help="Remember which sections are expanded/collapsed"
-                )
-                st.session_state.remember_section_states = remember_states
+            st.write("**Data Settings**")
+            use_real_data = st.checkbox("Use real-time data", value=True)
+            cache_duration = st.slider("Cache duration (minutes)", 1, 60, 10)
+        
+        with col2:
+            st.write("**Display Settings**")
+            show_debug_info = st.checkbox("Show debug information", value=False)
+            chart_theme = st.selectbox("Chart theme", ["plotly", "plotly_white", "plotly_dark"], index=0)
             
-            # Simulation settings
-            st.subheader("🔧 Simulation Configuration")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.write("**Performance Settings**")
-                auto_refresh = st.checkbox("Auto-refresh dashboard", value=True)
-                refresh_interval = st.slider("Refresh interval (seconds)", 1, 30, 5)
-                
-                st.write("**Data Settings**")
-                use_real_data = st.checkbox("Use real-time data", value=True)
-                cache_duration = st.slider("Cache duration (minutes)", 1, 60, 10)
-            
-            with col2:
-                st.write("**Display Settings**")
-                show_debug_info = st.checkbox("Show debug information", value=False)
-                chart_theme = st.selectbox("Chart theme", ["plotly", "plotly_white", "plotly_dark"], index=0)
-                
-                st.write("**Export Settings**")
-                default_export_format = st.selectbox("Default export format", ["CSV", "Excel", "JSON"], index=0)
-            
-            # System information
-            st.subheader("📊 System Information")
-            
-            info_col1, info_col2, info_col3 = st.columns(3)
-            
-            with info_col1:
-                st.metric("Dashboard Version", "1.0.0")
-                st.metric("Streamlit Version", st.__version__)
-            
-            with info_col2:
-                st.metric("Active Sessions", "1")
-                st.metric("Uptime", "Running")
-            
-            with info_col3:
-                st.metric("Data Sources", "3")
-                st.metric("Last Update", datetime.now().strftime("%H:%M:%S"))
-            
-            # Reset options
-            st.subheader("🔄 Reset Options")
-            
-            reset_col1, reset_col2, reset_col3 = st.columns(3)
-            
-            with reset_col1:
-                if st.button("🗑️ Clear Cache"):
-                    st.cache_data.clear()
-                    st.success("Cache cleared successfully!")
-            
-            with reset_col2:
-                if st.button("🔄 Reset Session"):
-                    for key in list(st.session_state.keys()):
-                        del st.session_state[key]
-                    st.success("Session reset successfully!")
-                    st.rerun()
-            
-            with reset_col3:
-                if st.button("📊 Reset Simulation"):
-                    if hasattr(st.session_state, 'simulation_controller'):
-                        st.session_state.simulation_controller.reset()
-                    st.success("Simulation reset successfully!")
-    else:
-        # In original mode, tab9 is Scenario Analysis
-        # (content already handled above in tab9)
-        pass
+            st.write("**Export Settings**")
+            default_export_format = st.selectbox("Default export format", ["CSV", "Excel", "JSON"], index=0)
+        
+        # System information
+        st.subheader("📊 System Information")
+        
+        info_col1, info_col2, info_col3 = st.columns(3)
+        
+        with info_col1:
+            st.metric("Dashboard Version", "1.0.0")
+            st.metric("Streamlit Version", st.__version__)
+        
+        with info_col2:
+            st.metric("Active Sessions", "1")
+            st.metric("Uptime", "Running")
+        
+        with info_col3:
+            st.metric("Data Sources", "3")
+            st.metric("Last Update", datetime.now().strftime("%H:%M:%S"))
+        
+        # Reset options
+        st.subheader("🔄 Reset Options")
+        
+        reset_col1, reset_col2, reset_col3 = st.columns(3)
+        
+        with reset_col1:
+            if st.button("🗑️ Clear Cache"):
+                st.cache_data.clear()
+                st.success("Cache cleared successfully!")
+        
+        with reset_col2:
+            if st.button("🔄 Reset Session"):
+                for key in list(st.session_state.keys()):
+                    del st.session_state[key]
+                st.success("Session reset successfully!")
+                st.rerun()
+        
+        with reset_col3:
+            if st.button("📊 Reset Simulation"):
+                if hasattr(st.session_state, 'simulation_controller'):
+                    st.session_state.simulation_controller.reset()
+                st.success("Simulation reset successfully!")
     
     # Additional tabs for original structure
     if not use_consolidated:
-        with tab9:
+        with tab10:
             st.subheader("📊 Performance Analytics")
             st.markdown("Detailed performance metrics and analytics")
             st.info("Performance analytics content would be displayed here.")
         
-        with tab10:
+        with tab11:
             st.subheader("📦 Cargo Analysis")
             st.markdown("Advanced cargo flow and logistics analysis")
             st.info("Cargo analysis content would be displayed here.")
-        
-        with tab11:
-            st.subheader("🎯 Strategic Simulations")
-            st.markdown("Executive-level strategic planning and business intelligence")
-            
-            # Initialize strategic components
-            if 'strategic_controller' not in st.session_state:
-                # Get or create port simulation instance
-                if 'simulation_controller' not in st.session_state or st.session_state.simulation_controller is None:
-                    # Initialize basic simulation controller first
-                    sample_data = load_sample_data()
-                    # Load proper berth configurations (list of dicts, not DataFrame)
-                    berth_configs = load_berth_configurations()
-                    # Create config dictionary for PortSimulation
-                    config = {
-                        'berths': berth_configs,
-                        'queue': sample_data['queue'],
-                        'ai_optimization': True,
-                        'optimization_interval': 1.0
-                    }
-                    port_sim = PortSimulation(config)
-                    st.session_state.simulation_controller = SimulationController(port_sim)
-                
-                # Create strategic controller using the port simulation
-                port_sim = st.session_state.simulation_controller.simulation
-                st.session_state.strategic_controller = StrategicSimulationController(port_sim)
-            
-            if 'executive_dashboard' not in st.session_state:
-                st.session_state.executive_dashboard = ExecutiveDashboard(port_simulation=port_sim)
-            
-            if 'strategic_viz' not in st.session_state:
-                st.session_state.strategic_viz = StrategicVisualization()
-            
-            # Strategic simulation controls
-            st.subheader("🎮 Simulation Controls")
-            render_strategic_controls(st.session_state.strategic_controller)
-            
-            # Executive dashboard
-            st.subheader("📊 Executive Dashboard")
-            st.session_state.executive_dashboard.render_executive_summary()
-            
-            # Business intelligence metrics
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.session_state.executive_dashboard.render_business_impact_charts()
-            
-            with col2:
-                st.session_state.executive_dashboard.render_strategic_planning_tools()
-            
-            # Real-time metrics
-            st.subheader("⚡ Real-Time Business Metrics")
-            st.session_state.executive_dashboard.render_realtime_metrics()
-            
-            # Strategic insights
-            st.subheader("💡 Strategic Insights")
-            st.session_state.executive_dashboard.render_strategic_insights()
-    
-    # Handle Strategic Simulations tab for consolidated mode
-    if use_consolidated:
-        with tab9:
-            st.subheader("🎯 Strategic Simulations")
-            st.markdown("Executive-level strategic planning and business intelligence")
-            
-            # Initialize strategic components
-            if 'strategic_controller' not in st.session_state:
-                # Get or create port simulation instance
-                if 'simulation_controller' not in st.session_state or st.session_state.simulation_controller is None:
-                    # Initialize basic simulation controller first
-                    sample_data = load_sample_data()
-                    # Create config dictionary for PortSimulation
-                    config = {
-                        'berths': load_berth_configurations(),
-                        'queue': sample_data['queue'],
-                        'ai_optimization': True,
-                        'optimization_interval': 1.0
-                    }
-                    port_sim = PortSimulation(config)
-                    st.session_state.simulation_controller = SimulationController(port_sim)
-                
-                # Create strategic controller using the port simulation
-                port_sim = st.session_state.simulation_controller.simulation
-                st.session_state.strategic_controller = StrategicSimulationController(port_sim)
-            
-            if 'executive_dashboard' not in st.session_state:
-                st.session_state.executive_dashboard = ExecutiveDashboard(port_simulation=port_sim)
-            
-            if 'strategic_viz' not in st.session_state:
-                st.session_state.strategic_viz = StrategicVisualization()
-            
-            # Strategic simulation controls
-            st.subheader("🎮 Simulation Controls")
-            render_strategic_controls(st.session_state.strategic_controller)
-            
-            # Executive dashboard
-            st.subheader("📊 Executive Dashboard")
-            st.session_state.executive_dashboard.render_executive_summary()
-            
-            # Business intelligence metrics
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.session_state.executive_dashboard.render_business_impact_charts()
-            
-            with col2:
-                st.session_state.executive_dashboard.render_strategic_planning_tools()
-            
-            # Real-time metrics
-            st.subheader("⚡ Real-Time Business Metrics")
-            st.session_state.executive_dashboard.render_realtime_metrics()
-            
-            # Strategic insights
-            st.subheader("💡 Strategic Insights")
-            st.session_state.executive_dashboard.render_strategic_insights()
 
 
 

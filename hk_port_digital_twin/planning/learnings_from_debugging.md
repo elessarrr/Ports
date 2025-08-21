@@ -53,6 +53,12 @@ This document outlines the key learnings from debugging sessions, focusing on th
 *   **Root Cause:** The `load_sample_data` function was modified to implement dynamic berth data generation but inadvertently stopped returning the 'queue' key in the data dictionary.
 *   **Resolution:** The `load_sample_data` function was corrected to ensure it always returns all required keys including 'queue', 'berths', 'vessels', etc.
 
+**2. `AttributeError: type object 'ChartTheme' has no attribute 'PROFESSIONAL'`**
+
+*   **Symptom:** The application crashed with an `AttributeError` when trying to use `ChartTheme.PROFESSIONAL` in the unified simulations tab.
+*   **Root Cause:** The `ChartTheme` enum in `strategic_visualization.py` only defines three values: `EXECUTIVE`, `PRESENTATION`, and `DARK`. The code was attempting to use `ChartTheme.PROFESSIONAL` which doesn't exist.
+*   **Resolution:** Replaced all instances of `ChartTheme.PROFESSIONAL` with `ChartTheme.EXECUTIVE` since it provides a "Clean, professional theme" which matches the intended use case.
+
 **2. `AttributeError: 'NoneType' object has no attribute 'empty'`**
 
 *   **Symptom:** The application crashed when trying to check if `berth_data` was empty, but `berth_data` was `None`.
