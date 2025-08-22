@@ -49,21 +49,71 @@ self.unified_framework = UnifiedSimulationController()
 
 ### Key Learnings
 
-1. **Import vs Usage Consistency**: Even when the correct class is imported, ensure the instantiation uses the correct class name.
-2. **Class Naming Conventions**: During refactoring, verify that all references to renamed classes are updated consistently across the codebase.
-3. **Error Tracing**: The error traceback clearly pointed to the exact line and file where the undefined name was being used, making diagnosis straightforward.
-AttributeError: 'list' object has no attribute 'empty'
-```
+1. **Class Name Verification**: Always verify that class names match exactly between import statements and instantiation calls.
+2. **Import Statement Review**: When encountering `NameError`, check both the import statements and the actual class/function names being used.
+3. **Code Consistency**: Maintain consistency between class definitions and their usage throughout the codebase.
 
-This error occurred in `streamlit_app.py` at line 1494, within the "Live Berths" tab (`tab7`).
+---
+
+## Error 4: `No module named 'hk_port_digital_twin.src.scenarios.scenario_comparison'`
+
+### Symptom
+
+The Streamlit application encountered an import error when trying to run scenario comparison:
+
+```
+Error running scenario comparison: No module named 'hk_port_digital_twin.src.scenarios.scenario_comparison'
+```
 
 ### Root Cause
 
-The error was caused by an incorrect attempt to check if a list was empty using the `.empty` attribute, which is a feature of pandas DataFrames, not standard Python lists. The `berth_data` variable, which was being checked, was a list of dictionaries, not a DataFrame.
+The error was caused by a missing module. The code in `scenario_tab_consolidation.py` was trying to import a function `create_scenario_comparison` from a non-existent module `hk_port_digital_twin.src.scenarios.scenario_comparison`. 
+
+The import statement was:
+```python
+from hk_port_digital_twin.src.scenarios.scenario_comparison import create_scenario_comparison
+```
+
+However, the `scenario_comparison.py` file did not exist in the scenarios directory.
 
 ### Resolution
 
-The fix involved changing the conditional check to correctly determine if the list is empty.
+Created the missing `scenario_comparison.py` module with the required `create_scenario_comparison` function. The solution involved:
+
+1. **Module Creation**: Created `/Users/Bhavesh/Documents/GitHub/Ports/Ports/hk_port_digital_twin/src/scenarios/scenario_comparison.py`
+
+2. **Function Implementation**: Implemented `create_scenario_comparison()` with the expected signature:
+   ```python
+   def create_scenario_comparison(
+       primary_scenario: str,
+       comparison_scenarios: List[str],
+       simulation_hours: int = 72,
+       use_historical_data: bool = True
+   ) -> Optional[Dict[str, Any]]:
+   ```
+
+3. **Integration**: Leveraged existing functionality from `MultiScenarioOptimizer`, `ScenarioAwareBerthOptimizer`, and other scenario modules to provide comprehensive comparison capabilities.
+
+4. **Error Handling**: Added proper error handling and logging to ensure robust operation.
+
+### Key Learnings
+
+1. **Missing Module Detection**: When encountering `ModuleNotFoundError`, first verify if the module file actually exists in the expected directory structure.
+2. **Import Dependency Mapping**: Before implementing new features, ensure all required modules and functions are available or create them as needed.
+3. **Function Signature Consistency**: When creating missing functions, analyze the calling code to understand the expected parameters and return types.
+4. **Leveraging Existing Code**: Instead of writing functionality from scratch, identify and reuse existing similar functionality from other modules.
+5. **Comprehensive Error Handling**: Always include proper error handling and logging in newly created modules to facilitate future debugging.
+
+---
+
+## Summary
+
+These debugging experiences highlight the importance of:
+- Thorough code review and testing after refactoring
+- Maintaining consistency in class and module naming
+- Verifying all dependencies exist before deployment
+- Proper error handling and logging throughout the application
+- Systematic approach to identifying and resolving import-related issues
 
 **Incorrect Code:**
 
