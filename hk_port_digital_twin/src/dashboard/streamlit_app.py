@@ -40,6 +40,7 @@ except ImportError:
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(threadName)s - %(message)s')
 
 
+@st.cache_data
 def load_sample_data(scenario='normal', use_real_throughput_data=True):
     """Load sample data based on scenario"""
     # Define scenario-based parameters with distinct, non-overlapping ranges
@@ -175,6 +176,7 @@ def load_sample_data(scenario='normal', use_real_throughput_data=True):
     }
 
 
+@st.cache_data
 def get_real_berth_data(berth_config):
     """Get real-time berth data from BerthManager"""
     if BerthManager and simpy:
@@ -355,16 +357,12 @@ def create_sidebar():
     # This includes duration slider, arrival rate controls, start/stop buttons, and status display
 
 
+@st.cache_data
 def load_data(scenario: str):
     """Loads data for a given scenario with caching to prevent regeneration on UI interactions."""
     try:
-        # Check if data is already cached for this scenario
-        cache_key = f"data_{scenario}"
-        if cache_key not in st.session_state:
-            # Load data using the utility function and cache it
-            st.session_state[cache_key] = load_sample_data(scenario)
-        
-        return st.session_state[cache_key]
+        # Load data using the utility function
+        return load_sample_data(scenario)
     except Exception as e:
         st.error(f"Error loading data for scenario '{scenario}': {e}")
         return {}

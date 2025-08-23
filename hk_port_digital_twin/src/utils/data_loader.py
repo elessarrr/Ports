@@ -65,6 +65,9 @@ VESSEL_XML_FILES = [
     'Expected_departures.xml'
 ]
 
+import streamlit as st
+
+@st.cache_data
 def load_container_throughput() -> pd.DataFrame:
     """Load and process container throughput time series data.
     
@@ -116,6 +119,7 @@ def load_container_throughput() -> pd.DataFrame:
         logger.error(f"Error loading container throughput data: {e}")
         return pd.DataFrame()
 
+@st.cache_data
 def load_annual_container_throughput() -> pd.DataFrame:
     """Load annual container throughput summary data.
     
@@ -150,6 +154,7 @@ def load_annual_container_throughput() -> pd.DataFrame:
         logger.error(f"Error loading annual container throughput data: {e}")
         return pd.DataFrame()
 
+@st.cache_data
 def load_port_cargo_statistics(focus_tables: Optional[List[str]] = None) -> Dict[str, pd.DataFrame]:
     """Load port cargo statistics from multiple CSV files.
     
@@ -193,6 +198,7 @@ def load_port_cargo_statistics(focus_tables: Optional[List[str]] = None) -> Dict
         logger.error(f"Error loading port cargo statistics: {e}")
         return {}
 
+@st.cache_data
 def load_focused_cargo_statistics() -> Dict[str, pd.DataFrame]:
     """Load only Tables 1 & 2 for focused time series analysis.
     
@@ -201,6 +207,7 @@ def load_focused_cargo_statistics() -> Dict[str, pd.DataFrame]:
     """
     return load_port_cargo_statistics(focus_tables=['Table_1_Eng', 'Table_2_Eng'])
 
+@st.cache_data
 def get_time_series_data(cargo_stats: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
     """Extract and format time series data from Tables 1 & 2.
     
@@ -324,6 +331,7 @@ def forecast_cargo_throughput(time_series_data: Dict[str, pd.DataFrame], forecas
         logger.error(f"Error generating forecasts: {e}")
         return {}
 
+@st.cache_data
 def get_enhanced_cargo_analysis() -> Dict[str, any]:
     """Enhanced cargo analysis focusing on Tables 1 & 2 with time series insights.
     
@@ -537,6 +545,7 @@ def _clean_cargo_statistics_data(df: pd.DataFrame, table_name: str) -> pd.DataFr
         logger.error(f"Error cleaning {table_name} data: {e}")
         return df
 
+@st.cache_data
 def load_arriving_ships() -> pd.DataFrame:
     """Load and process arriving ships data from XML file.
     
@@ -633,6 +642,7 @@ def load_arriving_ships() -> pd.DataFrame:
         return pd.DataFrame()
 
 
+@st.cache_data
 def load_vessel_arrivals() -> pd.DataFrame:
     logger.info(f"Attempting to load vessel arrivals from: {VESSEL_ARRIVALS_XML}")
     """Load and process real-time vessel arrival data from XML.
@@ -726,6 +736,7 @@ def load_vessel_arrivals() -> pd.DataFrame:
         return pd.DataFrame()
 
 
+@st.cache_data
 def load_combined_vessel_data() -> pd.DataFrame:
     """Load and combine both current vessel arrivals and arriving ships data.
     
@@ -884,6 +895,7 @@ def _categorize_location(location: str) -> str:
     else:
         return 'other'
 
+@st.cache_data
 def get_vessel_queue_analysis() -> Dict[str, any]:
     """Analyze current vessel queue and berth occupancy.
     
@@ -945,6 +957,7 @@ def get_vessel_queue_analysis() -> Dict[str, any]:
         logger.error(f"Error in vessel queue analysis: {e}")
         return {}
 
+@st.cache_data
 def load_all_vessel_data() -> Dict[str, pd.DataFrame]:
     """Load vessel data from all available XML files.
     
@@ -978,6 +991,7 @@ def load_all_vessel_data() -> Dict[str, pd.DataFrame]:
     
     return vessel_data
 
+@st.cache_data
 def load_vessel_data_from_xml(xml_file_path: Path) -> pd.DataFrame:
     """Load vessel data from a specific XML file.
     
@@ -1089,6 +1103,7 @@ def load_vessel_data_from_xml(xml_file_path: Path) -> pd.DataFrame:
         logger.error(f"Error loading vessel data from {xml_file_path}: {e}")
         return pd.DataFrame()
 
+@st.cache_data
 def get_comprehensive_vessel_analysis() -> Dict[str, any]:
     """Perform comprehensive analysis across all vessel data files.
     

@@ -11,6 +11,7 @@ from typing import List, Dict, Optional
 import numpy as np
 
 
+@st.cache_data
 def create_port_layout_chart(berths_data: pd.DataFrame) -> go.Figure:
     """Create visual representation of port layout
     
@@ -75,6 +76,7 @@ def create_port_layout_chart(berths_data: pd.DataFrame) -> go.Figure:
     return fig
 
 
+@st.cache_data
 def create_ship_queue_chart(queue_data: List[Dict]) -> go.Figure:
     """Visualize ship waiting queue
     
@@ -171,6 +173,7 @@ def create_ship_queue_chart(queue_data: List[Dict]) -> go.Figure:
     return fig
 
 
+@st.cache_data
 def create_berth_utilization_chart(utilization_data: Dict[int, float]) -> go.Figure:
     """Create berth utilization chart
     
@@ -231,6 +234,9 @@ def create_berth_utilization_chart(utilization_data: Dict[int, float]) -> go.Fig
     return fig
 
 
+import streamlit as st
+
+@st.cache_data
 def create_throughput_timeline(throughput_data: pd.DataFrame) -> go.Figure:
     """Create timeline chart showing container throughput over time with seaborne/river breakdown
     
@@ -310,6 +316,7 @@ def create_throughput_timeline(throughput_data: pd.DataFrame) -> go.Figure:
     return fig
 
 
+@st.cache_data
 def create_waiting_time_distribution(waiting_times: List[float]) -> go.Figure:
     """Create histogram showing distribution of ship waiting times
     
@@ -365,6 +372,7 @@ def create_waiting_time_distribution(waiting_times: List[float]) -> go.Figure:
     return fig
 
 
+@st.cache_data
 def create_kpi_summary_chart(kpi_data: Dict) -> go.Figure:
     """Create summary chart showing key performance indicators
     
