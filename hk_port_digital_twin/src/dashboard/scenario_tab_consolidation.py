@@ -1366,6 +1366,12 @@ class ConsolidatedScenariosTab:
             values = trend + noise
             values = np.maximum(values, 0)  # Ensure non-negative
             
+        elif value_type == 'investment_roi':
+            # Generate investment ROI values based on provided range
+            roi_range = kwargs.get('roi_range', (0.10, 0.20))  # Default 10-20% if not specified
+            min_val, max_val = roi_range
+            values = np.random.uniform(min_val, max_val, count)
+            
         else:
             # Fallback for unknown value types
             values = np.random.uniform(0, 100, count)
@@ -2421,7 +2427,7 @@ class ConsolidatedScenariosTab:
             # Collapsible guidelines using details/summary HTML
             st.markdown("""
             <details>
-            <summary><strong>📋 Scenario Weight Guidelines</strong> (click to expand)</summary>
+            <summary><strong>ℹ️ Scenario Weight Guidelines</strong> (click to expand)</summary>
             <div style="margin-top: 10px; padding-left: 15px;">
             <strong>How to set scenario weights:</strong><br>
             • <strong>Higher weights</strong> (closer to 1.0) = More importance in optimization<br>
@@ -2495,7 +2501,7 @@ class ConsolidatedScenariosTab:
                 # Scenario performance chart
                 st.markdown("""
                 <details>
-                <summary><strong>📊 Performance by Scenario Explanation</strong> (click to expand)</summary>
+                <summary><strong>ℹ️ Performance by Scenario Explanation</strong> (click to expand)</summary>
                 <div style="margin-top: 10px; padding-left: 15px;">
                 This chart shows how well the optimized port configuration performs under different operational scenarios:<br>
                 • <strong>Normal</strong>: Standard operating conditions<br>
@@ -2697,7 +2703,7 @@ class ConsolidatedScenariosTab:
             # Add collapsible explanation for Impact Analysis metrics
             st.markdown("""
             <details>
-            <summary><strong>📊 Impact Analysis Metrics Explanation</strong> (click to expand)</summary>
+            <summary><strong>ℹ️ Impact Analysis Metrics Explanation</strong> (click to expand)</summary>
             <div style="margin-top: 10px; padding-left: 15px;">
             This section provides comprehensive analysis of disruption impacts on port operations:<br><br>
             • <strong>Impact Score</strong>: Overall severity rating (0-10 scale) based on affected berths and equipment<br>
@@ -2847,37 +2853,99 @@ class ConsolidatedScenariosTab:
                     import time
                     time.sleep(2)
                     
+                    # Get current scenario for dynamic investment analysis
+                    current_scenario = self._get_current_scenario()
+                    scenario_params = self._get_scenario_performance_params(current_scenario)
+                    
                     # Calculate investment metrics
                     total_investment = (new_berths * berth_cost + 
                                       new_cranes * crane_cost + 
                                       automation_cost * automation_level / 100)
                     
-                    # Simulate ROI calculation
-                    annual_revenue_increase = total_investment * 0.15  # 15% annual return assumption
+                    # Dynamic ROI calculation based on scenario
+                    # Peak Season: Higher returns due to increased demand (18-25%)
+                    # Normal Operations: Standard returns (12-18%)
+                    # Low Season: Lower but stable returns (8-15%)
+                    if "Peak Season" in current_scenario:
+                        base_roi_rate = self._generate_scenario_values(current_scenario, 'investment_roi', 1, roi_range=(0.18, 0.25))
+                        market_multiplier = 1.2  # Higher market demand
+                        efficiency_bonus = automation_level * 0.002  # Automation bonus in peak
+                    elif "Low Season" in current_scenario:
+                        base_roi_rate = self._generate_scenario_values(current_scenario, 'investment_roi', 1, roi_range=(0.08, 0.15))
+                        market_multiplier = 0.85  # Lower market demand
+                        efficiency_bonus = automation_level * 0.003  # Higher automation value in low season
+                    else:  # Normal Operations
+                        base_roi_rate = self._generate_scenario_values(current_scenario, 'investment_roi', 1, roi_range=(0.12, 0.18))
+                        market_multiplier = 1.0  # Standard market conditions
+                        efficiency_bonus = automation_level * 0.0025  # Standard automation bonus
+                    
+                    # Apply scenario-specific adjustments
+                    scenario_roi_rate = base_roi_rate + efficiency_bonus
+                    
+                    # Calculate infrastructure impact multipliers
+                    berth_impact = new_berths * 0.08 * market_multiplier  # Berths have higher impact in peak
+                    crane_impact = new_cranes * 0.04 * (1 + automation_level / 300)  # Cranes benefit from automation
+                    
+                    # Dynamic annual revenue calculation
+                    base_annual_revenue = total_investment * scenario_roi_rate
+                    infrastructure_bonus = berth_impact + crane_impact
+                    annual_revenue_increase = base_annual_revenue * (1 + infrastructure_bonus)
+                    
+                    # Calculate payback period with scenario considerations
                     payback_period = total_investment / annual_revenue_increase if annual_revenue_increase > 0 else float('inf')
+                    
+                    # Dynamic NPV calculation with proper discounting
+                    npv = sum([
+                        annual_revenue_increase * (1 + growth_rate/100) ** i / (1 + discount_rate/100) ** i
+                        for i in range(1, analysis_period + 1)
+                    ]) - total_investment
+                    
+                    # Dynamic capacity increase calculation
+                    base_capacity_increase = (new_berths * 10 + new_cranes * 5)
+                    automation_multiplier = (1 + automation_level / 200)
+                    scenario_efficiency = scenario_params.get('efficiency_range', (80, 90))[1] / 100
+                    capacity_increase = base_capacity_increase * automation_multiplier * scenario_efficiency
                     
                     st.session_state.investment_results = {
                         'total_investment': total_investment,
                         'annual_revenue_increase': annual_revenue_increase,
                         'payback_period': payback_period,
-                        'npv': annual_revenue_increase * analysis_period - total_investment,
-                        'capacity_increase': (new_berths * 10 + new_cranes * 5) * (1 + automation_level / 200),
+                        'npv': npv,
+                        'capacity_increase': capacity_increase,
+                        'scenario_context': {
+                            'scenario_name': current_scenario,
+                            'base_roi_rate': base_roi_rate * 100,
+                            'market_multiplier': market_multiplier,
+                            'efficiency_bonus': efficiency_bonus * 100
+                        },
                         'yearly_projections': [
                             {
                                 'year': i,
                                 'revenue': annual_revenue_increase * (1 + growth_rate/100) ** i,
-                                'cumulative_profit': annual_revenue_increase * i - total_investment
+                                'discounted_revenue': annual_revenue_increase * (1 + growth_rate/100) ** i / (1 + discount_rate/100) ** i,
+                                'cumulative_profit': sum([
+                                    annual_revenue_increase * (1 + growth_rate/100) ** j / (1 + discount_rate/100) ** j
+                                    for j in range(1, i + 1)
+                                ]) - total_investment
                             }
                             for i in range(1, analysis_period + 1)
                         ]
                     }
-                    st.success("Investment analysis completed!")
+                    st.success(f"Investment analysis completed for {current_scenario}!")
         
         with invest_col2:
             st.subheader("📊 Investment Analysis")
             
             if hasattr(st.session_state, 'investment_results'):
                 results = st.session_state.investment_results
+                
+                # Show scenario context
+                if 'scenario_context' in results:
+                    scenario_ctx = results['scenario_context']
+                    st.info(f"**Analysis for {scenario_ctx['scenario_name']}**\n"
+                           f"Base ROI Rate: {scenario_ctx['base_roi_rate']:.1f}% | "
+                           f"Market Factor: {scenario_ctx['market_multiplier']:.1f}x | "
+                           f"Automation Bonus: +{scenario_ctx['efficiency_bonus']:.1f}%")
                 
                 # Key metrics
                 metric_col1, metric_col2 = st.columns(2)
@@ -2905,13 +2973,32 @@ class ConsolidatedScenariosTab:
                     fig.add_hline(y=0, line_dash="dash", line_color="red", annotation_text="Break-even")
                     st.plotly_chart(fig, use_container_width=True)
                 
-                # Investment recommendation
-                if results['npv'] > 0 and results['payback_period'] < 7:
-                    st.success("✅ **Recommendation**: This investment shows positive returns and reasonable payback period.")
-                elif results['npv'] > 0:
-                    st.warning("⚠️ **Recommendation**: Positive NPV but long payback period. Consider phased implementation.")
-                else:
-                    st.error("❌ **Recommendation**: Investment may not be financially viable under current assumptions.")
+                # Dynamic investment recommendation based on scenario
+                scenario_name = results.get('scenario_context', {}).get('scenario_name', 'Current Scenario')
+                npv = results['npv']
+                payback = results['payback_period']
+                
+                if scenario_name == "Peak Season":
+                    if npv > 200 and payback < 6:
+                        st.success(f"✅ **Strong Recommendation for {scenario_name}**: Excellent returns with high demand conditions. NPV: ${npv:.1f}M")
+                    elif npv > 0 and payback < 8:
+                        st.info(f"📈 **Good Investment for {scenario_name}**: Solid returns during peak demand. Consider timing with seasonal patterns.")
+                    else:
+                        st.warning(f"⚠️ **Caution for {scenario_name}**: Even peak conditions show marginal returns. Review investment scope.")
+                elif scenario_name == "Low Season":
+                    if npv > 50 and payback < 8:
+                        st.success(f"✅ **Resilient Investment**: Shows positive returns even in {scenario_name} conditions. NPV: ${npv:.1f}M")
+                    elif npv > 0:
+                        st.warning(f"⚠️ **Conservative Approach for {scenario_name}**: Positive but modest returns. Consider seasonal financing.")
+                    else:
+                        st.error(f"❌ **High Risk in {scenario_name}**: Investment may not be viable during low demand periods.")
+                else:  # Normal Operations
+                    if npv > 100 and payback < 7:
+                        st.success(f"✅ **Recommended for {scenario_name}**: Balanced returns with stable demand. NPV: ${npv:.1f}M")
+                    elif npv > 0 and payback < 10:
+                        st.info(f"📊 **Viable for {scenario_name}**: Reasonable returns under normal conditions. Monitor market trends.")
+                    else:
+                        st.warning(f"⚠️ **Review Required**: Investment shows limited returns in {scenario_name}. Consider alternatives.")
             else:
                 st.info("Configure and analyze an investment scenario to see results here")
     
