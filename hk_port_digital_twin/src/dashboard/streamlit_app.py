@@ -403,24 +403,31 @@ def main():
     st.title("🏗️ Hong Kong Port Digital Twin Dashboard")
     st.markdown("Real-time visualization and control of port operations")
     
-    # Main dashboard layout - conditional based on user preference
-    use_consolidated = st.session_state.get('use_consolidated_scenarios', True)
+    # Main dashboard layout
+    tabs = [
+        "📊 Overview", "🚢 Vessel Analytics", "📦 Cargo Statistics", "🛳️ Live Vessels", 
+        "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "⚙️ Settings"
+    ]
     
-    if use_consolidated:
-        # New consolidated structure with Settings as tab8 (Unified Simulations hidden)
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-            "📊 Overview", "🚢 Vessel Analytics", "📦 Cargo Statistics", "🛳️ Live Vessels", 
-            "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "⚙️ Settings"
-        ])
-    else:
-        # Original structure with Settings as tab8 (Unified Simulations hidden)
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
-            "📊 Overview", "🚢 Vessel Analytics", "📦 Cargo Statistics", "🛳️ Live Vessels",
-            "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "⚙️ Settings",
-            "📊 Performance Analytics", "📦 Cargo Analysis"
-        ])
+    if not st.session_state.get('use_consolidated_scenarios', True):
+        tabs.extend(["📊 Performance Analytics", "📦 Cargo Analysis"])
+
+    tab_instances = st.tabs(tabs)
+
+    overview_tab = tab_instances[0]
+    vessel_analytics_tab = tab_instances[1]
+    cargo_statistics_tab = tab_instances[2]
+    live_vessels_tab = tab_instances[3]
+    analytics_tab = tab_instances[4]
+    ships_berths_tab = tab_instances[5]
+    scenarios_tab = tab_instances[6]
+    settings_tab = tab_instances[7]
     
-    with tab1:
+    if not st.session_state.get('use_consolidated_scenarios', True):
+        performance_analytics_tab = tab_instances[8]
+        cargo_analysis_tab = tab_instances[9]
+
+    with overview_tab:
         st.subheader("Port Overview")
         
         # KPI Summary
@@ -534,7 +541,7 @@ def main():
             else:
                 st.info("Port layout visualization not available. Please ensure visualization module is properly installed.")
     
-    with tab2:
+    with vessel_analytics_tab:
         # Vessel Analytics tab (same for both consolidated and original modes)
         st.subheader("🚢 Vessel Analytics Dashboard")
         st.markdown("Real-time analysis of vessel distribution and activity patterns")
@@ -607,7 +614,7 @@ def main():
             render_vessel_analytics_dashboard(sample_vessel_analysis)
 
     
-    with tab3:
+    with cargo_statistics_tab:
         st.subheader("📦 Port Cargo Statistics")
         st.markdown("Comprehensive analysis of Hong Kong port cargo throughput data with time series analysis and forecasting")
         
@@ -1023,7 +1030,7 @@ def main():
                 st.info("No locations analysis available")
                 st.warning("Please ensure the cargo analysis module is properly configured.")
     
-    with tab4:
+    with live_vessels_tab:
         st.subheader("🚢 Live Vessel Arrivals")
         st.markdown("Real-time vessel arrival data and analytics for Hong Kong port")
         
@@ -1223,7 +1230,7 @@ def main():
             })
             st.dataframe(sample_data, use_container_width=True)
 
-    with tab5:
+    with analytics_tab:
         st.subheader("Analytics")
         
         # Check if data is properly loaded
@@ -1309,7 +1316,7 @@ def main():
                 st.warning("Waiting time distribution visualization not available. Please check visualization module import.")
                 st.dataframe(data['waiting'], use_container_width=True)
     
-    with tab6:
+    with ships_berths_tab:
         # Ships & Berths - Operational Impact Analysis
         st.subheader("🚢 Ships & Berths")
         st.markdown("Real-time analysis of ships and berths including queue management, berth utilization, and vessel tracking.")
