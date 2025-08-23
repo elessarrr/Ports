@@ -5,3 +5,4 @@ watchdog
 requests
 schedule
 python-dotenv
+scipy
