@@ -2849,6 +2849,7 @@ def load_sample_data() -> pd.DataFrame:
     return df
 
 
+@st.cache_data
 def load_berth_configurations() -> List[Dict]:
     """Load berth configuration data from CSV file.
     
@@ -2895,6 +2896,7 @@ def load_berth_configurations() -> List[Dict]:
             return []
 
 
+@st.cache_data
 def extract_historical_simulation_parameters() -> Dict[str, any]:
     """Extract realistic simulation parameters from 14+ years of historical data.
     

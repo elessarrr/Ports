@@ -288,56 +288,14 @@ class UnifiedSimulationsTab:
     def render_operational_view(self, scenario: str) -> None:
         """Render operational view with detailed operational metrics."""
         st.subheader("⚙️ Operational Performance View")
-        
+
         # Get scenario parameters
         scenario_params = ALL_SCENARIOS.get(scenario.replace('_season', '').replace('_operations', ''), 
                                           NORMAL_OPERATIONS_PARAMETERS)
-        
-        # Use enhanced visualization for operational view
-        config = EnhancedVisualizationConfig(
-            view_type=ViewType.OPERATIONAL,
-            theme=ChartTheme.EXECUTIVE
-        )
-        
-        # Generate operational data from scenario parameters
-        # Create sample berth data as DataFrame (required by create_port_layout_chart)
-        berth_data_list = [
-            {"berth_id": i, "berth_type": "Container", "status": "Occupied" if i % 3 == 0 else "Available", 
-             "current_ship": f"Ship_{i}" if i % 3 == 0 else None, "utilization": 0.8 if i % 3 == 0 else 0.0,
-             "is_occupied": i % 3 == 0, "crane_count": 2 + (i % 3), "name": f"Berth-{i}",
-             "max_capacity_teu": 5000 + (i * 500)}
-            for i in range(1, 11)
-        ]
-        berth_data = pd.DataFrame(berth_data_list)
-        
-        # Create sample queue data
-        queue_data = [
-            {"ship_id": f"Ship_{i}", "name": f"Ship_{i}", "ship_type": "container", 
-             "arrival_time": datetime.now() + timedelta(hours=i),
-             "estimated_processing_time": 4 + (i % 3), "priority": i % 3,
-             "size_teu": 8000 + (i * 1000), "waiting_time": i * 2}
-            for i in range(1, 8)
-        ]
-        
-        # Create utilization data from scenario parameters
-        utilization_data = {i: scenario_params.target_berth_utilization * (0.8 + 0.4 * (i % 3) / 2) for i in range(1, 11)}
-        
-        # Create sample throughput data
-        dates = pd.date_range(start=datetime.now() - timedelta(days=30), end=datetime.now(), freq='D')
-        throughput_data = pd.DataFrame({
-            'time': dates,
-            'containers_processed': np.random.normal(1000 * scenario_params.processing_rate_multiplier, 200, len(dates)),
-            'bulk_cargo_processed': np.random.normal(500 * scenario_params.processing_rate_multiplier, 100, len(dates))
-        })
-        
-        # Create unified operational view
-        operational_charts = create_unified_operational_view(
-            berth_data, queue_data, utilization_data, throughput_data
-        )
-        
+
         # Display operational metrics dashboard
         col1, col2 = st.columns(2)
-        
+
         with col1:
             st.markdown("#### 🚢 Vessel Operations")
             
@@ -365,10 +323,53 @@ class UnifiedSimulationsTab:
             
             for metric, value in efficiency_data.items():
                 st.metric(metric, value)
-        
-        # Display enhanced operational charts
-        for chart_name, chart_fig in operational_charts.items():
-            st.plotly_chart(chart_fig, use_container_width=True)
+
+        if st.button("📊 Show Detailed Operational Charts", key="show_operational_charts"):
+            # Use enhanced visualization for operational view
+            config = EnhancedVisualizationConfig(
+                view_type=ViewType.OPERATIONAL,
+                theme=ChartTheme.EXECUTIVE
+            )
+            
+            # Generate operational data from scenario parameters
+            # Create sample berth data as DataFrame (required by create_port_layout_chart)
+            berth_data_list = [
+                {"berth_id": i, "berth_type": "Container", "status": "Occupied" if i % 3 == 0 else "Available", 
+                 "current_ship": f"Ship_{i}" if i % 3 == 0 else None, "utilization": 0.8 if i % 3 == 0 else 0.0,
+                 "is_occupied": i % 3 == 0, "crane_count": 2 + (i % 3), "name": f"Berth-{i}",
+                 "max_capacity_teu": 5000 + (i * 500)}
+                for i in range(1, 11)
+            ]
+            berth_data = pd.DataFrame(berth_data_list)
+            
+            # Create sample queue data
+            queue_data = [
+                {"ship_id": f"Ship_{i}", "name": f"Ship_{i}", "ship_type": "container", 
+                 "arrival_time": datetime.now() + timedelta(hours=i),
+                 "estimated_processing_time": 4 + (i % 3), "priority": i % 3,
+                 "size_teu": 8000 + (i * 1000), "waiting_time": i * 2}
+                for i in range(1, 8)
+            ]
+            
+            # Create utilization data from scenario parameters
+            utilization_data = {i: scenario_params.target_berth_utilization * (0.8 + 0.4 * (i % 3) / 2) for i in range(1, 11)}
+            
+            # Create sample throughput data
+            dates = pd.date_range(start=datetime.now() - timedelta(days=30), end=datetime.now(), freq='D')
+            throughput_data = pd.DataFrame({
+                'time': dates,
+                'containers_processed': np.random.normal(1000 * scenario_params.processing_rate_multiplier, 200, len(dates)),
+                'bulk_cargo_processed': np.random.normal(500 * scenario_params.processing_rate_multiplier, 100, len(dates))
+            })
+            
+            # Create unified operational view
+            operational_charts = create_unified_operational_view(
+                berth_data, queue_data, utilization_data, throughput_data
+            )
+            
+            # Display enhanced operational charts
+            for chart_name, chart_fig in operational_charts.items():
+                st.plotly_chart(chart_fig, use_container_width=True)
     
     def render_strategic_view(self, scenario: str) -> None:
         """Render strategic view with business intelligence and ROI analysis."""
