@@ -265,6 +265,7 @@ def get_time_series_data(cargo_stats: Dict[str, pd.DataFrame]) -> Dict[str, pd.D
         logger.error(f"Error generating time series data: {e}")
         return {}
 
+@st.cache_data
 def forecast_cargo_throughput(time_series_data: Dict[str, pd.DataFrame], forecast_years: int = 3) -> Dict[str, Dict]:
     """Generate forecasts for cargo throughput using linear regression.
     
@@ -1820,6 +1821,7 @@ def get_real_time_manager(config: Optional[RealTimeDataConfig] = None) -> RealTi
         logger.info("Real-time data manager created and background updates started.")
     return _real_time_manager
 
+@st.cache_data
 def get_cargo_breakdown_analysis() -> Dict[str, any]:
     """Analyze cargo breakdown by type, shipment mode, and location.
     
@@ -2052,6 +2054,7 @@ def _calculate_efficiency_metrics(cargo_stats: Dict[str, pd.DataFrame]) -> Dict[
         logger.error(f"Error calculating efficiency metrics: {e}")
         return {}
 
+@st.cache_data
 def get_throughput_trends() -> Dict[str, any]:
     """Comprehensive container throughput trend analysis with forecasting.
     
@@ -2368,6 +2371,7 @@ def _analyze_modal_split_trends(data: pd.DataFrame) -> Dict[str, any]:
         logger.error(f"Error in modal split analysis: {e}")
         return {}
 
+@st.cache_data
 def validate_data_quality() -> Dict[str, any]:
     """Enhanced data quality validation across all loaded datasets.
     
