@@ -75,7 +75,14 @@ Every time you fix a coding error, document the debugging process and key learni
 
 ---
 
-# Debugging Learnings
+## AttributeError in Consolidated Scenarios Tab
+
+- **Caused by:** An `AttributeError` was raised because the `_render_section` method in `scenario_tab_consolidation.py` was calling a non-existent method `render_cargo_analysis_section` when trying to render the 'cargo' section. The correct method name was `render_cargo_statistics_section`.
+- **How fixed:** Corrected the method call in `_render_section` to `self.render_cargo_statistics_section(scenario_data)`.
+- **Learnings/Takeaway:** This error highlights the importance of careful code review and testing, especially when refactoring or renaming functions. Even a small typo can lead to a runtime error. Using an IDE with code completion and linting can help prevent such errors.
+- **Date fixed:** 2025-08-22 21:40
+
+
 
 ## Port Cargo Statistics Data Structure Mismatch Error
 

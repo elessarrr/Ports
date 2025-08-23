@@ -27,12 +27,14 @@ try:
 except ImportError:
     # Fallback if settings module is not available
     def get_dashboard_preferences():
+        # Import streamlit here to avoid circular imports
+        import streamlit as st
         return {
             'show_section_descriptions': True,
             'enable_expand_collapse_all': True,
-            'show_section_navigation': True,
-            'remember_section_states': True,
-            'scenarios_sections_expanded': True,
+            'show_section_navigation': st.session_state.get('show_section_navigation', True),
+            'remember_section_states': st.session_state.get('remember_section_states', True),
+            'scenarios_sections_expanded': st.session_state.get('scenarios_sections_expanded', False),
             'section_auto_scroll': True,
             'enable_quick_export': True
         }
@@ -40,10 +42,10 @@ except ImportError:
     def get_default_section_states():
         return {
             'overview': True,
-            'operations': True,
-            'analytics': True,
-            'cargo': True,
-            'advanced': True
+            'operations': False,
+            'analytics': False,
+            'cargo': False,
+            'advanced': False
         }
 
 # Import existing visualization and data functions
@@ -57,29 +59,29 @@ class ConsolidatedScenariosTab:
         """Initialize the consolidated scenarios tab."""
         self.sections = {
             'overview': {
-                'title': 'Scenario Selection & Overview',
-                'icon': '📊',
-                'description': 'Select and configure simulation scenarios with key performance indicators'
+                # 'title': 'Scenario Selection & Overview',
+                # 'icon': '',
+                # 'description': 'Select and configure simulation scenarios with key performance indicators'
             },
             'operations': {
-                'title': 'Operational Impact',
-                'icon': '🚢', 
-                'description': 'Monitor ships, berths, and operational metrics affected by scenarios'
+                # 'title': 'Operational Impact',
+                # 'icon': '🚢', 
+                # 'description': 'Monitor ships, berths, and operational metrics affected by scenarios'
             },
             'analytics': {
-                'title': 'Performance Analytics',
-                'icon': '📈',
-                'description': 'Analyze performance trends and KPIs across different scenarios'
+                # 'title': 'Performance Analytics',
+                # 'icon': '📈',
+                # 'description': 'Analyze performance trends and KPIs across different scenarios'
             },
             'cargo': {
-                'title': 'Cargo Analysis',
-                'icon': '📦',
-                'description': 'Track cargo statistics and throughput metrics by scenario'
+                # 'title': 'Cargo Analysis',
+                # 'icon': '📦',
+                # 'description': 'Track cargo statistics and throughput metrics by scenario'
             },
             'advanced': {
-                'title': 'Advanced Analysis',
-                'icon': '🔬',
-                'description': 'Deep-dive scenario comparisons and advanced simulation features'
+                # 'title': 'Advanced Analysis',
+                # 'icon': '🔬',
+                # 'description': 'Deep-dive scenario comparisons and advanced simulation features'
             }
         }
         
@@ -117,20 +119,41 @@ class ConsolidatedScenariosTab:
         if self.preferences.get('show_section_navigation', True):
             self._render_section_navigation()
         
+        # Render validation section
+        self._render_validation_section()
+        
         # Render all sections
         for section_key, section_info in self.sections.items():
             self._render_section(section_key, section_info, scenario_data)
     
     def _initialize_session_state(self) -> None:
         """Initialize session state variables for the consolidated tab."""
-        # Initialize section states based on preferences
-        if 'consolidated_sections_state' not in st.session_state:
+        # Check if we need to reinitialize section states due to preference changes
+        should_reinitialize = False
+        
+        # Check if preferences have changed
+        if 'last_remember_section_states' not in st.session_state:
+            st.session_state.last_remember_section_states = self.preferences.get('remember_section_states', True)
+            should_reinitialize = True
+        elif st.session_state.last_remember_section_states != self.preferences.get('remember_section_states', True):
+            st.session_state.last_remember_section_states = self.preferences.get('remember_section_states', True)
+            should_reinitialize = True
+            
+        if 'last_scenarios_sections_expanded' not in st.session_state:
+            st.session_state.last_scenarios_sections_expanded = self.preferences.get('scenarios_sections_expanded', False)
+            should_reinitialize = True
+        elif st.session_state.last_scenarios_sections_expanded != self.preferences.get('scenarios_sections_expanded', False):
+            st.session_state.last_scenarios_sections_expanded = self.preferences.get('scenarios_sections_expanded', False)
+            should_reinitialize = True
+        
+        # Initialize or reinitialize section states based on preferences
+        if 'consolidated_sections_state' not in st.session_state or should_reinitialize:
             if self.preferences.get('remember_section_states', True):
                 # Use default states from settings
                 st.session_state.consolidated_sections_state = self.default_states.copy()
             else:
                 # Use preference setting for all sections
-                expanded_default = self.preferences.get('scenarios_sections_expanded', True)
+                expanded_default = self.preferences.get('scenarios_sections_expanded', False)
                 st.session_state.consolidated_sections_state = {
                     section: expanded_default for section in self.sections.keys()
                 }
@@ -164,10 +187,10 @@ class ConsolidatedScenariosTab:
             
             # Navigation buttons with status indicators
             for section_key, section_info in self.sections.items():
-                is_expanded = st.session_state.consolidated_sections_state.get(section_key, True)
+                is_expanded = st.session_state.consolidated_sections_state.get(section_key, False)
                 status_icon = "📖" if is_expanded else "📕"
                 
-                button_label = f"{status_icon} {section_info['icon']} {section_info['title']}"
+                button_label = f"{status_icon} {section_info.get('icon', '')} {section_info.get('title', section_key.title())}"
                 
                 if st.button(button_label, key=f"nav_{section_key}", use_container_width=True):
                     st.session_state.active_section = section_key
@@ -197,19 +220,36 @@ class ConsolidatedScenariosTab:
             scenario_data: Optional scenario data to display
         """
         # Get current state
-        is_expanded = st.session_state.consolidated_sections_state.get(section_key, True)
+        is_expanded = st.session_state.consolidated_sections_state.get(section_key, False)
         
-        # Create section header with anchor
-        section_title = f"{section_info['icon']} {section_info['title']}"
+        # Get current scenario for visual indicators
+        current_scenario = self._get_current_scenario()
+        scenario_badge = self._get_scenario_badge(current_scenario)
+        
+        # Create section header with scenario indicator
+        section_title = f"{section_info.get('icon', '')} {section_info.get('title', section_key.title())} {scenario_badge}"
         
         # Add anchor point for navigation
         st.markdown(f'<div id="section-{section_key}"></div>', unsafe_allow_html=True)
         
         # Create expandable section
         with st.expander(section_title, expanded=is_expanded):
+            # Show current scenario context at the top of each section
+            if section_key != 'overview':  # Skip for overview since it already shows scenario selection
+                scenario_color = self._get_scenario_color(current_scenario)
+                scenario_border = self._get_scenario_border_color(current_scenario)
+                st.markdown(
+                    f"""<div style="padding: 6px 10px; border-radius: 3px; background-color: {scenario_color}; 
+                    border-left: 3px solid {scenario_border}; margin-bottom: 10px; font-size: 0.85em;">
+                    <strong>Scenario Context:</strong> {scenario_badge} {current_scenario}
+                    </div>""",
+                    unsafe_allow_html=True
+                )
+            
             # Show description if enabled
             if self.preferences.get('show_section_descriptions', True):
-                st.markdown(f"*{section_info['description']}*")
+                if section_info.get('description'):
+                    st.markdown(f"*{section_info['description']}*")
                 st.markdown("---")
             
             # Render section content
@@ -229,7 +269,7 @@ class ConsolidatedScenariosTab:
                 st.markdown("---")
                 col1, col2, col3 = st.columns([1, 1, 2])
                 with col1:
-                    if st.button(f"📊 Export {section_info['title']}", key=f"export_{section_key}"):
+                    if st.button("Export Analysis", key=f"export_{section_key}"):
                         self._export_section_data(section_key)
                 with col2:
                     if st.button(f"🔗 Copy Link", key=f"link_{section_key}"):
@@ -262,8 +302,8 @@ class ConsolidatedScenariosTab:
         Args:
             scenario_data: Current scenario configuration and data
         """
-        st.markdown("### 🎯 Scenario Selection & Overview")
-        st.markdown("Select and configure simulation scenarios for analysis")
+        #st.markdown("### 🎯 Scenario Selection & Overview")
+        #st.markdown("Select and configure simulation scenarios for analysis")
         
         # Scenario Analysis & Comparison (migrated from existing tab)
         st.subheader("📊 Scenario Analysis & Comparison")
@@ -275,6 +315,9 @@ class ConsolidatedScenariosTab:
         with scenario_col1:
             st.subheader("🎯 Scenario Selection")
             
+            # Initialize scenario tracking
+            self._initialize_scenario_tracking()
+            
             # Get available scenarios
             try:
                 from hk_port_digital_twin.src.scenarios import list_available_scenarios
@@ -282,12 +325,43 @@ class ConsolidatedScenariosTab:
             except ImportError:
                 available_scenarios = ['normal', 'peak_season', 'maintenance', 'typhoon_season']
             
+            # Display current scenario with visual indicator
+            current_scenario = self._get_current_scenario()
+            scenario_color = self._get_scenario_color(current_scenario)
+            scenario_badge = self._get_scenario_badge(current_scenario)
+            
+            # Show current scenario status with color coding
+            st.markdown(
+                f"""<div style="padding: 10px; border-radius: 5px; background-color: {scenario_color}; 
+                border-left: 4px solid {self._get_scenario_border_color(current_scenario)}; margin-bottom: 15px;">
+                <strong>Current Scenario:</strong> {scenario_badge} {current_scenario}
+                </div>""",
+                unsafe_allow_html=True
+            )
+            
             # Primary scenario selection
             primary_scenario = st.selectbox(
                 "Primary Scenario",
                 available_scenarios,
-                help="Select the main scenario for analysis"
+                help="Select the main scenario for analysis",
+                key="primary_scenario_select"
             )
+            
+            # Detect scenario change
+            scenario_changed = self._detect_scenario_change(primary_scenario)
+            
+            # Show scenario change indicator if changed
+            if scenario_changed:
+                new_color = self._get_scenario_color(self._get_current_scenario())
+                new_badge = self._get_scenario_badge(self._get_current_scenario())
+                st.markdown(
+                    f"""<div style="padding: 10px; border-radius: 5px; background-color: {new_color}; 
+                    border-left: 4px solid #28a745; margin: 10px 0;">
+                    📊 <strong>Scenario Updated:</strong> {new_badge} {self._get_current_scenario()}
+                    </div>""",
+                    unsafe_allow_html=True
+                )
+                st.info("🔄 All values will be regenerated for the new scenario")
             
             # Comparison scenario selection
             comparison_scenarios = st.multiselect(
@@ -295,6 +369,23 @@ class ConsolidatedScenariosTab:
                 [s for s in available_scenarios if s != primary_scenario],
                 help="Select scenarios to compare against the primary scenario"
             )
+            
+            # Display selected comparison scenarios with visual indicators
+            if comparison_scenarios:
+                st.markdown("**Selected Comparison Scenarios:**")
+                for comp_scenario in comparison_scenarios:
+                    comp_scenario_name = self._map_scenario_key_to_name(comp_scenario)
+                    comp_color = self._get_scenario_color(comp_scenario_name)
+                    comp_badge = self._get_scenario_badge(comp_scenario_name)
+                    comp_border = self._get_scenario_border_color(comp_scenario_name)
+                    
+                    st.markdown(
+                        f"""<div style="padding: 8px; border-radius: 4px; background-color: {comp_color}; 
+                        border-left: 3px solid {comp_border}; margin: 5px 0; font-size: 0.9em;">
+                        {comp_badge} {comp_scenario_name}
+                        </div>""",
+                        unsafe_allow_html=True
+                    )
             
             # Analysis parameters
             st.subheader("⚙️ Analysis Parameters")
@@ -390,7 +481,7 @@ class ConsolidatedScenariosTab:
                 if 'comparison_data' in results:
                     export_csv = comparison_df.to_csv(index=False)
                     st.download_button(
-                        label="📥 Export Comparison Results",
+                        label="Export Analysis",
                         data=export_csv,
                         file_name=f"scenario_comparison_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                         mime="text/csv"
@@ -485,14 +576,32 @@ class ConsolidatedScenariosTab:
             # Sample data for demonstration
             st.info("📊 Using sample data - Start simulation for real-time queue data")
             
-            # Generate sample queue data
+            # Generate scenario-aware sample queue data
             import numpy as np
-            sample_queue = [
-                {'ship_id': f'SHIP-{i:03d}', 'ship_type': np.random.choice(['Container', 'Bulk', 'Tanker']),
-                 'arrival_time': f'{np.random.randint(0, 24):02d}:00', 'waiting_time': np.random.exponential(2),
-                 'cargo_volume': np.random.randint(500, 3000), 'priority': np.random.choice(['normal', 'high'], p=[0.8, 0.2])}
-                for i in range(np.random.randint(5, 15))
-            ]
+            
+            # Get scenario-specific values
+            scenario_values = self._get_all_scenario_values()
+            queue_size = int(scenario_values['queue_length'])
+            
+            sample_queue = []
+            for i in range(queue_size):
+                # Generate scenario-aware waiting times (higher for peak, lower for low season)
+                base_wait = scenario_values['handling_time'] / 60  # Convert minutes to hours
+                waiting_time = np.random.exponential(base_wait)
+                
+                # Generate scenario-aware cargo volumes
+                cargo_base = scenario_values['monthly_volume'] / 30 / queue_size  # Daily average per ship
+                cargo_volume = int(np.random.normal(cargo_base, cargo_base * 0.3))
+                cargo_volume = max(500, min(cargo_volume, 5000))  # Reasonable bounds
+                
+                sample_queue.append({
+                    'ship_id': f'SHIP-{i:03d}', 
+                    'ship_type': np.random.choice(['Container', 'Bulk', 'Tanker']),
+                    'arrival_time': f'{np.random.randint(0, 24):02d}:00', 
+                    'waiting_time': waiting_time,
+                    'cargo_volume': cargo_volume, 
+                    'priority': np.random.choice(['normal', 'high'], p=[0.8, 0.2])
+                })
             
             # Sample metrics
             queue_col1, queue_col2, queue_col3, queue_col4 = st.columns(4)
@@ -574,20 +683,43 @@ class ConsolidatedScenariosTab:
             # Sample data for demonstration
             st.info("📊 Using sample data - Start simulation for real-time berth data")
             
-            # Generate sample berth data
+            # Generate scenario-aware sample berth data
             import numpy as np
+            
+            # Get scenario-specific values
+            scenario_values = self._get_all_scenario_values()
+            berth_utilization = scenario_values['utilization']
+            throughput_base = scenario_values['throughput']
+            
             berth_statuses = ['occupied', 'available', 'maintenance']
-            sample_berths = [
-                {
+            # Adjust status probabilities based on scenario utilization
+            if berth_utilization > 80:  # Peak season - more occupied berths
+                status_probs = [0.75, 0.2, 0.05]
+            elif berth_utilization < 50:  # Low season - fewer occupied berths
+                status_probs = [0.4, 0.55, 0.05]
+            else:  # Normal operations
+                status_probs = [0.6, 0.35, 0.05]
+            
+            sample_berths = []
+            for i in range(1, 21):  # 20 berths
+                status = np.random.choice(berth_statuses, p=status_probs)
+                
+                # Scenario-aware utilization (varies around the base utilization)
+                utilization = np.random.normal(berth_utilization, berth_utilization * 0.15)
+                utilization = max(0, min(utilization, 100))  # Clamp to 0-100%
+                
+                # Scenario-aware throughput
+                berth_throughput = int(np.random.normal(throughput_base / 20, throughput_base / 40))
+                berth_throughput = max(0, berth_throughput)
+                
+                sample_berths.append({
                     'berth_id': f'B{i:02d}',
-                    'status': np.random.choice(berth_statuses, p=[0.6, 0.3, 0.1]),
-                    'current_ship': f'SHIP-{np.random.randint(100, 999)}' if np.random.random() > 0.4 else None,
-                    'utilization': np.random.uniform(0, 100),
-                    'throughput': np.random.randint(0, 5000),
+                    'status': status,
+                    'current_ship': f'SHIP-{np.random.randint(100, 999)}' if status == 'occupied' else None,
+                    'utilization': utilization,
+                    'throughput': berth_throughput,
                     'last_updated': datetime.now().strftime('%H:%M:%S')
-                }
-                for i in range(1, 21)  # 20 berths
-            ]
+                })
             
             # Sample metrics
             berth_col1, berth_col2, berth_col3, berth_col4 = st.columns(4)
@@ -636,13 +768,16 @@ class ConsolidatedScenariosTab:
             current_time = datetime.now().strftime('%H:%M:%S')
             st.metric("Current Time", current_time)
             
-            # Operational efficiency metrics
+            # Scenario-aware operational efficiency metrics
             import numpy as np
+            scenario_values = self._get_all_scenario_values()
+            kpis = scenario_values['kpis']
+            
             efficiency_metrics = {
-                'Port Efficiency': np.random.uniform(75, 95),
-                'Crane Productivity': np.random.uniform(80, 100),
-                'Truck Turnaround': np.random.uniform(60, 90),
-                'Vessel Turnaround': np.random.uniform(70, 95)
+                'Port Efficiency': np.random.uniform(kpis['Port Efficiency'][0], kpis['Port Efficiency'][1]),
+                'Crane Productivity': np.random.uniform(kpis['Crane Productivity'][0], kpis['Crane Productivity'][1]),
+                'Truck Turnaround': np.random.uniform(kpis['Truck Turnaround'][0], kpis['Truck Turnaround'][1]),
+                'Vessel Turnaround': np.random.uniform(kpis['Vessel Turnaround'][0], kpis['Vessel Turnaround'][1])
             }
             
             for metric, value in efficiency_metrics.items():
@@ -651,10 +786,21 @@ class ConsolidatedScenariosTab:
         with ops_col2:
             st.subheader("📈 Performance Trends")
             
-            # Generate sample trend data
+            # Generate scenario-aware trend data
             import numpy as np
+            scenario_values = self._get_all_scenario_values()
+            base_throughput = scenario_values['throughput']
+            
             hours = list(range(24))
-            throughput_trend = [np.random.uniform(80, 120) for _ in hours]
+            # Create realistic hourly variation around base throughput
+            throughput_trend = []
+            for hour in hours:
+                # Add daily pattern (lower at night, higher during day)
+                daily_factor = 0.7 + 0.6 * np.sin((hour - 6) * np.pi / 12)
+                daily_factor = max(0.4, min(daily_factor, 1.3))
+                
+                hourly_throughput = base_throughput * daily_factor * np.random.uniform(0.8, 1.2)
+                throughput_trend.append(hourly_throughput)
             
             trend_df = pd.DataFrame({
                 'Hour': hours,
@@ -702,179 +848,56 @@ class ConsolidatedScenariosTab:
         st.markdown("Deep dive into scenario performance metrics, including throughput timelines, waiting time distributions, and data export options.")
         
         # Create tabs for different analytics views
-        analytics_tab1, analytics_tab2, analytics_tab3, analytics_tab4 = st.tabs([
-            "📊 Data Export", "📈 Throughput Analysis", "⏱️ Waiting Time Analysis", "🎯 Performance Metrics"
+        analytics_tab1, analytics_tab2, analytics_tab3 = st.tabs([
+            "📈 Throughput Analysis", "⏱️ Waiting Time Analysis", "🎯 Performance Metrics"
         ])
         
         with analytics_tab1:
-            self._render_data_export_section(scenario_data)
-            
-        with analytics_tab2:
             self._render_throughput_analysis(scenario_data)
             
-        with analytics_tab3:
+        with analytics_tab2:
             self._render_waiting_time_analysis(scenario_data)
             
-        with analytics_tab4:
+        with analytics_tab3:
             self._render_performance_metrics(scenario_data)
     
-    def _render_data_export_section(self, scenario_data: Optional[Dict[str, Any]] = None) -> None:
-        """Render data export functionality."""
-        st.subheader("📊 Data Export & Download")
-        st.markdown("Export simulation data and analytics for external analysis")
-        
-        # Export options
-        export_col1, export_col2 = st.columns(2)
-        
-        with export_col1:
-            st.subheader("📈 Available Data Sets")
-            
-            # Berth data export
-            if st.button("📥 Export Berth Data"):
-                try:
-                    # Get berth data from simulation or generate sample
-                    simulation_data = getattr(st.session_state, 'simulation_data', None)
-                    if simulation_data and hasattr(simulation_data, 'berth_data'):
-                        berth_data = simulation_data.berth_data
-                    else:
-                        # Generate sample berth data
-                        import numpy as np
-                        berth_data = [
-                            {
-                                'berth_id': f'B{i:02d}',
-                                'utilization': np.random.uniform(60, 95),
-                                'throughput': np.random.randint(1000, 5000),
-                                'ships_served': np.random.randint(5, 20),
-                                'avg_service_time': np.random.uniform(8, 24)
-                            }
-                            for i in range(1, 21)
-                        ]
-                    
-                    berth_df = pd.DataFrame(berth_data)
-                    csv_data = berth_df.to_csv(index=False)
-                    
-                    st.download_button(
-                        label="💾 Download Berth Data CSV",
-                        data=csv_data,
-                        file_name=f"berth_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv"
-                    )
-                    st.success("Berth data prepared for download!")
-                except Exception as e:
-                    st.error(f"Error preparing berth data: {str(e)}")
-            
-            # Queue data export
-            if st.button("📥 Export Queue Data"):
-                try:
-                    # Get queue data from simulation or generate sample
-                    simulation_data = getattr(st.session_state, 'simulation_data', None)
-                    if simulation_data and hasattr(simulation_data, 'ship_queue'):
-                        queue_data = simulation_data.ship_queue
-                    else:
-                        # Generate sample queue data
-                        import numpy as np
-                        queue_data = [
-                            {
-                                'ship_id': f'SHIP-{i:03d}',
-                                'ship_type': np.random.choice(['Container', 'Bulk', 'Tanker']),
-                                'arrival_time': f'{np.random.randint(0, 24):02d}:00',
-                                'waiting_time': np.random.exponential(2),
-                                'service_time': np.random.uniform(4, 16),
-                                'cargo_volume': np.random.randint(500, 3000)
-                            }
-                            for i in range(50)
-                        ]
-                    
-                    queue_df = pd.DataFrame(queue_data)
-                    csv_data = queue_df.to_csv(index=False)
-                    
-                    st.download_button(
-                        label="💾 Download Queue Data CSV",
-                        data=csv_data,
-                        file_name=f"queue_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv"
-                    )
-                    st.success("Queue data prepared for download!")
-                except Exception as e:
-                    st.error(f"Error preparing queue data: {str(e)}")
-        
-        with export_col2:
-            st.subheader("📋 Export Options")
-            
-            # Timeline data export
-            if st.button("📥 Export Timeline Data"):
-                try:
-                    # Generate sample timeline data
-                    import numpy as np
-                    timeline_data = [
-                        {
-                            'timestamp': datetime.now() - timedelta(hours=i),
-                            'throughput': np.random.uniform(80, 120),
-                            'queue_length': np.random.randint(5, 25),
-                            'berth_utilization': np.random.uniform(60, 95),
-                            'avg_waiting_time': np.random.exponential(2)
-                        }
-                        for i in range(168)  # 1 week of hourly data
-                    ]
-                    
-                    timeline_df = pd.DataFrame(timeline_data)
-                    csv_data = timeline_df.to_csv(index=False)
-                    
-                    st.download_button(
-                        label="💾 Download Timeline CSV",
-                        data=csv_data,
-                        file_name=f"timeline_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv"
-                    )
-                    st.success("Timeline data prepared for download!")
-                except Exception as e:
-                    st.error(f"Error preparing timeline data: {str(e)}")
-            
-            # Complete data export (JSON)
-            if st.button("📥 Export All Data (JSON)"):
-                try:
-                    # Compile all available data
-                    all_data = {
-                        'export_timestamp': datetime.now().isoformat(),
-                        'scenario': scenario_data if scenario_data else 'sample_scenario',
-                        'berth_data': [],
-                        'queue_data': [],
-                        'timeline_data': [],
-                        'performance_metrics': {
-                            'avg_throughput': 95.5,
-                            'avg_waiting_time': 2.3,
-                            'berth_utilization': 78.2,
-                            'port_efficiency': 85.7
-                        }
-                    }
-                    
-                    import json
-                    json_data = json.dumps(all_data, indent=2, default=str)
-                    
-                    st.download_button(
-                        label="💾 Download Complete Data JSON",
-                        data=json_data,
-                        file_name=f"complete_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                        mime="application/json"
-                    )
-                    st.success("Complete dataset prepared for download!")
-                except Exception as e:
-                    st.error(f"Error preparing complete data: {str(e)}")
+
     
     def _render_throughput_analysis(self, scenario_data: Optional[Dict[str, Any]] = None) -> None:
         """Render throughput analysis charts."""
         st.subheader("📈 Throughput Timeline Analysis")
         
-        # Generate sample throughput data
+        scenario_name = scenario_data.get('name') if scenario_data else 'Normal Operations'
+        params = self._get_scenario_performance_params(scenario_name)
+        
+        # Generate scenario-aware sample throughput data
         import numpy as np
         hours = list(range(24))
-        throughput_data = [np.random.uniform(80, 120) for _ in hours]
+        scenario_values = self._get_all_scenario_values()
+        
+        # Use scenario-aware throughput as base
+        base_throughput = scenario_values['throughput']
+        
+        # Generate hourly throughput with daily patterns and scenario-aware variations
+        throughput_data = []
+        for hour in hours:
+            # Add daily pattern (peak during business hours)
+            daily_factor = 0.7 + 0.6 * np.sin(2 * np.pi * (hour - 6) / 24)
+            daily_factor = max(0.5, min(daily_factor, 1.3))
+            
+            # Apply scenario-aware base with daily pattern and random variation
+            hourly_throughput = base_throughput * daily_factor * np.random.normal(1, 0.1)
+            hourly_throughput = max(0, hourly_throughput)
+            throughput_data.append(hourly_throughput)
+        
+        # Set target as the scenario's base throughput
+        target_throughput = base_throughput
         
         # Create throughput timeline
         throughput_df = pd.DataFrame({
             'Hour': hours,
             'Throughput (TEU/hr)': throughput_data,
-            'Target': [100] * 24  # Target throughput line
+            'Target': [target_throughput] * 24  # Target throughput line
         })
         
         import plotly.express as px
@@ -926,9 +949,25 @@ class ConsolidatedScenariosTab:
         """Render waiting time distribution analysis."""
         st.subheader("⏱️ Waiting Time Distribution Analysis")
         
-        # Generate sample waiting time data
+        scenario_name = scenario_data.get('name') if scenario_data else 'Normal Operations'
+        params = self._get_scenario_performance_params(scenario_name)
+        
+        # Generate scenario-aware sample waiting time data
         import numpy as np
-        waiting_times = np.random.exponential(2, 1000)  # Exponential distribution
+        scenario_values = self._get_all_scenario_values()
+        
+        # Use scenario-aware queue length as base for waiting times
+        base_wait = scenario_values['queue_length']
+        
+        # Generate waiting times with exponential distribution but scenario-aware scale
+        waiting_times = np.random.exponential(base_wait * 0.5, 1000)
+        
+        # Add some variation based on efficiency (higher efficiency = lower waiting times)
+        efficiency_factor = scenario_values['efficiency'] / 100
+        waiting_times = waiting_times * (1.5 - efficiency_factor)  # Inverse relationship
+        
+        # Ensure reasonable bounds
+        waiting_times = np.clip(waiting_times, 0.1, 48)
         
         # Create waiting time distribution chart
         import plotly.express as px
@@ -965,18 +1004,23 @@ class ConsolidatedScenariosTab:
         """Render performance metrics and KPIs."""
         st.subheader("🎯 Key Performance Indicators")
         
+        scenario_name = scenario_data.get('name') if scenario_data else 'Normal Operations'
+        params = self._get_scenario_performance_params(scenario_name)
+        
         # Performance metrics overview
         import numpy as np
         
-        # Generate sample KPI data
+        # Generate scenario-aware KPI data
+        scenario_values = self._get_all_scenario_values()
+        
+        # Use scenario-aware values for KPIs
         kpis = {
-            'Port Efficiency': np.random.uniform(80, 95),
-            'Berth Utilization': np.random.uniform(70, 90),
-            'Average Turnaround': np.random.uniform(12, 20),
-            'Customer Satisfaction': np.random.uniform(85, 98),
-            'Cost Efficiency': np.random.uniform(75, 92),
-            'Environmental Score': np.random.uniform(70, 85)
+            'Port Efficiency': scenario_values['efficiency'],
+            'Crane Productivity': scenario_values['efficiency'] * 0.95,  # Slightly lower than port efficiency
+            'Truck Turnaround': scenario_values['handling_time'] * 0.8,  # Convert to hours
+            'Vessel Turnaround': scenario_values['handling_time'] * 1.2   # Slightly higher than truck
         }
+        
         
         # Display KPIs in a grid
         kpi_cols = st.columns(3)
@@ -1003,42 +1047,715 @@ class ConsolidatedScenariosTab:
         
         import plotly.graph_objects as go
         
+        # Normalize all KPIs to 0-100 scale for proper radar chart visualization
+        normalized_kpis = {}
+        target_values = {}
+        
+        for kpi, value in kpis.items():
+            if 'Turnaround' in kpi:
+                # For turnaround times (lower is better), normalize and invert
+                # Assume max acceptable time is 8 hours, target is 3 hours
+                max_time = 8.0
+                target_time = 3.0
+                normalized_value = max(0, (max_time - value) / max_time * 100)
+                normalized_target = (max_time - target_time) / max_time * 100
+                normalized_kpis[kpi] = normalized_value
+                target_values[kpi] = normalized_target
+            else:
+                # For efficiency metrics (higher is better), use as-is
+                normalized_kpis[kpi] = value
+                target_values[kpi] = 90  # 90% target for efficiency metrics
+        
         fig = go.Figure()
         
         fig.add_trace(go.Scatterpolar(
-            r=list(kpis.values()),
-            theta=list(kpis.keys()),
+            r=list(normalized_kpis.values()),
+            theta=list(normalized_kpis.keys()),
             fill='toself',
             name='Current Performance',
-            line_color='blue'
+            line_color='purple',
+            opacity=0.7
         ))
         
         # Add target performance line
-        target_values = [90] * len(kpis)
         fig.add_trace(go.Scatterpolar(
-            r=target_values,
-            theta=list(kpis.keys()),
+            r=list(target_values.values()),
+            theta=list(target_values.keys()),
             fill='toself',
             name='Target Performance',
-            line_color='red',
-            opacity=0.3
+            line_color='pink',
+            opacity=0.4
         ))
         
         fig.update_layout(
             polar=dict(
                 radialaxis=dict(
                     visible=True,
-                    range=[0, 100]
+                    range=[0, 100],
+                    ticksuffix='%'
                 )
             ),
             showlegend=True,
-            title="Performance vs Target Comparison"
+            title="Performance vs Target Comparison (Normalized to 0-100%)"
         )
         
         st.plotly_chart(fig, use_container_width=True)
+        
+        # Add explanation for radar chart
+        st.info("📝 **Chart Note**: All metrics are normalized to 0-100% scale. For turnaround times, higher values indicate better performance (shorter times).")
             # - Performance metrics
             
-    def render_cargo_analysis_section(self, scenario_data: Optional[Dict[str, Any]] = None) -> None:
+    def _map_scenario_key_to_name(self, scenario_key: str) -> str:
+        """
+        Map scenario keys to proper scenario names for performance parameters.
+        
+        Args:
+            scenario_key: Scenario key from session state ('peak', 'normal', 'low')
+            
+        Returns:
+            Proper scenario name for performance parameters
+        """
+        scenario_mapping = {
+            'peak': 'Peak Season',
+            'normal': 'Normal Operations', 
+            'low': 'Low Season',
+            'peak_season': 'Peak Season',
+            'normal_operations': 'Normal Operations',
+            'low_season': 'Low Season'
+        }
+        return scenario_mapping.get(scenario_key, 'Normal Operations')
+    
+    def _get_scenario_performance_params(self, scenario_name: Optional[str]) -> Dict[str, Any]:
+        """Get performance parameters based on the scenario name.
+        
+        Enhanced with wider, non-overlapping ranges to ensure clear differentiation
+        between scenarios. All ranges are designed to maintain Peak > Normal > Low ordering.
+        """
+        scenario_name = scenario_name or "Normal Operations"  # Default to normal
+        
+        # Map scenario key to proper name if needed
+        if scenario_name in ['peak', 'normal', 'low', 'peak_season', 'normal_operations', 'low_season']:
+            scenario_name = self._map_scenario_key_to_name(scenario_name)
+        
+        if "Peak Season" in scenario_name:
+            return {
+                # Throughput parameters - highest range (130+ to ensure > Normal)
+                "throughput_range": (130, 180),
+                "throughput_target": 155,
+                
+                # Utilization parameters - very high (88+ to ensure > Normal)
+                "utilization_range": (88, 98),
+                
+                # Revenue parameters - highest range (150M+ to ensure > Normal)
+                "revenue_range": (150_000_000, 220_000_000),
+                
+                # Handling time parameters - shortest due to peak efficiency (1.0-2.0 to ensure < Normal)
+                "handling_time_range": (1.0, 2.0),
+                
+                # Queue parameters - more ships, efficient processing
+                "queue_length_range": (18, 30),
+                "waiting_time_exponential_scale": 1.8,
+                "long_wait_threshold": 4,
+                
+                # Efficiency parameters - highest performance (92+ to ensure > Normal)
+                "efficiency_range": (92, 99),
+                
+                # Cargo volume parameters - highest range (450K+ to ensure > Normal)
+                "cargo_volume_range": (450_000, 650_000),
+                
+                # Trade balance parameters - strong positive (100K+ to ensure > Normal)
+                "trade_balance_range": (100_000, 180_000),
+                
+                # Monthly volume parameters - peak season patterns
+                "monthly_volume_base": 50_000,
+                "monthly_volume_variance": 18_000,
+                
+                # KPI parameters - optimized for peak performance
+                "kpis": {
+                    'Port Efficiency': (92, 99),
+                    'Berth Utilization': (88, 98),
+                    'Average Turnaround': (0.8, 1.5),  # Hours (fastest)
+                    'Customer Satisfaction': (90, 98),
+                    'Cost Efficiency': (85, 95),
+                    'Environmental Score': (75, 88),
+                    'Crane Productivity': (40, 50),  # Moves per hour (highest)
+                    'Truck Turnaround': (15, 25),  # Minutes (fastest)
+                    'Vessel Turnaround': (6, 10)  # Hours (fastest)
+                }
+            }
+        elif "Low Season" in scenario_name:
+            return {
+                # Throughput parameters - lowest range (40-80 to ensure < Normal)
+                "throughput_range": (40, 80),
+                "throughput_target": 60,
+                
+                # Utilization parameters - low (45-70 to ensure < Normal)
+                "utilization_range": (45, 70),
+                
+                # Revenue parameters - lowest range (60-105M to ensure < Normal)
+                "revenue_range": (60_000_000, 105_000_000),
+                
+                # Handling time parameters - longest due to reduced efficiency (3.5-5.5 to ensure > Normal)
+                "handling_time_range": (3.5, 5.5),
+                
+                # Queue parameters - fewer ships, longer waits
+                "queue_length_range": (3, 8),
+                "waiting_time_exponential_scale": 4.2,
+                "long_wait_threshold": 8,
+                
+                # Efficiency parameters - lowest performance (60-78 to ensure < Normal)
+                "efficiency_range": (60, 78),
+                
+                # Cargo volume parameters - lowest range (120-270K to ensure < Normal)
+                "cargo_volume_range": (120_000, 270_000),
+                
+                # Trade balance parameters - negative (to ensure < Normal)
+                "trade_balance_range": (-80_000, 15_000),
+                
+                # Monthly volume parameters - low season patterns
+                "monthly_volume_base": 18_000,
+                "monthly_volume_variance": 8_000,
+                
+                # KPI parameters - reduced performance
+                "kpis": {
+                    'Port Efficiency': (60, 78),
+                    'Berth Utilization': (45, 70),
+                    'Average Turnaround': (3.0, 5.0),  # Hours (slowest)
+                    'Customer Satisfaction': (65, 80),
+                    'Cost Efficiency': (55, 72),
+                    'Environmental Score': (80, 95),  # Better due to lower activity
+                    'Crane Productivity': (15, 25),  # Moves per hour (lowest)
+                    'Truck Turnaround': (45, 65),  # Minutes (slowest)
+                    'Vessel Turnaround': (20, 35)  # Hours (slowest)
+                }
+            }
+        else:  # Normal Operations
+            return {
+                # Throughput parameters - medium range (85-125 to ensure < Peak and > Low)
+                "throughput_range": (85, 125),
+                "throughput_target": 105,
+                
+                # Utilization parameters - medium (72-85 to ensure < Peak and > Low)
+                "utilization_range": (72, 85),
+                
+                # Revenue parameters - medium range (110-145M to ensure < Peak and > Low)
+                "revenue_range": (110_000_000, 145_000_000),
+                
+                # Handling time parameters - moderate (2.2-3.2 to ensure > Peak and < Low)
+                "handling_time_range": (2.2, 3.2),
+                
+                # Queue parameters - moderate levels
+                "queue_length_range": (10, 16),
+                "waiting_time_exponential_scale": 2.8,
+                "long_wait_threshold": 5,
+                
+                # Efficiency parameters - medium performance (80-90 to ensure < Peak and > Low)
+                "efficiency_range": (80, 90),
+                
+                # Cargo volume parameters - medium range (280-420K to ensure < Peak and > Low)
+                "cargo_volume_range": (280_000, 420_000),
+                
+                # Trade balance parameters - balanced (20-90K to ensure < Peak and > Low)
+                "trade_balance_range": (20_000, 90_000),
+                
+                # Monthly volume parameters - normal patterns
+                "monthly_volume_base": 32_000,
+                "monthly_volume_variance": 12_000,
+                
+                # KPI parameters - balanced performance
+                "kpis": {
+                    'Port Efficiency': (80, 90),
+                    'Berth Utilization': (72, 85),
+                    'Average Turnaround': (1.8, 2.8),  # Hours (between Peak and Low)
+                    'Customer Satisfaction': (82, 88),
+                    'Cost Efficiency': (75, 82),
+                    'Environmental Score': (70, 85),
+                    'Crane Productivity': (28, 38),  # Moves per hour (between Peak and Low)
+                    'Truck Turnaround': (28, 38),  # Minutes (between Peak and Low)
+                    'Vessel Turnaround': (12, 18)  # Hours (between Peak and Low)
+                }
+            }
+
+    def _generate_scenario_values(self, scenario_name: str, value_type: str, count: int = 1, **kwargs) -> Any:
+        """
+        Centralized utility for generating scenario-aware values with consistent ranges.
+        
+        Args:
+            scenario_name: Name of the scenario ('Peak Season', 'Normal Operations', 'Low Season')
+            value_type: Type of value to generate ('throughput', 'utilization', 'revenue', etc.)
+            count: Number of values to generate (default: 1)
+            **kwargs: Additional parameters for specific value types
+            
+        Returns:
+            Generated value(s) - single value if count=1, list if count>1
+        """
+        import numpy as np
+        
+        # Get scenario parameters
+        params = self._get_scenario_performance_params(scenario_name)
+        
+        # Define value generation logic based on type
+        if value_type == 'throughput':
+            min_val, max_val = params['throughput_range']
+            values = np.random.uniform(min_val, max_val, count)
+            
+        elif value_type == 'utilization':
+            min_val, max_val = params['utilization_range']
+            values = np.random.uniform(min_val, max_val, count)
+            
+        elif value_type == 'revenue':
+            min_val, max_val = params['revenue_range']
+            values = np.random.uniform(min_val, max_val, count)
+            
+        elif value_type == 'handling_time':
+            min_val, max_val = params['handling_time_range']
+            values = np.random.uniform(min_val, max_val, count)
+            
+        elif value_type == 'queue_length':
+            min_val, max_val = params['queue_length_range']
+            values = np.random.randint(min_val, max_val + 1, count)
+            
+        elif value_type == 'waiting_time':
+            scale = params['waiting_time_exponential_scale']
+            values = np.random.exponential(scale, count)
+            
+        elif value_type == 'efficiency':
+            min_val, max_val = params['efficiency_range']
+            values = np.random.uniform(min_val, max_val, count)
+            
+        elif value_type == 'cargo_volume':
+            min_val, max_val = params['cargo_volume_range']
+            values = np.random.uniform(min_val, max_val, count)
+            
+        elif value_type == 'trade_balance':
+            min_val, max_val = params['trade_balance_range']
+            values = np.random.uniform(min_val, max_val, count)
+            
+        elif value_type == 'monthly_volume':
+            base = params['monthly_volume_base']
+            variance = params['monthly_volume_variance']
+            values = np.random.normal(base, variance / 3, count)  # Using variance/3 as std dev
+            values = np.maximum(values, 0)  # Ensure non-negative
+            
+        elif value_type == 'kpi':
+            kpi_name = kwargs.get('kpi_name', 'Port Efficiency')
+            if kpi_name in params['kpis']:
+                min_val, max_val = params['kpis'][kpi_name]
+                values = np.random.uniform(min_val, max_val, count)
+            else:
+                # Fallback for unknown KPIs
+                values = np.random.uniform(50, 90, count)
+                
+        elif value_type == 'berth_throughput':
+            # Special case for berth throughput (integer values)
+            min_val, max_val = params['throughput_range']
+            values = np.random.randint(int(min_val * 0.8), int(max_val * 1.2), count)
+            
+        elif value_type == 'trend_data':
+            # Generate trend data with scenario-appropriate baseline
+            baseline = kwargs.get('baseline', params['throughput_target'])
+            noise_factor = kwargs.get('noise_factor', 0.1)
+            trend_length = kwargs.get('trend_length', 24)
+            
+            # Create base trend
+            x = np.linspace(0, trend_length - 1, trend_length)
+            trend = baseline + np.sin(x * 0.5) * baseline * 0.1  # Slight sinusoidal pattern
+            
+            # Add scenario-appropriate noise
+            noise = np.random.normal(0, baseline * noise_factor, trend_length)
+            values = trend + noise
+            values = np.maximum(values, 0)  # Ensure non-negative
+            
+        else:
+            # Fallback for unknown value types
+            values = np.random.uniform(0, 100, count)
+            
+        # Return single value or list based on count
+        if count == 1:
+            return float(values[0]) if len(values) > 0 else 0.0
+        else:
+            return values.tolist()
+
+    def _get_all_scenario_values(self, scenario_name: str = None) -> Dict[str, Any]:
+        """
+        Get all scenario values as a dictionary for backward compatibility.
+        
+        Args:
+            scenario_name: Name of the scenario (defaults to current scenario)
+            
+        Returns:
+            Dictionary containing all scenario values
+        """
+        if scenario_name is None:
+            scenario_name = self._get_current_scenario()
+            
+        # Get scenario parameters
+        params = self._get_scenario_performance_params(scenario_name)
+        
+        return {
+            'throughput': self._generate_scenario_values(scenario_name, 'throughput'),
+            'utilization': self._generate_scenario_values(scenario_name, 'utilization'),
+            'revenue': self._generate_scenario_values(scenario_name, 'revenue'),
+            'handling_time': self._generate_scenario_values(scenario_name, 'handling_time'),
+            'queue_length': self._generate_scenario_values(scenario_name, 'queue_length'),
+            'waiting_time': self._generate_scenario_values(scenario_name, 'waiting_time'),
+            'efficiency': self._generate_scenario_values(scenario_name, 'efficiency'),
+            'cargo_volume': self._generate_scenario_values(scenario_name, 'cargo_volume'),
+            'trade_balance': self._generate_scenario_values(scenario_name, 'trade_balance'),
+            'monthly_volume': self._generate_scenario_values(scenario_name, 'monthly_volume'),
+            'kpis': params['kpis']  # Return the full KPI ranges
+        }
+
+    def _validate_scenario_ranges(self) -> Dict[str, List[str]]:
+        """
+        Validate that scenario parameter ranges maintain Peak > Normal > Low ordering.
+        
+        Returns:
+            Dictionary with validation results and any errors found
+        """
+        validation_results = {
+            'errors': [],
+            'warnings': [],
+            'status': 'valid'
+        }
+        
+        # Get parameters for all scenarios
+        peak_params = self._get_scenario_performance_params('Peak Season')
+        normal_params = self._get_scenario_performance_params('Normal Operations')
+        low_params = self._get_scenario_performance_params('Low Season')
+        
+        # Define parameters that should follow Peak > Normal > Low ordering
+        ascending_params = [
+            'throughput_range', 'utilization_range', 'revenue_range',
+            'efficiency_range', 'cargo_volume_range', 'trade_balance_range'
+        ]
+        
+        # Define parameters that should follow Peak < Normal < Low ordering (inverse)
+        descending_params = [
+            'handling_time_range', 'waiting_time_exponential_scale'
+        ]
+        
+        # Validate ascending parameters (Peak > Normal > Low)
+        for param in ascending_params:
+            if param in peak_params and param in normal_params and param in low_params:
+                peak_min, peak_max = peak_params[param]
+                normal_min, normal_max = normal_params[param]
+                low_min, low_max = low_params[param]
+                
+                # Check minimum values ordering
+                if not (peak_min > normal_min > low_min):
+                    validation_results['errors'].append(
+                        f"{param} minimum values don't follow Peak > Normal > Low ordering: "
+                        f"Peak({peak_min}) > Normal({normal_min}) > Low({low_min})"
+                    )
+                
+                # Check maximum values ordering
+                if not (peak_max > normal_max > low_max):
+                    validation_results['errors'].append(
+                        f"{param} maximum values don't follow Peak > Normal > Low ordering: "
+                        f"Peak({peak_max}) > Normal({normal_max}) > Low({low_max})"
+                    )
+                
+                # Check for range overlaps
+                if normal_max >= peak_min:
+                    validation_results['warnings'].append(
+                        f"{param} Normal and Peak ranges overlap: Normal({normal_min}-{normal_max}) vs Peak({peak_min}-{peak_max})"
+                    )
+                
+                if low_max >= normal_min:
+                    validation_results['warnings'].append(
+                        f"{param} Low and Normal ranges overlap: Low({low_min}-{low_max}) vs Normal({normal_min}-{normal_max})"
+                    )
+        
+        # Validate descending parameters (Peak < Normal < Low)
+        for param in descending_params:
+            if param in peak_params and param in normal_params and param in low_params:
+                if isinstance(peak_params[param], tuple):
+                    peak_min, peak_max = peak_params[param]
+                    normal_min, normal_max = normal_params[param]
+                    low_min, low_max = low_params[param]
+                    
+                    # Check minimum values ordering (inverse)
+                    if not (peak_min < normal_min < low_min):
+                        validation_results['errors'].append(
+                            f"{param} minimum values don't follow Peak < Normal < Low ordering: "
+                            f"Peak({peak_min}) < Normal({normal_min}) < Low({low_min})"
+                        )
+                else:
+                    # Single value parameters
+                    peak_val = peak_params[param]
+                    normal_val = normal_params[param]
+                    low_val = low_params[param]
+                    
+                    if not (peak_val < normal_val < low_val):
+                        validation_results['errors'].append(
+                            f"{param} values don't follow Peak < Normal < Low ordering: "
+                            f"Peak({peak_val}) < Normal({normal_val}) < Low({low_val})"
+                        )
+        
+        # Set overall status
+        if validation_results['errors']:
+            validation_results['status'] = 'invalid'
+        elif validation_results['warnings']:
+            validation_results['status'] = 'warning'
+        
+        return validation_results
+    
+    def _display_validation_results(self, validation_results: Dict[str, List[str]]) -> None:
+        """
+        Display validation results in the Streamlit interface.
+        
+        Args:
+            validation_results: Results from _validate_scenario_ranges()
+        """
+        if validation_results['status'] == 'valid':
+            st.success("✅ All scenario parameter ranges are properly ordered")
+        elif validation_results['status'] == 'warning':
+            st.warning("⚠️ Scenario validation completed with warnings")
+            for warning in validation_results['warnings']:
+                st.warning(f"Warning: {warning}")
+        else:
+            st.error("❌ Scenario parameter validation failed")
+            for error in validation_results['errors']:
+                st.error(f"Error: {error}")
+            
+            if validation_results['warnings']:
+                for warning in validation_results['warnings']:
+                     st.warning(f"Warning: {warning}")
+
+    def _render_validation_section(self) -> None:
+        """
+        Render the validation section for scenario parameter consistency.
+        """
+        # Create a collapsible validation section
+        with st.expander("🔍 Scenario Parameter Validation", expanded=False):
+            st.markdown("*Check scenario parameter consistency and range ordering*")
+            
+            col1, col2 = st.columns([1, 3])
+            
+            with col1:
+                if st.button("🔍 Run Validation", key="run_validation"):
+                    # Run validation and store results in session state
+                    validation_results = self._validate_scenario_ranges()
+                    st.session_state.validation_results = validation_results
+                    st.rerun()
+            
+            with col2:
+                if st.button("📊 Show Parameter Ranges", key="show_ranges"):
+                    st.session_state.show_parameter_ranges = not st.session_state.get('show_parameter_ranges', False)
+                    st.rerun()
+            
+            # Display validation results if available
+            if 'validation_results' in st.session_state:
+                st.markdown("---")
+                st.subheader("Validation Results")
+                self._display_validation_results(st.session_state.validation_results)
+            
+            # Display parameter ranges if requested
+            if st.session_state.get('show_parameter_ranges', False):
+                st.markdown("---")
+                st.subheader("Parameter Ranges by Scenario")
+                self._display_parameter_ranges()
+    
+    def _display_parameter_ranges(self) -> None:
+        """
+        Display parameter ranges for all scenarios in a formatted table.
+        """
+        import pandas as pd
+        
+        # Get parameters for all scenarios
+        scenarios = ['Peak Season', 'Normal Operations', 'Low Season']
+        all_params = {}
+        
+        for scenario in scenarios:
+            params = self._get_scenario_performance_params(scenario)
+            all_params[scenario] = params
+        
+        # Create comparison table for key parameters
+        comparison_data = []
+        key_params = [
+            'throughput_range', 'utilization_range', 'revenue_range',
+            'efficiency_range', 'cargo_volume_range', 'handling_time_range',
+            'trade_balance_range'
+        ]
+        
+        for param in key_params:
+            row = {'Parameter': param.replace('_', ' ').title()}
+            for scenario in scenarios:
+                if param in all_params[scenario]:
+                    param_value = all_params[scenario][param]
+                    if isinstance(param_value, tuple) and len(param_value) == 2:
+                        row[scenario] = f"{param_value[0]:.1f} - {param_value[1]:.1f}"
+                    else:
+                        row[scenario] = str(param_value)
+                else:
+                    row[scenario] = "N/A"
+            comparison_data.append(row)
+        
+        # Display as DataFrame
+        df = pd.DataFrame(comparison_data)
+        st.dataframe(df, use_container_width=True)
+        
+        # Add color coding explanation
+        st.markdown("""
+        **Expected Ordering:**
+        - 📈 **Ascending**: Peak > Normal > Low (throughput, utilization, revenue, efficiency, cargo volume, trade balance)
+        - 📉 **Descending**: Peak < Normal < Low (handling time)
+        """)
+
+    def _initialize_scenario_tracking(self) -> None:
+        """
+        Initialize session state for scenario tracking and change detection.
+        """
+        # Initialize scenario tracking if not exists
+        if 'current_scenario' not in st.session_state:
+            st.session_state.current_scenario = 'Normal Operations'
+            
+        if 'scenario_changed' not in st.session_state:
+            st.session_state.scenario_changed = False
+            
+        if 'scenario_change_timestamp' not in st.session_state:
+            st.session_state.scenario_change_timestamp = datetime.now()
+            
+        # Initialize cached values for scenario-dependent data
+        if 'scenario_cached_values' not in st.session_state:
+            st.session_state.scenario_cached_values = {}
+
+    def _detect_scenario_change(self, new_scenario: str) -> bool:
+        """
+        Detect if the scenario has changed and update session state accordingly.
+        
+        Args:
+            new_scenario: The newly selected scenario name
+            
+        Returns:
+            True if scenario changed, False otherwise
+        """
+        # Map scenario keys to proper names
+        scenario_name = self._map_scenario_key_to_name(new_scenario)
+        
+        # Check if scenario has changed
+        if st.session_state.current_scenario != scenario_name:
+            # Update session state
+            st.session_state.current_scenario = scenario_name
+            st.session_state.scenario_changed = True
+            st.session_state.scenario_change_timestamp = datetime.now()
+            
+            # Clear cached values for the new scenario
+            st.session_state.scenario_cached_values = {}
+            
+            return True
+        
+        # Reset change flag if no change detected
+        st.session_state.scenario_changed = False
+        return False
+
+    def _get_current_scenario(self) -> str:
+        """
+        Get the current scenario from session state.
+        
+        Returns:
+            Current scenario name
+        """
+        return st.session_state.get('current_scenario', 'Normal Operations')
+
+    def _cache_scenario_value(self, key: str, value: Any) -> None:
+        """
+        Cache a value for the current scenario to maintain consistency.
+        
+        Args:
+            key: Cache key for the value
+            value: Value to cache
+        """
+        scenario = self._get_current_scenario()
+        if scenario not in st.session_state.scenario_cached_values:
+            st.session_state.scenario_cached_values[scenario] = {}
+        st.session_state.scenario_cached_values[scenario][key] = value
+
+    def _get_cached_scenario_value(self, key: str, default: Any = None) -> Any:
+        """
+        Get a cached value for the current scenario.
+        
+        Args:
+            key: Cache key for the value
+            default: Default value if not found
+            
+        Returns:
+            Cached value or default
+        """
+        scenario = self._get_current_scenario()
+        return st.session_state.scenario_cached_values.get(scenario, {}).get(key, default)
+    
+    def _get_scenario_color(self, scenario: str) -> str:
+        """
+        Get the background color for a scenario based on its type.
+        
+        Args:
+            scenario: Scenario name
+            
+        Returns:
+            CSS color code for the scenario
+        """
+        scenario_lower = scenario.lower()
+        
+        if 'peak' in scenario_lower:
+            return '#fff3cd'  # Light yellow for peak/high activity
+        elif 'low' in scenario_lower:
+            return '#d1ecf1'  # Light blue for low activity
+        elif 'maintenance' in scenario_lower:
+            return '#f8d7da'  # Light red for maintenance/disruption
+        elif 'typhoon' in scenario_lower or 'storm' in scenario_lower:
+            return '#e2e3e5'  # Light gray for weather disruptions
+        else:
+            return '#d4edda'  # Light green for normal operations
+    
+    def _get_scenario_border_color(self, scenario: str) -> str:
+        """
+        Get the border color for a scenario based on its type.
+        
+        Args:
+            scenario: Scenario name
+            
+        Returns:
+            CSS color code for the scenario border
+        """
+        scenario_lower = scenario.lower()
+        
+        if 'peak' in scenario_lower:
+            return '#ffc107'  # Amber for peak/high activity
+        elif 'low' in scenario_lower:
+            return '#17a2b8'  # Blue for low activity
+        elif 'maintenance' in scenario_lower:
+            return '#dc3545'  # Red for maintenance/disruption
+        elif 'typhoon' in scenario_lower or 'storm' in scenario_lower:
+            return '#6c757d'  # Gray for weather disruptions
+        else:
+            return '#28a745'  # Green for normal operations
+    
+    def _get_scenario_badge(self, scenario: str) -> str:
+        """
+        Get an emoji badge for a scenario based on its type.
+        
+        Args:
+            scenario: Scenario name
+            
+        Returns:
+            Emoji badge representing the scenario
+        """
+        scenario_lower = scenario.lower()
+        
+        if 'peak' in scenario_lower:
+            return '🔥'  # Fire for peak activity
+        elif 'low' in scenario_lower:
+            return '📉'  # Downward trend for low activity
+        elif 'maintenance' in scenario_lower:
+            return '🔧'  # Wrench for maintenance
+        elif 'typhoon' in scenario_lower or 'storm' in scenario_lower:
+            return '🌪️'  # Tornado for weather disruptions
+        else:
+            return '✅'  # Check mark for normal operations
+
+    def _render_analytics_section(self, scenario_data: Optional[Dict[str, Any]] = None) -> None:
         """Render cargo analysis.
         
         This section consolidates content from the original Cargo Statistics tab,
@@ -1152,16 +1869,29 @@ class ConsolidatedScenariosTab:
         """Render transport modes analysis."""
         st.subheader("🚛 Transport Mode Analysis")
         
-        # Generate sample transport mode data
+        # Generate scenario-aware transport mode data
         import numpy as np
         import plotly.express as px
         
+        scenario_values = self._get_all_scenario_values()
+        base_volume = scenario_values['cargo_volume']
+        efficiency_factor = scenario_values['efficiency'] / 100
+        
         transport_modes = ['Truck', 'Rail', 'Barge', 'Pipeline']
+        
+        # Different transport modes have different characteristics
+        mode_factors = {
+            'Truck': {'volume': 0.6, 'efficiency': 0.8, 'cost': 1.5},
+            'Rail': {'volume': 0.25, 'efficiency': 1.1, 'cost': 0.8},
+            'Barge': {'volume': 0.1, 'efficiency': 0.9, 'cost': 0.6},
+            'Pipeline': {'volume': 0.05, 'efficiency': 1.2, 'cost': 0.4}
+        }
+        
         mode_data = {
             'Mode': transport_modes,
-            'Volume_TEU': [np.random.randint(100000, 500000) for _ in transport_modes],
-            'Efficiency': [np.random.uniform(70, 95) for _ in transport_modes],
-            'Cost_per_TEU': [np.random.uniform(50, 200) for _ in transport_modes]
+            'Volume_TEU': [int(base_volume * mode_factors[mode]['volume'] * np.random.normal(1, 0.1)) for mode in transport_modes],
+            'Efficiency': [min(95, max(60, efficiency_factor * 100 * mode_factors[mode]['efficiency'] * np.random.normal(1, 0.05))) for mode in transport_modes],
+            'Cost_per_TEU': [100 * mode_factors[mode]['cost'] * (2 - efficiency_factor) * np.random.normal(1, 0.1) for mode in transport_modes]
         }
         
         mode_df = pd.DataFrame(mode_data)
@@ -1201,20 +1931,42 @@ class ConsolidatedScenariosTab:
         """Render time series analysis."""
         st.subheader("📈 Time Series Analysis")
         
-        # Generate sample time series data
+        # Generate scenario-aware time series data
         import numpy as np
         import plotly.express as px
         import plotly.graph_objects as go
         from datetime import datetime, timedelta
         
-        # Create 12 months of data
+        scenario_values = self._get_all_scenario_values()
+        base_volume = scenario_values['cargo_volume']
+        base_handling = scenario_values['handling_time']
+        efficiency_factor = scenario_values['efficiency'] / 100
+        
+        # Create 12 months of data with scenario-aware patterns
         dates = [datetime.now() - timedelta(days=30*i) for i in range(12, 0, -1)]
         monthly_data = {
             'Date': dates,
-            'TEU_Volume': [np.random.randint(80000, 120000) for _ in dates],
-            'Shipments': [np.random.randint(4000, 7000) for _ in dates],
-            'Avg_Dwell_Time': [np.random.uniform(2, 6) for _ in dates]
+            'TEU_Volume': [],
+            'Shipments': [],
+            'Avg_Dwell_Time': []
         }
+        
+        for i in range(12):
+            # Seasonal patterns and scenario influence
+            seasonal_factor = 1 + 0.2 * np.sin(2 * np.pi * i / 12)  # Seasonal variation
+            trend_factor = 0.9 + (i / 12) * 0.2  # Gradual trend
+            
+            # TEU Volume
+            volume = base_volume * seasonal_factor * trend_factor * np.random.normal(1, 0.05)
+            monthly_data['TEU_Volume'].append(max(0, volume))
+            
+            # Shipments (correlated with volume but different pattern)
+            shipments = (volume / 20) * np.random.normal(1, 0.1)  # ~20 TEU per shipment average
+            monthly_data['Shipments'].append(max(0, int(shipments)))
+            
+            # Dwell time (inversely related to efficiency)
+            dwell_time = base_handling * (2 - efficiency_factor) * np.random.normal(1, 0.1)
+            monthly_data['Avg_Dwell_Time'].append(max(1, dwell_time))
         
         time_df = pd.DataFrame(monthly_data)
         
@@ -1262,24 +2014,36 @@ class ConsolidatedScenariosTab:
         """Render forecasting analysis."""
         st.subheader("🔮 Cargo Volume Forecasting")
         
-        # Generate sample forecasting data
+        # Generate scenario-aware forecasting data
         import numpy as np
         import plotly.graph_objects as go
         from datetime import datetime, timedelta
         
-        # Historical data (12 months)
-        hist_dates = [datetime.now() - timedelta(days=30*i) for i in range(12, 0, -1)]
-        hist_volumes = [np.random.randint(80000, 120000) for _ in hist_dates]
+        scenario_values = self._get_all_scenario_values()
+        base_volume = scenario_values['cargo_volume']
+        efficiency_factor = scenario_values['efficiency'] / 100
         
-        # Forecast data (6 months ahead)
+        # Historical data (12 months) - scenario-aware
+        hist_dates = [datetime.now() - timedelta(days=30*i) for i in range(12, 0, -1)]
+        hist_volumes = []
+        for i in range(12):
+            # Generate historical trend leading to current scenario
+            historical_factor = 0.8 + (i / 12) * 0.4  # Gradual increase to current level
+            seasonal_factor = 1 + 0.1 * np.sin(2 * np.pi * i / 12)  # Seasonal pattern
+            volume = base_volume * historical_factor * seasonal_factor * np.random.normal(1, 0.05)
+            hist_volumes.append(max(0, volume))
+        
+        # Forecast data (6 months ahead) - scenario-aware
         forecast_dates = [datetime.now() + timedelta(days=30*i) for i in range(1, 7)]
-        # Add trend and seasonality to forecast
-        base_forecast = hist_volumes[-1]
         forecast_volumes = []
+        
+        # Growth rate based on scenario efficiency
+        monthly_growth = 0.01 + (efficiency_factor - 0.75) * 0.02  # Higher efficiency = higher growth
+        
         for i, _ in enumerate(forecast_dates):
-            trend = base_forecast * (1 + 0.02 * i)  # 2% monthly growth
-            seasonal = np.sin(i * np.pi / 6) * 5000  # Seasonal variation
-            noise = np.random.normal(0, 3000)  # Random variation
+            trend = base_volume * (1 + monthly_growth * i)
+            seasonal = np.sin(i * np.pi / 6) * base_volume * 0.05  # Seasonal variation
+            noise = np.random.normal(0, base_volume * 0.02)  # Scenario-aware noise
             forecast_volumes.append(max(0, trend + seasonal + noise))
         
         # Create forecasting chart
@@ -1326,7 +2090,7 @@ class ConsolidatedScenariosTab:
         
         st.plotly_chart(fig, use_container_width=True)
         
-        # Forecast metrics
+        # Forecast metrics - scenario-aware
         forecast_col1, forecast_col2, forecast_col3 = st.columns(3)
         
         with forecast_col1:
@@ -1338,23 +2102,144 @@ class ConsolidatedScenariosTab:
             st.metric("6-Month Growth", f"{growth_rate:.1f}%")
         
         with forecast_col3:
-            confidence = 85  # Simulated confidence level
-            st.metric("Forecast Confidence", f"{confidence}%")
+            # Confidence based on scenario efficiency
+            base_confidence = 75
+            confidence_boost = (efficiency_factor - 0.75) * 20  # Higher efficiency = higher confidence
+            confidence = min(95, max(60, base_confidence + confidence_boost))
+            st.metric("Forecast Confidence", f"{confidence:.0f}%")
     
-    def _render_cargo_types_analysis(self) -> None:
+    def _render_cargo_volume_revenue_analysis(self, params: Dict[str, Any]) -> None:
+        """Render cargo volume and revenue analysis with scenario-specific data."""
+        st.subheader("📊 Cargo Volume & Revenue Analysis")
+        
+        import numpy as np
+        import plotly.express as px
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+        
+        # Generate scenario-aware data
+        scenario_values = self._get_all_scenario_values()
+        
+        # Key metrics display
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            total_volume = scenario_values['cargo_volume']
+            # Delta based on scenario efficiency
+            delta_volume = (scenario_values['efficiency'] - 75) / 5  # Convert efficiency to percentage change
+            st.metric(
+                "Total Cargo Volume",
+                f"{total_volume:,.0f} TEU",
+                delta=f"{delta_volume:.1f}%"
+            )
+        
+        with col2:
+            # Revenue correlates with volume and efficiency
+            total_revenue = total_volume * scenario_values['efficiency'] * 2.5  # Revenue factor
+            delta_revenue = (scenario_values['efficiency'] - 75) / 4
+            st.metric(
+                "Total Revenue",
+                f"${total_revenue:,.0f}",
+                delta=f"{delta_revenue:.1f}%"
+            )
+        
+        with col3:
+            avg_handling = scenario_values['handling_time']
+            # Delta inversely related to efficiency
+            delta_handling = -(scenario_values['efficiency'] - 75) / 25  # Inverse relationship
+            st.metric(
+                "Avg Handling Time",
+                f"{avg_handling:.1f} hrs",
+                delta=f"{delta_handling:.1f} hrs"
+            )
+        
+        with col4:
+            # Trade balance based on throughput and efficiency
+            trade_balance = scenario_values['throughput'] * scenario_values['efficiency'] * 100
+            delta_balance = (scenario_values['efficiency'] - 75) / 7.5
+            st.metric(
+                "Trade Balance",
+                f"${trade_balance:,.0f}",
+                delta=f"{delta_balance:.1f}%"
+            )
+        
+        # Volume trend chart
+        st.subheader("📈 Monthly Volume Trends")
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        
+        # Generate scenario-aware monthly volumes with seasonal patterns
+        base_volume = scenario_values['cargo_volume']
+        monthly_volumes = []
+        for i, month in enumerate(months):
+            # Add seasonal pattern (higher in summer/fall)
+            seasonal_factor = 0.8 + 0.4 * np.sin(2 * np.pi * (i + 3) / 12)
+            # Add scenario-aware variation
+            monthly_volume = base_volume * seasonal_factor * np.random.normal(1, 0.1)
+            monthly_volume = max(0, monthly_volume)
+            monthly_volumes.append(monthly_volume)
+        
+        fig_volume = px.line(
+            x=months, 
+            y=monthly_volumes,
+            title="Monthly Cargo Volume Trends",
+            labels={'x': 'Month', 'y': 'Volume (TEU)'}
+        )
+        fig_volume.update_layout(height=400)
+        st.plotly_chart(fig_volume, use_container_width=True)
+        
+        # Revenue breakdown
+        st.subheader("💰 Revenue Breakdown")
+        revenue_categories = ['Container Handling', 'Storage Fees', 'Equipment Rental', 'Logistics Services', 'Other']
+        
+        # Generate scenario-aware revenue distribution
+        # Different scenarios have different revenue patterns
+        efficiency_factor = scenario_values['efficiency'] / 100
+        revenue_values = [
+            total_revenue * 0.45 * efficiency_factor,  # Container Handling (main revenue)
+            total_revenue * 0.25 * (1.2 - efficiency_factor * 0.2),  # Storage (inverse efficiency)
+            total_revenue * 0.15 * efficiency_factor,  # Equipment Rental
+            total_revenue * 0.10 * efficiency_factor,  # Logistics Services
+            total_revenue * 0.05  # Other (constant)
+        ]
+        
+        fig_revenue = px.pie(
+            values=revenue_values,
+            names=revenue_categories,
+            title="Revenue Distribution by Service Type"
+        )
+        st.plotly_chart(fig_revenue, use_container_width=True)
+
+    def _render_cargo_types_analysis(self, params: Dict[str, Any]) -> None:
         """Render cargo types analysis."""
         st.subheader("📦 Cargo Type Analysis")
         
-        # Generate sample cargo type data
+        # Generate scenario-aware cargo type data
         import numpy as np
         import plotly.express as px
         
+        scenario_values = self._get_all_scenario_values()
+        
         cargo_types = ['Containers', 'Bulk Dry', 'Bulk Liquid', 'Break Bulk', 'RoRo']
+        
+        # Generate scenario-aware cargo data with realistic distributions
+        base_volume = scenario_values['cargo_volume']
+        base_revenue = base_volume * scenario_values['efficiency'] * 2.5
+        base_handling = scenario_values['handling_time']
+        
+        # Different cargo types have different characteristics
+        cargo_factors = {
+            'Containers': {'volume': 0.6, 'revenue': 0.4, 'handling': 0.8},
+            'Bulk Dry': {'volume': 0.2, 'revenue': 0.15, 'handling': 1.2},
+            'Bulk Liquid': {'volume': 0.1, 'revenue': 0.25, 'handling': 1.5},
+            'Break Bulk': {'volume': 0.08, 'revenue': 0.15, 'handling': 2.0},
+            'RoRo': {'volume': 0.02, 'revenue': 0.05, 'handling': 1.0}
+        }
+        
         cargo_data = {
             'Cargo_Type': cargo_types,
-            'Volume_TEU': [np.random.randint(50000, 300000) for _ in cargo_types],
-            'Revenue_HKD': [np.random.randint(10000000, 80000000) for _ in cargo_types],
-            'Handling_Time': [np.random.uniform(2, 12) for _ in cargo_types]
+            'Volume_TEU': [int(base_volume * cargo_factors[ct]['volume'] * np.random.normal(1, 0.1)) for ct in cargo_types],
+            'Revenue_HKD': [int(base_revenue * cargo_factors[ct]['revenue'] * np.random.normal(1, 0.15)) for ct in cargo_types],
+            'Handling_Time': [base_handling * cargo_factors[ct]['handling'] * np.random.normal(1, 0.1) for ct in cargo_types]
         }
         
         cargo_df = pd.DataFrame(cargo_data)
@@ -1388,21 +2273,39 @@ class ConsolidatedScenariosTab:
             )
             st.plotly_chart(fig_revenue, use_container_width=True)
     
-    def _render_locations_analysis(self) -> None:
+    def _render_locations_analysis(self, params: Dict[str, Any]) -> None:
         """Render locations analysis."""
         st.subheader("🌍 Geographic Analysis")
         
-        # Generate sample location data
+        # Generate scenario-aware location data
         import numpy as np
         import plotly.express as px
         
+        scenario_values = self._get_all_scenario_values()
+        base_volume = scenario_values['cargo_volume']
+        
         locations = ['Mainland China', 'Southeast Asia', 'Europe', 'North America', 'Other Asia']
+        
+        # Different regions have different trade patterns
+        region_factors = {
+            'Mainland China': {'import': 0.4, 'export': 0.35},
+            'Southeast Asia': {'import': 0.25, 'export': 0.3},
+            'Europe': {'import': 0.15, 'export': 0.2},
+            'North America': {'import': 0.12, 'export': 0.1},
+            'Other Asia': {'import': 0.08, 'export': 0.05}
+        }
+        
         location_data = {
             'Region': locations,
-            'Import_TEU': [np.random.randint(50000, 200000) for _ in locations],
-            'Export_TEU': [np.random.randint(40000, 180000) for _ in locations],
-            'Trade_Balance': [np.random.uniform(-50000, 50000) for _ in locations]
+            'Import_TEU': [int(base_volume * region_factors[loc]['import'] * np.random.normal(1, 0.1)) for loc in locations],
+            'Export_TEU': [int(base_volume * region_factors[loc]['export'] * np.random.normal(1, 0.1)) for loc in locations],
+            'Trade_Balance': []
         }
+        
+        # Calculate trade balance based on import/export difference
+        for i, loc in enumerate(locations):
+            balance = location_data['Export_TEU'][i] - location_data['Import_TEU'][i]
+            location_data['Trade_Balance'].append(balance * np.random.normal(100, 20))  # Convert to monetary value
         
         location_df = pd.DataFrame(location_data)
         location_df['Total_TEU'] = location_df['Import_TEU'] + location_df['Export_TEU']
@@ -1439,6 +2342,34 @@ class ConsolidatedScenariosTab:
             fig_balance.update_layout(xaxis_title='Region', yaxis_title='Trade Balance (TEU)')
             st.plotly_chart(fig_balance, use_container_width=True)
             
+    def render_cargo_analysis_section(self, scenario_data: Optional[Dict[str, Any]] = None) -> None:
+        """Render cargo analysis section.
+        
+        Args:
+            scenario_data: Current scenario configuration and data
+        """
+        st.markdown("### 📦 Cargo Analysis")
+        
+        # Get scenario-specific parameters
+        scenario_name = scenario_data.get('name', 'Normal Operations') if scenario_data else 'Normal Operations'
+        params = self._get_scenario_performance_params(scenario_name)
+        
+        # Create tabs for different cargo analysis views
+        cargo_tab1, cargo_tab2, cargo_tab3 = st.tabs([
+            "📊 Volume & Revenue",
+            "🚢 Cargo Types", 
+            "🌍 Trade Routes"
+        ])
+        
+        with cargo_tab1:
+            self._render_cargo_volume_revenue_analysis(params)
+            
+        with cargo_tab2:
+            self._render_cargo_types_analysis(params)
+            
+        with cargo_tab3:
+            self._render_locations_analysis(params)
+
     def render_advanced_analysis_section(self, scenario_data: Optional[Dict[str, Any]] = None) -> None:
         """Render advanced analysis.
         
@@ -1487,6 +2418,25 @@ class ConsolidatedScenariosTab:
             
             # Scenario weights
             st.subheader("📊 Scenario Weights")
+            # Collapsible guidelines using details/summary HTML
+            st.markdown("""
+            <details>
+            <summary><strong>📋 Scenario Weight Guidelines</strong> (click to expand)</summary>
+            <div style="margin-top: 10px; padding-left: 15px;">
+            <strong>How to set scenario weights:</strong><br>
+            • <strong>Higher weights</strong> (closer to 1.0) = More importance in optimization<br>
+            • <strong>Lower weights</strong> (closer to 0.0) = Less importance in optimization<br>
+            • <strong>Normal Operations</strong>: Base case - typically set to moderate weight (0.3-0.5)<br>
+            • <strong>Peak Season</strong>: High cargo periods - increase if peak performance is critical<br>
+            • <strong>Maintenance</strong>: Reduced capacity - increase if resilience during maintenance is important<br>
+            • <strong>Typhoon Season</strong>: Weather constraints - increase if weather resilience is a priority
+             </div>
+             </details>
+             """, unsafe_allow_html=True)
+             
+            # Add some spacing before the sliders
+            st.markdown("<br>", unsafe_allow_html=True)
+            
             normal_weight = st.slider("Normal Operations Weight", 0.0, 1.0, 0.4, 0.1)
             peak_weight = st.slider("Peak Season Weight", 0.0, 1.0, 0.3, 0.1)
             maintenance_weight = st.slider("Maintenance Weight", 0.0, 1.0, 0.2, 0.1)
@@ -1504,19 +2454,25 @@ class ConsolidatedScenariosTab:
                     import time
                     time.sleep(2)
                     
-                    # Store optimization results
-                    st.session_state.optimization_results = {
-                        'objective_value': 0.85,
-                        'optimal_berths': 18,
-                        'optimal_cranes': 36,
-                        'scenario_performance': {
-                            'normal': 0.92,
-                            'peak_season': 0.78,
-                            'maintenance': 0.85,
-                            'typhoon_season': 0.71
+                    # Generate optimization results based on selected objective
+                    optimization_results = self._generate_optimization_results(
+                        objective=objective,
+                        weights={
+                            'normal': normal_weight,
+                            'peak_season': peak_weight,
+                            'maintenance': maintenance_weight,
+                            'typhoon_season': typhoon_weight
+                        },
+                        constraints={
+                            'max_berths': max_berths,
+                            'max_cranes': max_cranes,
+                            'budget': budget_constraint
                         }
-                    }
-                    st.success("Optimization completed!")
+                    )
+                    
+                    # Store optimization results
+                    st.session_state.optimization_results = optimization_results
+                    st.success(f"Optimization completed for: {objective}!")
         
         with opt_col2:
             st.subheader("📊 Optimization Results")
@@ -1524,16 +2480,33 @@ class ConsolidatedScenariosTab:
             if hasattr(st.session_state, 'optimization_results'):
                 results = st.session_state.optimization_results
                 
+                # Display optimization objective used
+                st.info(f"**Optimization Objective:** {results.get('objective', 'Unknown')}")
+                
                 # Display key metrics
                 metric_col1, metric_col2, metric_col3 = st.columns(3)
                 with metric_col1:
-                    st.metric("Objective Value", f"{results['objective_value']:.2f}")
+                    st.metric("Objective Value", f"{results['objective_value']:.3f}")
                 with metric_col2:
                     st.metric("Optimal Berths", results['optimal_berths'])
                 with metric_col3:
                     st.metric("Optimal Cranes", results['optimal_cranes'])
                 
                 # Scenario performance chart
+                st.markdown("""
+                <details>
+                <summary><strong>📊 Performance by Scenario Explanation</strong> (click to expand)</summary>
+                <div style="margin-top: 10px; padding-left: 15px;">
+                This chart shows how well the optimized port configuration performs under different operational scenarios:<br>
+                • <strong>Normal</strong>: Standard operating conditions<br>
+                • <strong>Peak Season</strong>: High cargo volume periods (e.g., holiday seasons)<br>
+                • <strong>Maintenance</strong>: Reduced capacity due to equipment maintenance<br>
+                • <strong>Typhoon Season</strong>: Weather-related operational constraints<br><br>
+                Higher values (green) indicate better performance, lower values (red) indicate challenges.
+                </div>
+                </details>
+                """, unsafe_allow_html=True)
+                
                 import plotly.express as px
                 perf_data = pd.DataFrame([
                     {'Scenario': k.replace('_', ' ').title(), 'Performance': v}
@@ -1544,9 +2517,14 @@ class ConsolidatedScenariosTab:
                     perf_data,
                     x='Scenario',
                     y='Performance',
-                    title='Performance by Scenario',
+                    title='Optimization Performance Across Different Scenarios',
                     color='Performance',
-                    color_continuous_scale='RdYlGn'
+                    color_continuous_scale='RdYlGn',
+                    labels={'Performance': 'Performance Score (0-1)', 'Scenario': 'Operational Scenario'}
+                )
+                fig.update_layout(
+                    yaxis=dict(range=[0, 1]),
+                    showlegend=False
                 )
                 st.plotly_chart(fig, use_container_width=True)
             else:
@@ -1597,49 +2575,238 @@ class ConsolidatedScenariosTab:
             if st.button("🔥 Simulate Disruption"):
                 with st.spinner("Simulating disruption impact..."):
                     import time
+                    import numpy as np
                     time.sleep(2)
                     
-                    # Store simulation results
+                    # Get scenario-aware baseline values
+                    scenario_values = self._get_all_scenario_values()
+                    base_throughput = scenario_values['throughput']
+                    base_efficiency = scenario_values['efficiency']
+                    base_revenue = scenario_values['revenue']
+                    
+                    # Calculate berth impact factor (more affected berths = higher impact)
+                    total_berths = 20  # Total berths in port
+                    affected_berth_count = len(affected_berths)
+                    berth_impact_factor = affected_berth_count / total_berths
+                    
+                    # Calculate equipment impact factor
+                    equipment_impact_factor = len(affected_equipment) / 4  # 4 total equipment types
+                    
+                    # Combined impact factor (berths have more weight)
+                    combined_impact = (berth_impact_factor * 0.7) + (equipment_impact_factor * 0.3)
+                    
+                    # Dynamic impact calculations based on scenario and affected resources
+                    impact_multiplier = severity * combined_impact
+                    
+                    # Throughput reduction: higher for more affected berths and higher severity
+                    throughput_reduction = min(95, impact_multiplier * 15)  # Cap at 95% reduction
+                    affected_throughput_pct = max(5, 100 - throughput_reduction)
+                    
+                    # Recovery time: longer for more affected berths, shorter with mitigation
+                    base_recovery = duration * (0.8 + berth_impact_factor * 0.7)
+                    mitigation_factor = 1.0
+                    if enable_backup:
+                        mitigation_factor *= 0.7
+                    if reroute_traffic:
+                        mitigation_factor *= 0.8
+                    if emergency_protocols:
+                        mitigation_factor *= 0.6
+                    
+                    recovery_time = base_recovery * mitigation_factor
+                    
+                    # Financial impact: based on scenario revenue and affected capacity
+                    daily_revenue = base_revenue / 365  # Convert annual to daily
+                    capacity_loss = throughput_reduction / 100
+                    financial_impact = daily_revenue * capacity_loss * (duration / 24)
+                    
+                    # Generate dynamic recovery timeline with enhanced sensitivity
+                    max_timeline_hours = min(int(recovery_time * 1.5) + 6, 72)  # Extend timeline based on recovery time
+                    timeline_hours = list(range(0, max_timeline_hours, 1))  # Every hour for better granularity
+                    timeline = []
+                    
+                    # Enhanced recovery rate calculation based on multiple factors
+                    base_recovery_rate = 0.08 + (base_efficiency / 100) * 0.04  # Base rate varies with efficiency
+                    
+                    # Adjust recovery rate based on impact severity
+                    severity_adjustment = 1.0 - (berth_impact_factor * 0.3)  # More affected berths = slower recovery
+                    equipment_adjustment = 1.0 - (equipment_impact_factor * 0.2)  # Equipment issues slow recovery
+                    
+                    adjusted_recovery_rate = base_recovery_rate * severity_adjustment * equipment_adjustment
+                    
+                    # Calculate mitigation multiplier
+                    mitigation_multiplier = 1.0
+                    if enable_backup:
+                        mitigation_multiplier *= 1.4  # Backup systems significantly help
+                    if reroute_traffic:
+                        mitigation_multiplier *= 1.25  # Traffic rerouting helps moderately
+                    if emergency_protocols:
+                        mitigation_multiplier *= 1.5  # Emergency protocols help most
+                    
+                    for hour in timeline_hours:
+                        if hour == 0:
+                            # Initial impact
+                            throughput_pct = affected_throughput_pct
+                        else:
+                            # Enhanced recovery curve with dynamic parameters
+                            # Different recovery phases: immediate (0-4h), intermediate (4-12h), final (12h+)
+                            if hour <= 4:
+                                # Slow initial recovery
+                                phase_rate = adjusted_recovery_rate * 0.6
+                                mitigation_effect = 1.0 if hour <= 1 else mitigation_multiplier * 0.7
+                            elif hour <= 12:
+                                # Accelerated intermediate recovery
+                                phase_rate = adjusted_recovery_rate * 1.2
+                                mitigation_effect = mitigation_multiplier
+                            else:
+                                # Gradual final recovery
+                                phase_rate = adjusted_recovery_rate * 0.8
+                                mitigation_effect = mitigation_multiplier * 1.1
+                            
+                            # Calculate recovery progress with phase-specific rates
+                            recovery_progress = 1 - np.exp(-phase_rate * mitigation_effect * hour)
+                            
+                            # Add some variability based on scenario complexity
+                            scenario_complexity = berth_impact_factor + equipment_impact_factor
+                            if scenario_complexity > 0.5:  # High complexity scenarios have more variable recovery
+                                recovery_progress *= (0.95 + 0.1 * np.random.random())  # ±5% variability
+                            
+                            # Calculate current throughput percentage
+                            throughput_pct = affected_throughput_pct + (100 - affected_throughput_pct) * min(1.0, recovery_progress)
+                        
+                        timeline.append({
+                            'hour': hour,
+                            'throughput': min(100, throughput_pct)  # Cap at 100%
+                        })
+                    
+                    # Store dynamic simulation results
                     st.session_state.disruption_results = {
-                        'impact_score': severity * 0.1,
-                        'affected_throughput': max(0, 100 - severity * 10),
-                        'recovery_time': duration * (1.5 if not enable_backup else 1.0),
-                        'financial_impact': severity * duration * 50000,
-                        'timeline': [
-                            {'hour': i, 'throughput': max(0, 100 - severity * 10 + i * 2)}
-                            for i in range(0, min(duration, 48), 4)
-                        ]
+                        'impact_score': min(10, impact_multiplier),
+                        'affected_throughput': affected_throughput_pct,
+                        'recovery_time': recovery_time,
+                        'financial_impact': financial_impact,
+                        'timeline': timeline,
+                        'berth_impact_factor': berth_impact_factor,
+                        'equipment_impact_factor': equipment_impact_factor,
+                        'mitigation_effectiveness': (1 - mitigation_factor) * 100
                     }
                     st.success("Disruption simulation completed!")
         
         with disrupt_col2:
             st.subheader("📊 Impact Analysis")
             
+            # Add collapsible explanation for Impact Analysis metrics
+            st.markdown("""
+            <details>
+            <summary><strong>📊 Impact Analysis Metrics Explanation</strong> (click to expand)</summary>
+            <div style="margin-top: 10px; padding-left: 15px;">
+            This section provides comprehensive analysis of disruption impacts on port operations:<br><br>
+            • <strong>Impact Score</strong>: Overall severity rating (0-10 scale) based on affected berths and equipment<br>
+            • <strong>Recovery Time</strong>: Estimated hours to return to 95% operational capacity<br>
+            • <strong>Berth Impact Factor</strong>: Percentage of total berth capacity affected by the disruption<br>
+            • <strong>Throughput Reduction</strong>: Immediate decrease in cargo handling capacity<br>
+            • <strong>Financial Impact</strong>: Estimated revenue loss during disruption period<br>
+            • <strong>Mitigation Effectiveness</strong>: How well selected strategies reduce overall impact<br>
+            • <strong>Equipment Impact</strong>: Additional capacity loss from equipment unavailability<br><br>
+            The recovery timeline shows throughput restoration over time, with milestones at 50%, 80%, and 95% recovery levels.
+            </div>
+            </details>
+            """, unsafe_allow_html=True)
+            
             if hasattr(st.session_state, 'disruption_results'):
                 results = st.session_state.disruption_results
                 
-                # Impact metrics
-                impact_col1, impact_col2 = st.columns(2)
+                # Enhanced impact metrics with additional insights
+                impact_col1, impact_col2, impact_col3 = st.columns(3)
                 with impact_col1:
                     st.metric("Impact Score", f"{results['impact_score']:.1f}/10")
                     st.metric("Throughput Reduction", f"{100 - results['affected_throughput']:.0f}%")
                 with impact_col2:
                     st.metric("Recovery Time", f"{results['recovery_time']:.1f} hrs")
                     st.metric("Financial Impact", f"${results['financial_impact']:,.0f}")
+                with impact_col3:
+                    st.metric("Berth Impact Factor", f"{results['berth_impact_factor']:.1%}")
+                    st.metric("Mitigation Effectiveness", f"{results['mitigation_effectiveness']:.1f}%")
                 
-                # Recovery timeline
+                # Additional impact details
+                st.markdown("**Impact Breakdown:**")
+                impact_details_col1, impact_details_col2 = st.columns(2)
+                with impact_details_col1:
+                    st.write(f"• Affected Berths: {len(affected_berths)}/20 ({results['berth_impact_factor']:.1%})")
+                    st.write(f"• Equipment Impact: {results['equipment_impact_factor']:.1%}")
+                with impact_details_col2:
+                    mitigation_status = []
+                    if enable_backup:
+                        mitigation_status.append("✅ Backup Systems")
+                    if reroute_traffic:
+                        mitigation_status.append("✅ Traffic Rerouting")
+                    if emergency_protocols:
+                        mitigation_status.append("✅ Emergency Protocols")
+                    if not mitigation_status:
+                        mitigation_status.append("❌ No Mitigation")
+                    
+                    st.write("**Active Mitigations:**")
+                    for status in mitigation_status:
+                        st.write(f"• {status}")
+                
+                # Enhanced recovery timeline with scenario context
                 if results['timeline']:
+                    st.subheader("🔄 Throughput Recovery Timeline")
+                    
                     timeline_df = pd.DataFrame(results['timeline'])
                     import plotly.express as px
+                    import plotly.graph_objects as go
                     
-                    fig = px.line(
-                        timeline_df,
-                        x='hour',
-                        y='throughput',
-                        title='Throughput Recovery Timeline',
-                        labels={'hour': 'Hours After Disruption', 'throughput': 'Throughput %'}
+                    # Create enhanced recovery chart
+                    fig = go.Figure()
+                    
+                    # Add recovery line
+                    fig.add_trace(go.Scatter(
+                        x=timeline_df['hour'],
+                        y=timeline_df['throughput'],
+                        mode='lines+markers',
+                        name='Throughput Recovery',
+                        line=dict(color='#1f77b4', width=3),
+                        marker=dict(size=6)
+                    ))
+                    
+                    # Add 100% baseline
+                    fig.add_hline(
+                        y=100, 
+                        line_dash="dash", 
+                        line_color="green",
+                        annotation_text="Normal Operations (100%)"
                     )
+                    
+                    # Add impact threshold
+                    fig.add_hline(
+                        y=results['affected_throughput'], 
+                        line_dash="dot", 
+                        line_color="red",
+                        annotation_text=f"Initial Impact ({results['affected_throughput']:.0f}%)"
+                    )
+                    
+                    fig.update_layout(
+                        title='Throughput Recovery Timeline (Dynamic Based on Affected Berths)',
+                        xaxis_title='Hours After Disruption',
+                        yaxis_title='Throughput Capacity (%)',
+                        yaxis=dict(range=[0, 105]),
+                        hovermode='x unified',
+                        showlegend=True
+                    )
+                    
                     st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Recovery statistics
+                    recovery_col1, recovery_col2, recovery_col3 = st.columns(3)
+                    with recovery_col1:
+                        time_to_50 = next((t['hour'] for t in results['timeline'] if t['throughput'] >= 50), "N/A")
+                        st.metric("Time to 50% Recovery", f"{time_to_50} hrs" if time_to_50 != "N/A" else "N/A")
+                    with recovery_col2:
+                        time_to_80 = next((t['hour'] for t in results['timeline'] if t['throughput'] >= 80), "N/A")
+                        st.metric("Time to 80% Recovery", f"{time_to_80} hrs" if time_to_80 != "N/A" else "N/A")
+                    with recovery_col3:
+                        time_to_95 = next((t['hour'] for t in results['timeline'] if t['throughput'] >= 95), "N/A")
+                        st.metric("Time to 95% Recovery", f"{time_to_95} hrs" if time_to_95 != "N/A" else "N/A")
             else:
                 st.info("Run disruption simulation to see impact analysis")
     
@@ -1747,6 +2914,100 @@ class ConsolidatedScenariosTab:
                     st.error("❌ **Recommendation**: Investment may not be financially viable under current assumptions.")
             else:
                 st.info("Configure and analyze an investment scenario to see results here")
+    
+    def _generate_optimization_results(self, objective: str, weights: Dict[str, float], constraints: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate optimization results based on selected objective and parameters.
+        
+        Args:
+            objective: Selected optimization objective
+            weights: Scenario weights dictionary
+            constraints: Optimization constraints
+            
+        Returns:
+            Dictionary containing optimization results
+        """
+        import random
+        
+        # Set random seed for consistent results within the same session
+        random.seed(hash(objective + str(sorted(weights.items())) + str(sorted(constraints.items()))) % 1000)
+        
+        # Base performance values that vary by objective
+        if objective == "Minimize Total Waiting Time":
+            base_performance = {
+                'normal': random.uniform(0.88, 0.95),
+                'peak_season': random.uniform(0.75, 0.85),
+                'maintenance': random.uniform(0.82, 0.90),
+                'typhoon_season': random.uniform(0.68, 0.78)
+            }
+            objective_value = random.uniform(0.82, 0.92)
+            optimal_berths = random.randint(16, 22)
+            optimal_cranes = random.randint(32, 42)
+            
+        elif objective == "Maximize Throughput":
+            base_performance = {
+                'normal': random.uniform(0.90, 0.97),
+                'peak_season': random.uniform(0.85, 0.92),
+                'maintenance': random.uniform(0.78, 0.88),
+                'typhoon_season': random.uniform(0.70, 0.80)
+            }
+            objective_value = random.uniform(0.85, 0.95)
+            optimal_berths = random.randint(18, 25)
+            optimal_cranes = random.randint(35, 45)
+            
+        elif objective == "Minimize Costs":
+            base_performance = {
+                'normal': random.uniform(0.85, 0.92),
+                'peak_season': random.uniform(0.72, 0.82),
+                'maintenance': random.uniform(0.80, 0.87),
+                'typhoon_season': random.uniform(0.65, 0.75)
+            }
+            objective_value = random.uniform(0.78, 0.88)
+            optimal_berths = random.randint(14, 20)
+            optimal_cranes = random.randint(28, 38)
+            
+        else:  # Balanced Performance
+            base_performance = {
+                'normal': random.uniform(0.87, 0.94),
+                'peak_season': random.uniform(0.76, 0.86),
+                'maintenance': random.uniform(0.81, 0.89),
+                'typhoon_season': random.uniform(0.67, 0.77)
+            }
+            objective_value = random.uniform(0.80, 0.90)
+            optimal_berths = random.randint(16, 22)
+            optimal_cranes = random.randint(30, 40)
+        
+        # Apply weight adjustments to performance
+        weighted_performance = {}
+        for scenario, perf in base_performance.items():
+            weight = weights.get(scenario, 0.25)
+            # Higher weights should lead to better optimization for that scenario
+            weight_adjustment = 1 + (weight - 0.25) * 0.2  # Scale weight impact
+            weighted_performance[scenario] = min(0.98, perf * weight_adjustment)
+        
+        # Apply constraint adjustments
+        constraint_factor = 1.0
+        if constraints['max_berths'] < optimal_berths:
+            constraint_factor *= 0.95  # Reduce performance if berth-constrained
+            optimal_berths = constraints['max_berths']
+        if constraints['max_cranes'] < optimal_cranes:
+            constraint_factor *= 0.93  # Reduce performance if crane-constrained
+            optimal_cranes = constraints['max_cranes']
+        
+        # Apply constraint factor to all performance values
+        for scenario in weighted_performance:
+            weighted_performance[scenario] *= constraint_factor
+        
+        objective_value *= constraint_factor
+        
+        return {
+            'objective': objective,
+            'objective_value': round(objective_value, 3),
+            'optimal_berths': optimal_berths,
+            'optimal_cranes': optimal_cranes,
+            'scenario_performance': {k: round(v, 3) for k, v in weighted_performance.items()},
+            'weights_used': weights,
+            'constraints_applied': constraints
+        }
 
 
 # Convenience function for easy integration

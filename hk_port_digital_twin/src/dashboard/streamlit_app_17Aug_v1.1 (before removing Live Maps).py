@@ -39,23 +39,24 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 def load_sample_data(scenario='normal', use_real_throughput_data=True):
     """Load sample data based on scenario"""
     # Define scenario-based parameters
+    # Define scenario-based parameters with distinct, non-overlapping ranges
     scenario_params = {
         'peak': {
             'queue_multiplier': 2,
-            'utilization_range': (80, 100),
-            'occupied_berths_range': (6, 8),
+            'utilization_range': (85, 100),  # High utilization range
+            'occupied_berths_range': (6, 8),  # High occupancy
             'waiting_time_multiplier': 1.5
         },
         'low': {
             'queue_multiplier': 0.5,
-            'utilization_range': (40, 60),
-            'occupied_berths_range': (2, 4),
+            'utilization_range': (25, 45),  # Low utilization range
+            'occupied_berths_range': (1, 3),  # Low occupancy
             'waiting_time_multiplier': 0.7
         },
         'normal': {
             'queue_multiplier': 1,
-            'utilization_range': (60, 80),
-            'occupied_berths_range': (4, 6),
+            'utilization_range': (60, 80),  # Medium utilization range
+            'occupied_berths_range': (4, 5),  # Medium occupancy
             'waiting_time_multiplier': 1
         }
     }

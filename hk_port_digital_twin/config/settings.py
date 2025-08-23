@@ -194,7 +194,7 @@ PERFORMANCE_TARGETS = {
 DASHBOARD_PREFERENCES = {
     # Tab Structure Settings
     'use_consolidated_scenarios': True,  # Use new consolidated scenarios tab
-    'scenarios_sections_expanded': True,  # Default expanded state for sections
+    'scenarios_sections_expanded': False,  # Default expanded state for sections
     'navigation_style': 'anchor_links',  # Navigation style: 'anchor_links' or 'sidebar'
     
     # Section Display Settings
@@ -215,11 +215,11 @@ DASHBOARD_PREFERENCES = {
 # Default Section States for Consolidated Scenarios Tab
 # Controls which sections are expanded by default
 DEFAULT_SECTION_STATES = {
-    'overview': True,     # Scenario Selection & Overview
-    'operations': True,   # Operational Impact
-    'analytics': True,    # Performance Analytics
-    'cargo': True,        # Cargo Analysis
-    'advanced': True,     # Advanced Analysis
+    'overview': True,     # Scenario Selection & Overview - expanded by default
+    'operations': False,  # Operational Impact - collapsed by default
+    'analytics': False,   # Performance Analytics - collapsed by default
+    'cargo': False,       # Cargo Analysis - collapsed by default
+    'advanced': False,    # Advanced Analysis - collapsed by default
 }
 
 def get_dashboard_preferences():

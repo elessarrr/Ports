@@ -42,24 +42,24 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 def load_sample_data(scenario='normal', use_real_throughput_data=True):
     """Load sample data based on scenario"""
-    # Define scenario-based parameters
+    # Define scenario-based parameters with distinct, non-overlapping ranges
     scenario_params = {
         'peak': {
             'queue_multiplier': 2,
-            'utilization_range': (80, 100),
-            'occupied_berths_range': (6, 8),
+            'utilization_range': (85, 100),  # High utilization range
+            'occupied_berths_range': (6, 8),  # High occupancy
             'waiting_time_multiplier': 1.5
         },
         'low': {
             'queue_multiplier': 0.5,
-            'utilization_range': (40, 60),
-            'occupied_berths_range': (2, 4),
+            'utilization_range': (25, 45),  # Low utilization range
+            'occupied_berths_range': (1, 3),  # Low occupancy
             'waiting_time_multiplier': 0.7
         },
         'normal': {
             'queue_multiplier': 1,
-            'utilization_range': (60, 80),
-            'occupied_berths_range': (4, 6),
+            'utilization_range': (60, 80),  # Medium utilization range
+            'occupied_berths_range': (4, 5),  # Medium occupancy
             'waiting_time_multiplier': 1
         }
     }
@@ -295,6 +295,8 @@ def initialize_session_state():
         st.session_state.show_section_navigation = True
     if 'expand_sections_by_default' not in st.session_state:
         st.session_state.expand_sections_by_default = False
+    if 'scenarios_sections_expanded' not in st.session_state:
+        st.session_state.scenarios_sections_expanded = False
     if 'remember_section_states' not in st.session_state:
         st.session_state.remember_section_states = True
 
@@ -1555,7 +1557,10 @@ def main():
         if use_consolidated:
             # Initialize and render the consolidated scenarios tab
             consolidated_tab = ConsolidatedScenariosTab()
-            consolidated_tab.render()
+            # Get current scenario from session state
+            current_scenario = st.session_state.get('scenario', 'normal')
+            scenario_data = {'name': current_scenario}
+            consolidated_tab.render_consolidated_tab(scenario_data)
         else:
             # Original Scenario Analysis tab content
             st.subheader("🎯 Scenario Analysis & Comparison")
@@ -1653,7 +1658,7 @@ def main():
             st.write("**Section Behavior**")
             sections_expanded = st.checkbox(
                 "Expand sections by default", 
-                value=st.session_state.get('scenarios_sections_expanded', True),
+                value=st.session_state.get('scenarios_sections_expanded', False),
                 help="Default expanded state for scenario sections"
             )
             st.session_state.scenarios_sections_expanded = sections_expanded
@@ -1707,7 +1712,7 @@ def main():
         # Reset options
         st.subheader("🔄 Reset Options")
         
-        reset_col1, reset_col2, reset_col3 = st.columns(3)
+        reset_col1, reset_col2, reset_col3, reset_col4 = st.columns(4)
         
         with reset_col1:
             if st.button("🗑️ Clear Cache"):
@@ -1726,6 +1731,13 @@ def main():
                 if hasattr(st.session_state, 'simulation_controller'):
                     st.session_state.simulation_controller.reset()
                 st.success("Simulation reset successfully!")
+        
+        with reset_col4:
+            if st.button("📋 Reset Sections"):
+                if 'consolidated_sections_state' in st.session_state:
+                    del st.session_state['consolidated_sections_state']
+                st.success("Section states reset successfully!")
+                st.rerun()
     
     # Additional tabs for original structure
     if not use_consolidated:
