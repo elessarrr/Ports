@@ -6,3 +6,8 @@ requests
 schedule
 python-dotenv
 scipy
+simpy
+numpy
+scikit-learn
+statsmodels
+matplotlib
