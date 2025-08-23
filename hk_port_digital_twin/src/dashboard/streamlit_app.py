@@ -255,35 +255,36 @@ def initialize_session_state():
     
     # Initialize real-time data manager
     if 'real_time_manager' not in st.session_state:
-        if RealTimeDataConfig and get_real_time_manager:
-            try:
-                # Configure real-time data manager
-                config = RealTimeDataConfig(
-                    enable_weather_integration=True,
-                    enable_file_monitoring=True,
-                    vessel_update_interval=15,   # 15 seconds
-                    weather_update_interval=300,  # 5 minutes
-                    auto_reload_on_file_change=True,
-                    cache_duration=60             # 1 minute
-                )
-                
-                # Get and start the real-time manager
-                manager = get_real_time_manager(config)
-                manager.start_real_time_updates()
-                st.session_state.real_time_manager = manager
-                
-                # Initialize vessel data pipeline
-                try:
-                    initialize_vessel_data_pipeline()
-                    logging.info("Vessel data pipeline initialized successfully")
-                except Exception as e:
-                    logging.warning(f"Could not initialize vessel data pipeline: {e}")
-                
-            except Exception as e:
-                print(f"Warning: Could not initialize real-time data manager: {e}")
-                st.session_state.real_time_manager = None
-        else:
-            st.session_state.real_time_manager = None
+        st.session_state.real_time_manager = None
+        # if RealTimeDataConfig and get_real_time_manager:
+        #     try:
+        #         # Configure real-time data manager
+        #         config = RealTimeDataConfig(
+        #             enable_weather_integration=True,
+        #             enable_file_monitoring=True,
+        #             vessel_update_interval=15,   # 15 seconds
+        #             weather_update_interval=300,  # 5 minutes
+        #             auto_reload_on_file_change=True,
+        #             cache_duration=60             # 1 minute
+        #         )
+        #         
+        #         # Get and start the real-time manager
+        #         manager = get_real_time_manager(config)
+        #         manager.start_real_time_updates()
+        #         st.session_state.real_time_manager = manager
+        #         
+        #         # Initialize vessel data pipeline
+        #         try:
+        #             initialize_vessel_data_pipeline()
+        #             logging.info("Vessel data pipeline initialized successfully")
+        #         except Exception as e:
+        #             logging.warning(f"Could not initialize vessel data pipeline: {e}")
+        #         
+        #     except Exception as e:
+        #         print(f"Warning: Could not initialize real-time data manager: {e}")
+        #         st.session_state.real_time_manager = None
+        # else:
+        #     st.session_state.real_time_manager = None
     
     # Initialize dashboard preferences
     if 'use_consolidated_scenarios' not in st.session_state:
