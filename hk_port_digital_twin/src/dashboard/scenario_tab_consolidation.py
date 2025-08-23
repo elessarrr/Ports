@@ -32,7 +32,7 @@ except ImportError:
         return {
             'show_section_descriptions': True,
             'enable_expand_collapse_all': True,
-            'show_section_navigation': st.session_state.get('show_section_navigation', True),
+            'show_section_navigation': st.session_state.get('show_section_navigation', False),  # Changed default to False
             'remember_section_states': st.session_state.get('remember_section_states', True),
             'scenarios_sections_expanded': st.session_state.get('scenarios_sections_expanded', False),
             'section_auto_scroll': True,
@@ -115,9 +115,7 @@ class ConsolidatedScenariosTab:
                 if st.button("📕 Collapse All", key="collapse_all"):
                     self._collapse_all_sections()
         
-        # Render section navigation if enabled
-        if self.preferences.get('show_section_navigation', True):
-            self._render_section_navigation()
+
         
         # Render validation section
         self._render_validation_section()
@@ -173,31 +171,7 @@ class ConsolidatedScenariosTab:
         """Render the consolidated scenarios tab (legacy method for backward compatibility)."""
         self.render_consolidated_tab()
     
-    def _render_section_navigation(self) -> None:
-        """Render the section navigation sidebar with anchor links."""
-        with st.sidebar:
-            st.subheader("📋 Section Navigation")
-            
-            # Quick status overview
-            expanded_count = sum(1 for state in st.session_state.consolidated_sections_state.values() if state)
-            total_count = len(self.sections)
-            st.caption(f"📊 {expanded_count}/{total_count} sections expanded")
-            
-            st.markdown("---")
-            
-            # Navigation buttons with status indicators
-            for section_key, section_info in self.sections.items():
-                is_expanded = st.session_state.consolidated_sections_state.get(section_key, False)
-                status_icon = "📖" if is_expanded else "📕"
-                
-                button_label = f"{status_icon} {section_info.get('icon', '')} {section_info.get('title', section_key.title())}"
-                
-                if st.button(button_label, key=f"nav_{section_key}", use_container_width=True):
-                    st.session_state.active_section = section_key
-                    # Toggle section state when navigating
-                    if self.preferences.get('section_auto_scroll', True):
-                        st.session_state.consolidated_sections_state[section_key] = True
-                        st.rerun()
+
     
     def _expand_all_sections(self) -> None:
         """Expand all sections."""
@@ -330,15 +304,6 @@ class ConsolidatedScenariosTab:
             scenario_color = self._get_scenario_color(current_scenario)
             scenario_badge = self._get_scenario_badge(current_scenario)
             
-            # Show current scenario status with color coding
-            st.markdown(
-                f"""<div style="padding: 10px; border-radius: 5px; background-color: {scenario_color}; 
-                border-left: 4px solid {self._get_scenario_border_color(current_scenario)}; margin-bottom: 15px;">
-                <strong>Current Scenario:</strong> {scenario_badge} {current_scenario}
-                </div>""",
-                unsafe_allow_html=True
-            )
-            
             # Primary scenario selection
             primary_scenario = st.selectbox(
                 "Primary Scenario",
@@ -352,16 +317,7 @@ class ConsolidatedScenariosTab:
             
             # Show scenario change indicator if changed
             if scenario_changed:
-                new_color = self._get_scenario_color(self._get_current_scenario())
-                new_badge = self._get_scenario_badge(self._get_current_scenario())
-                st.markdown(
-                    f"""<div style="padding: 10px; border-radius: 5px; background-color: {new_color}; 
-                    border-left: 4px solid #28a745; margin: 10px 0;">
-                    📊 <strong>Scenario Updated:</strong> {new_badge} {self._get_current_scenario()}
-                    </div>""",
-                    unsafe_allow_html=True
-                )
-                st.info("🔄 All values will be regenerated for the new scenario")
+                st.markdown("*(Note : All values will be regenerated for the new scenario)*")
             
             # Comparison scenario selection
             comparison_scenarios = st.multiselect(

@@ -29,7 +29,7 @@ from hk_port_digital_twin.src.dashboard.vessel_charts import render_vessel_analy
 from hk_port_digital_twin.src.dashboard.executive_dashboard import ExecutiveDashboard
 from hk_port_digital_twin.src.utils.strategic_visualization import StrategicVisualization, render_strategic_controls
 from hk_port_digital_twin.src.core.strategic_simulation_controller import StrategicSimulationController
-from hk_port_digital_twin.src.dashboard.unified_simulations_tab import UnifiedSimulationsTab
+# from hk_port_digital_twin.src.dashboard.unified_simulations_tab import UnifiedSimulationsTab  # Commented out - tab hidden
 
 try:
     from hk_port_digital_twin.src.dashboard.marine_traffic_integration import MarineTrafficIntegration
@@ -249,10 +249,7 @@ def initialize_session_state():
     logging.info("Initializing session state...")
     if 'scenario' not in st.session_state:
         st.session_state.scenario = 'normal'
-    if 'simulation_running' not in st.session_state:
-        st.session_state.simulation_running = False
-    if 'simulation_controller' not in st.session_state:
-        st.session_state.simulation_controller = None
+    # Removed simulation_running and simulation_controller - no longer needed after removing simulation settings
     if 'last_update' not in st.session_state:
         st.session_state.last_update = datetime.now()
     
@@ -292,13 +289,10 @@ def initialize_session_state():
     if 'use_consolidated_scenarios' not in st.session_state:
         st.session_state.use_consolidated_scenarios = True
     if 'show_section_navigation' not in st.session_state:
-        st.session_state.show_section_navigation = True
-    if 'expand_sections_by_default' not in st.session_state:
-        st.session_state.expand_sections_by_default = False
+        st.session_state.show_section_navigation = False  # Disabled as per demo refinement plan
+    # Removed expand_sections_by_default and remember_section_states - no longer needed after removing section navigation
     if 'scenarios_sections_expanded' not in st.session_state:
         st.session_state.scenarios_sections_expanded = False
-    if 'remember_section_states' not in st.session_state:
-        st.session_state.remember_section_states = True
 
 
 def create_sidebar():
@@ -354,106 +348,10 @@ def create_sidebar():
             st.write(f"**Container Volume:** {scenario_info.get('container_volume_multiplier', 1.0):.1f}x")
             st.write(f"**Processing Efficiency:** {scenario_info.get('processing_efficiency_factor', 1.0):.1f}x")
     
-    # Display historical simulation parameters
-    try:
-        enhanced_config = get_enhanced_simulation_config()
-        if enhanced_config.get('enhanced_with_historical_data', False):
-            with st.sidebar.expander("📈 Historical Data Integration", expanded=False):
-                metadata = enhanced_config.get('historical_data_metadata', {})
-                st.write(f"**Data Period:** {metadata.get('data_period', 'Unknown')}")
-                st.write(f"**Years of Data:** {metadata.get('years_of_data', 0):.1f}")
-                st.write(f"**Data Points:** {metadata.get('total_data_points', 0):,}")
-                st.write(f"**Trend Direction:** {metadata.get('trend_direction', 'stable').title()}")
-                
-                # Show enhanced parameters
-                if 'seasonal_patterns' in enhanced_config:
-                    seasonal = enhanced_config['seasonal_patterns']
-                    st.write(f"**Peak Multiplier:** {seasonal.get('peak_multiplier', 1.0):.2f}x")
-                    st.write(f"**Low Multiplier:** {seasonal.get('low_multiplier', 1.0):.2f}x")
-                
-                if 'historical_ship_type_distribution' in enhanced_config:
-                    ship_dist = enhanced_config['historical_ship_type_distribution']
-                    st.write("**Ship Type Distribution:**")
-                    for ship_type, percentage in ship_dist.items():
-                        st.write(f"  - {ship_type.title()}: {percentage:.1%}")
-        else:
-            with st.sidebar.expander("📈 Historical Data Integration", expanded=False):
-                st.write("⚠️ Historical data enhancement not available")
-                st.write("Using default simulation parameters")
-    except Exception as e:
-        with st.sidebar.expander("📈 Historical Data Integration", expanded=False):
-            st.write("⚠️ Error loading historical parameters")
-            st.write(f"Error: {str(e)}")
+    # Historical Data Integration section removed as per demo refinement plan
     
-    st.sidebar.divider()
-    
-    # Simulation parameters
-    st.sidebar.subheader("⚙️ Simulation Settings")
-    duration = st.sidebar.slider("Duration (hours)", 1, 168, SIMULATION_CONFIG['default_duration'])
-    
-    # Get scenario-adjusted arrival rate
-    base_arrival_rate = float(SIMULATION_CONFIG['ship_arrival_rate'])
-    scenario_params = scenario_manager.get_current_parameters()
-    if scenario_params:
-        adjusted_arrival_rate = base_arrival_rate * scenario_params.arrival_rate_multiplier
-    else:
-        adjusted_arrival_rate = base_arrival_rate
-    
-    arrival_rate = st.sidebar.slider(
-        "Ship Arrival Rate (ships/hour)", 
-        0.5, 5.0, 
-        adjusted_arrival_rate,
-        help=f"Base rate: {base_arrival_rate}, Scenario multiplier: {scenario_params.arrival_rate_multiplier if scenario_params else 1.0}x"
-    )
-    
-    # Simulation controls
-    st.sidebar.subheader("Controls")
-    
-    col1, col2 = st.sidebar.columns(2)
-    
-    with col1:
-        if st.button("▶️ Start", disabled=st.session_state.simulation_running or not PortSimulation):
-            if PortSimulation and SimulationController:
-                # Initialize simulation controller with historical parameters
-                config = get_enhanced_simulation_config()
-                config['ship_arrival_rate'] = arrival_rate
-                
-                simulation = PortSimulation(config)
-                
-                # Set scenario in simulation
-                if hasattr(simulation, 'set_scenario'):
-                    simulation.set_scenario(selected_scenario)
-                
-                st.session_state.simulation_controller = SimulationController(simulation)
-                st.session_state.simulation_controller.start(duration)
-                st.session_state.simulation_running = True
-                st.success(f"Simulation started with scenario: {selected_scenario}!")
-            else:
-                st.error("Simulation components not available")
-    
-    with col2:
-        if st.button("⏹️ Stop", disabled=not st.session_state.simulation_running):
-            if st.session_state.simulation_controller:
-                st.session_state.simulation_controller.stop()
-                st.session_state.simulation_running = False
-                st.success("Simulation stopped!")
-    
-    # Display simulation status
-    if st.session_state.simulation_controller:
-        st.sidebar.subheader("Status")
-        controller = st.session_state.simulation_controller
-        
-        if controller.is_running():
-            st.sidebar.success("🟢 Running")
-            progress = controller.get_progress_percentage()
-            st.sidebar.progress(progress / 100)
-            st.sidebar.text(f"Progress: {progress:.1f}%")
-        elif controller.is_completed():
-            st.sidebar.info("✅ Completed")
-        else:
-            st.sidebar.warning("⏸️ Stopped")
-    
-    return duration, arrival_rate
+    # Simulation Settings section removed as per demo refinement plan
+    # This includes duration slider, arrival rate controls, start/stop buttons, and status display
 
 
 def load_data(scenario: str):
@@ -510,16 +408,16 @@ def main():
     use_consolidated = st.session_state.get('use_consolidated_scenarios', True)
     
     if use_consolidated:
-        # New consolidated structure with Unified Simulations as tab8, Settings as tab9
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+        # New consolidated structure with Settings as tab8 (Unified Simulations hidden)
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
             "📊 Overview", "🚢 Vessel Analytics", "📦 Cargo Statistics", "🛳️ Live Vessels", 
-            "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "🎯 Unified Simulations", "⚙️ Settings"
+            "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "⚙️ Settings"
         ])
     else:
-        # Original structure with Unified Simulations as tab8, Settings as tab9
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
+        # Original structure with Settings as tab8 (Unified Simulations hidden)
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
             "📊 Overview", "🚢 Vessel Analytics", "📦 Cargo Statistics", "🛳️ Live Vessels",
-            "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "🎯 Unified Simulations", "⚙️ Settings",
+            "📈 Analytics", "🚢 Ships & Berths", "🎯 Scenarios", "⚙️ Settings",
             "📊 Performance Analytics", "📦 Cargo Analysis"
         ])
     
@@ -598,22 +496,7 @@ def main():
         col1, col2 = st.columns([1, 1])
         
         with col1:
-            # Real-time or enhanced metrics
-            if st.session_state.simulation_running and 'metrics' in data:
-                # Show real-time simulation metrics
-                sim_metrics = data['metrics']
-                st.metric("Ships in Queue", sim_metrics['queue_length'])
-                # Safe access to berths data with fallback
-                berths_df = data.get('berths', pd.DataFrame())
-                if not berths_df.empty and 'status' in berths_df.columns:
-                    available_berths = len(berths_df[berths_df['status'] == 'available'])
-                else:
-                    available_berths = 0
-                st.metric("Available Berths", available_berths)
-                st.metric("Ships Processed", sim_metrics['ships_processed'])
-                st.metric("Berth Utilization", f"{sim_metrics['berth_utilization']:.1%}")
-            else:
-                # Enhanced metrics with real vessel data
+            # Enhanced metrics with real vessel data
                 vessel_analysis = data.get('vessel_queue_analysis', {})
                 
                 if vessel_analysis:
@@ -1617,16 +1500,17 @@ def main():
                     st.plotly_chart(fig, use_container_width=True)
     
     # Unified Simulations tab - always tab8 regardless of mode
-    with tab8:
-        # Initialize unified simulations tab
-        if 'unified_simulations_tab' not in st.session_state:
-            st.session_state.unified_simulations_tab = UnifiedSimulationsTab()
-        
-        # Render the unified simulations interface
-        st.session_state.unified_simulations_tab.render()
+    # Unified Simulations tab - COMMENTED OUT
+    # with tab8:
+    #     # Initialize unified simulations tab
+    #     if 'unified_simulations_tab' not in st.session_state:
+    #         st.session_state.unified_simulations_tab = UnifiedSimulationsTab()
+    #     
+    #     # Render the unified simulations interface
+    #     st.session_state.unified_simulations_tab.render()
     
-    # Settings tab - always tab9 regardless of mode
-    with tab9:
+    # Settings tab - now tab8 (was tab9)
+    with tab8:
         st.subheader("⚙️ Settings")
         st.markdown("Configure simulation parameters and system settings")
         
@@ -1647,12 +1531,7 @@ def main():
                 st.session_state.use_consolidated_scenarios = use_consolidated_checkbox
                 st.rerun()
             
-            show_navigation = st.checkbox(
-                "Show section navigation", 
-                value=st.session_state.get('show_section_navigation', True),
-                help="Show navigation sidebar in consolidated scenarios tab"
-            )
-            st.session_state.show_section_navigation = show_navigation
+            # Section navigation checkbox removed as per demo refinement plan
         
         with pref_col2:
             st.write("**Section Behavior**")
@@ -1663,12 +1542,7 @@ def main():
             )
             st.session_state.scenarios_sections_expanded = sections_expanded
             
-            remember_states = st.checkbox(
-                "Remember section states", 
-                value=st.session_state.get('remember_section_states', True),
-                help="Remember which sections are expanded/collapsed"
-            )
-            st.session_state.remember_section_states = remember_states
+            # Removed 'Remember section states' checkbox - no longer needed after removing section navigation
         
         # Simulation settings
         st.subheader("🔧 Simulation Configuration")
@@ -1727,10 +1601,8 @@ def main():
                 st.rerun()
         
         with reset_col3:
-            if st.button("📊 Reset Simulation"):
-                if hasattr(st.session_state, 'simulation_controller'):
-                    st.session_state.simulation_controller.reset()
-                st.success("Simulation reset successfully!")
+            # Reset Simulation button removed - no longer needed after removing simulation settings
+            st.empty()
         
         with reset_col4:
             if st.button("📋 Reset Sections"):
@@ -1741,12 +1613,12 @@ def main():
     
     # Additional tabs for original structure
     if not use_consolidated:
-        with tab10:
+        with tab9:
             st.subheader("📊 Performance Analytics")
             st.markdown("Detailed performance metrics and analytics")
             st.info("Performance analytics content would be displayed here.")
         
-        with tab11:
+        with tab10:
             st.subheader("📦 Cargo Analysis")
             st.markdown("Advanced cargo flow and logistics analysis")
             st.info("Cargo analysis content would be displayed here.")
