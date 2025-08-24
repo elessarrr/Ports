@@ -27,6 +27,12 @@
       ]
     },
     {
+      "step": "Full Direcotry Review Post-Fix",
+      "description": [
+        "After fixing the error, review the entire directory to identify and remedy other instances of the same error",              
+      ]
+    },
+    {
       "step": "Dependency Analysis & Update",
       "description": [
         "Check if the new or changed code has any dependencies (or if it replaced any code with dependencies).",

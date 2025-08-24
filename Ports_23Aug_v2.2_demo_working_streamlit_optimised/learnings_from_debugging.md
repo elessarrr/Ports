@@ -506,6 +506,51 @@ project_root = str(Path(__file__).resolve().parents[3])
 
 ---
 
+### Error 7: Streamlit Cloud Execution Context Path Duplication
+
+**Symptom:** 
+- FileNotFoundError in Streamlit Cloud: `/mount/src/ports/Ports_23Aug_v2.2_demo_working_streamlit_optimised/hk_port_digital_twin/Ports_23Aug_v2.2_demo_working_streamlit_optimised/streamlit_app.py`
+- Path shows project directory name duplicated in the middle
+- Script compilation error and file watcher failure
+- Error occurs specifically in cloud environment, not locally
+
+**Root Cause:** 
+- When using `exec()` to run dashboard code from root `streamlit_app.py`, the `__file__` variable in the executed code still refers to the dashboard file path
+- However, the execution context in Streamlit Cloud differs from local execution
+- The `Path(__file__).resolve().parents[3]` calculation in the dashboard file creates incorrect paths when executed via `exec()` in cloud environment
+- Additional files still using `os.path` methods instead of `pathlib.Path` for consistency
+
+**Resolution:** 
+1. **Fixed execution context in root `streamlit_app.py`:**
+   ```python
+   # Before:
+   exec(dashboard_code, globals())
+   
+   # After:
+   exec_globals = globals().copy()
+   exec_globals['__file__'] = str(dashboard_path)
+   exec(dashboard_code, exec_globals)
+   ```
+
+2. **Updated remaining `os.path` usage:**
+   ```python
+   # Before (in scenario_tab_consolidation.py):
+   sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'config'))
+   
+   # After:
+   from pathlib import Path
+   sys.path.append(str(Path(__file__).resolve().parents[2] / 'config'))
+   ```
+
+**Key Learnings:**
+- **Execution Context Matters:** When using `exec()`, the execution context (including `__file__`) needs to be properly managed
+- **Cloud vs Local Differences:** Path resolution can behave differently in cloud environments, especially with `exec()` execution
+- **Consistent Path Handling:** All files should use the same path handling approach (`pathlib.Path`) for consistency
+- **Testing Execution Methods:** Different ways of running code (direct vs `exec()`) can have different behaviors in cloud environments
+- **Global Context Management:** When executing code dynamically, ensure all necessary context variables are properly set
+
+---
+
 ## How to document
 
 When documenting debugging insights, follow this format:

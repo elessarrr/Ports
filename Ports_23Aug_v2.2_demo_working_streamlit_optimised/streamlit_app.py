@@ -27,8 +27,12 @@ try:
     with open(dashboard_path, 'r', encoding='utf-8') as f:
         dashboard_code = f.read()
     
-    # Execute the dashboard code in the current namespace
-    exec(dashboard_code, globals())
+    # Set up the execution environment with correct project root
+    exec_globals = globals().copy()
+    exec_globals['__file__'] = str(dashboard_path)
+    
+    # Execute the dashboard code with the correct context
+    exec(dashboard_code, exec_globals)
         
 except FileNotFoundError as e:
     import streamlit as st

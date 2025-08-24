@@ -21,7 +21,8 @@ import sys
 import os
 
 # Add the config directory to the path to import settings
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'config'))
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parents[2] / 'config'))
 try:
     from settings import get_dashboard_preferences, get_default_section_states
 except ImportError:
