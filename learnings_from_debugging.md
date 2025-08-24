@@ -160,6 +160,46 @@ This change ensures that `simpy` is installed as a dependency when the applicati
 
 ---
 
+## Error 6: `ModuleNotFoundError: No module named 'scipy'`
+
+### Symptom
+
+The Streamlit application failed to deploy on Streamlit Community Cloud with the following error:
+
+```
+ModuleNotFoundError: No module named 'scipy'
+```
+
+### Root Cause
+
+Similar to the previous `simpy` error, the `scipy` library was not listed in the `requirements.txt` file. This library is a dependency for one of the other libraries or is used directly in the code, and it needs to be explicitly installed in the Streamlit Community Cloud environment.
+
+### Resolution
+
+The fix involved adding `scipy` to the `requirements.txt` file.
+
+**Corrected `requirements.txt`:**
+```
+streamlit
+pandas
+plotly
+watchdog
+requests
+schedule
+python-dotenv
+simpy
+scipy
+```
+
+This change ensures that `scipy` is installed as a dependency when the application is deployed.
+
+### Key Learnings
+
+-   It is crucial to perform a thorough dependency check before deploying an application to a new environment.
+-   Tools like `pipreqs` can be used to automatically generate a `requirements.txt` file, but it's always good to double-check it for any missing libraries.
+
+---
+
 ## Summary
 
 Successfully implemented scenario-dependent performance analytics in the Hong Kong Port Digital Twin dashboard with **distinct, non-overlapping parameter ranges**. The system now dynamically changes analytics based on the selected scenario (Peak Season, Normal Operations, Low Season), providing more realistic and contextually relevant data visualization.

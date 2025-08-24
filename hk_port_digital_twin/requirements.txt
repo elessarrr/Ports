@@ -1,3 +1,4 @@
+# Last updated: 2025-08-23 - Force refresh for simpy dependency
 streamlit
 pandas
 plotly
@@ -5,5 +6,9 @@ watchdog
 requests
 schedule
 python-dotenv
-simpy
 scipy
+simpy>=4.0.0
+numpy
+scikit-learn
+statsmodels
+matplotlib
