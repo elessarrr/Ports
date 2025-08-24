@@ -4,6 +4,7 @@ This module provides reusable functions for creating charts and graphs
 to visualize port operations and simulation results.
 """
 
+import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd

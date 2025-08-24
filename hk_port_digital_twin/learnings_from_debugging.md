@@ -1,5 +1,16 @@
 # Learnings from Debugging and Development
 
+## `NameError: name 'st' is not defined`
+
+### Issue Resolved
+- **Problem**: The application failed to launch on Streamlit Community Cloud, reporting a `NameError`.
+- **Root Cause**: The file `hk_port_digital_twin/src/utils/visualization.py` used the `@st.cache_data` decorator without importing the `streamlit` library. The alias `st` was therefore not defined, leading to the `NameError`.
+- **Solution**: Added `import streamlit as st` to the top of `hk_port_digital_twin/src/utils/visualization.py`.
+
+### Key Learning
+- **Dependency Awareness in Modular Code**: When refactoring or creating new modules (like `visualization.py`), it's crucial to ensure that all dependencies are explicitly imported within that module's scope. A file must be self-sufficient in its imports.
+- **Local vs. Cloud Environments**: This error did not surface in the local development environment, likely because `streamlit` was imported in the main application file (`app.py`), and its scope might have been inadvertently shared. However, Streamlit Community Cloud has a stricter execution environment where each module's dependencies must be explicitly declared. This highlights the importance of testing in an environment that closely mirrors production.
+
 ## Scenario-Dependent Performance Analytics Implementation
 
 ### Issue Resolved
