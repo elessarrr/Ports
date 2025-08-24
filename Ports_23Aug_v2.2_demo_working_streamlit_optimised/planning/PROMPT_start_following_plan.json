@@ -1,0 +1,75 @@
+{
+  "instructions": [
+    {
+      "step": "Sequential Execution",
+      "description": [
+        "Go through the proposed steps in order, one at a time.",
+        "For each step:",
+        "- Check if it is already complete based on current directory state.",
+        "- If complete, skip to the next step.",
+        "- If not complete, carry out the step."
+      ]
+    },
+    {
+      "step": "Pre-Code Review",
+      "description": [
+        "Before writing code, inspect the directory and files to check if the intended logic/code already exists.",
+        "If the code exists, review to verify it meets current expectations.",
+        "If deficient, update/enhance as needed."
+      ]
+    },
+    {
+      "step": "Code Quality Assurance",
+      "description": [
+        "For any code written:",
+        "- Double-check for syntax errors.",
+        "- Ensure the code fits well contextually with adjacent code.",
+        "- Confirm nothing is missing (e.g., closing parentheses)."
+      ]
+    },
+    {
+      "step": "Code Minimalism",
+      "description": [
+        "Write just enough code to deliver the required feature or fix.",
+        "Avoid adding unnecessary code beyond what’s required."
+      ]
+    },
+    {
+      "step": "Step Completion Verification",
+      "description": [
+        "After completing a step, validate it against the original proposal and its intent.",
+        "Ask the user if they want to continue before moving to the next step.",
+        "Focus only on the current task; avoid changes for any other goals.",
+        "Mark the completed step as 'Completed' with a ✔ tick in the plan file."
+      ]
+    },
+    {
+      "step": "Test Driven Development (TDD)",
+      "description": [
+        "Identify/apply the appropriate tests for new/modified code.",
+        "Add relevant tests to the tests directory/files; create them if none exist.",
+        "Run all relevant tests after adding or updating tests.",
+        "Tweak program code if tests fail (do NOT tweak test code just to pass)."
+      ]
+    },
+    {
+      "step": "Real Data Confirmation",
+      "description": [
+        "Confirm that real (not sample) data is being used, unless otherwise specified by the user."
+      ]
+    },
+    {
+      "step": "Debugging Documentation",
+      "description": [
+        "For each code/application error fixed, document the process and insights in 'learnings_from_debugging.md'.",
+        "Refer to the 'How to document' section within that .md file for the proper format."
+      ]
+    },
+    {
+      "step": "Rule Compliance",
+      "description": [
+        "Adhere to all project and user-specified rules throughout."
+      ]
+    }
+  ]
+}
