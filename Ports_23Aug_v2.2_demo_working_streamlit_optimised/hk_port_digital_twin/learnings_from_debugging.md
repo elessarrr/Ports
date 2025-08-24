@@ -1,5 +1,59 @@
 # Learnings from Debugging and Development
 
+## Error 8: Streamlit Cloud Path Duplication in `exec()` Context
+
+### Symptom
+- **Error**: `FileNotFoundError` with a duplicated path component when running in Streamlit Cloud.
+- **Example**: `/mount/src/ports/Ports_23Aug_v2.2_demo_working_streamlit_optimised/hk_port_digital_twin/Ports_23Aug_v2.2_demo_working_streamlit_optimised/streamlit_app.py`
+- **Context**: This error occurred when the application was deployed to Streamlit Cloud, but not locally.
+
+### Root Cause
+- **`exec()` and `__file__`**: The use of `exec()` to run the dashboard script from a different entry point (`streamlit_app.py`) caused confusion in how the `__file__` attribute was resolved within the executed code.
+- **Hardcoded Path Resolution**: The dashboard script used `Path(__file__).resolve().parents[3]` to find the project root. This assumed a fixed directory structure that was not consistent between the local environment and the Streamlit Cloud environment.
+- **Streamlit File Watcher**: The dynamic execution with `exec()` and string manipulation of the code before execution was likely interfering with Streamlit's file watcher, leading to incorrect path resolution.
+
+### Resolution
+The solution involved a combination of simplifying the entry point and making the project root discovery more robust.
+
+1.  **Simplified Entry Point**: The root `streamlit_app.py` was simplified to use `runpy.run_path()` to execute the dashboard script. This is a more robust way to run a Python script as it correctly handles `sys.path` and other module-level attributes.
+
+    ```python
+    # streamlit_app.py (root)
+    import runpy
+    from pathlib import Path
+
+    dashboard_path = Path(__file__).resolve().parent / "hk_port_digital_twin" / "src" / "dashboard" / "streamlit_app.py"
+    runpy.run_path(str(dashboard_path), run_name="__main__")
+    ```
+
+2.  **Robust Project Root Discovery**: The hardcoded `parents[3]` was replaced with a dynamic `find_project_root()` function in the dashboard's `streamlit_app.py`. This function searches up the directory tree for a known marker (in this case, the presence of both `streamlit_app.py` and the `hk_port_digital_twin` directory), making the logic independent of the environment's specific file structure.
+
+    ```python
+    # hk_port_digital_twin/src/dashboard/streamlit_app.py
+    from pathlib import Path
+    import sys
+
+    def find_project_root(marker_file='streamlit_app.py'):
+        current_path = Path(__file__).resolve()
+        for parent in current_path.parents:
+            if (parent / marker_file).exists() and (parent / 'hk_port_digital_twin').exists():
+                return str(parent)
+        # Fallback
+        for parent in current_path.parents:
+            if (parent / 'hk_port_digital_twin').exists():
+                return str(parent)
+        raise FileNotFoundError("Project root not found.")
+
+    project_root = find_project_root()
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+    ```
+
+### Key Learnings
+- **Avoid `exec()` for File-Based Scripts**: `exec()` can have subtle side effects on path resolution, especially in cloud environments. `runpy.run_path()` is a much safer and more predictable alternative for running scripts.
+- **Dynamic Path Resolution**: Never rely on hardcoded directory structures (`parents[n]`). Always use a dynamic method to find project roots, such as searching for marker files or directories. This makes the code more portable and less prone to environment-specific errors.
+- **Streamlit Cloud Environment**: Be aware that the file system structure in Streamlit Cloud can differ from a local development environment. Code that relies on specific path structures is likely to break upon deployment.
+
 ## Scenario-Dependent Performance Analytics Implementation
 
 ### Issue Resolved

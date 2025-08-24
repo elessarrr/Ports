@@ -108,7 +108,28 @@ main()
 
 ---
 
-## How to Document
+### Error 8: Streamlit Cloud Path Duplication in exec() Context
+
+**Symptom:** FileNotFoundError in Streamlit Cloud with duplicated path `/mount/src/ports/Ports_23Aug_v2.2_demo_working_streamlit_optimised/hk_port_digital_twin/Ports_23Aug_v2.2_demo_working_streamlit_optimised/streamlit_app.py` during watchdog and tokenize operations
+
+**Root Cause:** When using `exec()` to run the dashboard code, setting `__file__` to the dashboard path caused `Path(__file__).resolve().parents[3]` to calculate an incorrect project root in cloud environments, leading to path duplication
+
+**Resolution:** 
+1. Modified `streamlit_app.py` to pre-calculate the correct project root using the entry point's `__file__`
+2. Used string replacement to inject the correct project root into the dashboard code before execution
+3. Updated all scenario optimizer files to use `pathlib.Path` instead of `os.path.abspath` for consistency
+4. Ensured consistent path handling across the entire codebase
+
+**Key Learnings:**
+- String replacement of code before `exec()` can be more reliable than trying to manipulate the execution context
+- Path calculations in `exec()` contexts behave differently than in normal module imports
+- Cloud environments may have different path resolution behavior than local development
+- Consistent use of `pathlib.Path` across the entire codebase prevents mixed path handling issues
+- Pre-calculating paths at the entry point level provides more control over path resolution
+
+---
+
+## How to document
 
 When documenting debugging processes, follow this format:
 

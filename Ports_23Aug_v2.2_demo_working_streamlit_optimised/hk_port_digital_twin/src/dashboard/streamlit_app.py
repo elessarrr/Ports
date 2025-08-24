@@ -11,7 +11,23 @@ import simpy
 # Add the project root to the Python path to allow absolute imports
 # Use Path for more robust path handling in cloud environments
 from pathlib import Path
-project_root = str(Path(__file__).resolve().parents[3])
+
+def find_project_root(marker_file='streamlit_app.py'):
+    """Find the project root by searching for a marker file."""
+    current_path = Path(__file__).resolve()
+    # We are looking for the directory that contains both the marker_file and the 'hk_port_digital_twin' directory
+    for parent in current_path.parents:
+        if (parent / marker_file).exists() and (parent / 'hk_port_digital_twin').exists():
+            return str(parent)
+    # Fallback for environments where the structure might be different
+    # This is a bit of a guess, but it's better than a hardcoded index.
+    for parent in current_path.parents:
+        if (parent / 'hk_port_digital_twin').exists():
+            return str(parent)
+    raise FileNotFoundError(f"Project root not found. Could not find a directory containing '{marker_file}' or 'hk_port_digital_twin'.")
+
+
+project_root = find_project_root()
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 

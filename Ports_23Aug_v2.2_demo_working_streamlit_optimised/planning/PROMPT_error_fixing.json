@@ -6,6 +6,7 @@
         "Identify the reported error.",
         "Think through and plan the optimal way to fix the error, step by step.",
         "Add debugging output as appropriate to try and troubleshoot the error",
+        "Avoid renaming any files; if you must, ask the user for explicit permission first",
         "Proceed with a fix only if it's the best approach."
       ]
     },
