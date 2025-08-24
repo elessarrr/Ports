@@ -13,27 +13,33 @@ import sys
 import os
 from pathlib import Path
 
-# Add the project root to Python path for proper imports
-project_root = Path(__file__).parent
-
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-
-# Import and run the main dashboard
+# Ensure robust path handling for both local and cloud deployment
 try:
-    # Import the main dashboard module
-    import hk_port_digital_twin.src.dashboard.streamlit_app as dashboard_app
+    # Get the absolute path of the current file's directory
+    current_dir = Path(__file__).resolve().parent
     
-    # Check if there's a main function, otherwise the module will run automatically
-    if hasattr(dashboard_app, 'main') and __name__ == "__main__":
-        dashboard_app.main()
-    # If no main function, the streamlit app should run automatically when imported
+    # Add current directory to Python path if not already present
+    if str(current_dir) not in sys.path:
+        sys.path.insert(0, str(current_dir))
+    
+    # Import the main dashboard module using absolute import
+    from hk_port_digital_twin.src.dashboard.streamlit_app import main
+    
+    # Run the main function
+    if __name__ == "__main__":
+        main()
+    else:
+        # If imported as module, run main automatically
+        main()
         
 except ImportError as e:
     import streamlit as st
-    st.error(f"Failed to import dashboard: {e}")
+    st.error(f"Failed to import dashboard module: {e}")
     st.info("Please ensure all dependencies are installed and the project structure is correct.")
+    st.info(f"Current working directory: {os.getcwd()}")
+    st.info(f"Python path: {sys.path[:3]}...")  # Show first 3 paths
 except Exception as e:
     import streamlit as st
     st.error(f"Error running dashboard: {e}")
     st.info("Please check the application logs for more details.")
+    st.info(f"Current working directory: {os.getcwd()}")
