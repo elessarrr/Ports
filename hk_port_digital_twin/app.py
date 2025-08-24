@@ -33,7 +33,7 @@ HKObservatoryIntegration = None  # Disabled
 from src.utils.data_loader import load_focused_cargo_statistics, get_enhanced_cargo_analysis, get_time_series_data
 from src.dashboard.scenario_tab_consolidation import ConsolidatedScenariosTab
 from src.dashboard.vessel_charts import render_vessel_analytics_dashboard
-from src.dashboard.cargo_statistics_tab import render_cargo_statistics_tab
+from src.dashboard.tabs.cargo_statistics_tab import render_cargo_statistics_tab
 from src.dashboard.live_vessels_tab import render_live_vessels_tab
 from src.dashboard.ships_berths_tab import render_ships_berths_tab
 from src.dashboard.tabs.scenario_analysis_tab import render_scenario_analysis_tab
