@@ -7,6 +7,7 @@
         "Think through and plan the optimal way to fix the error, step by step.",
         "Add debugging output as appropriate to try and troubleshoot the error",
         "Avoid renaming any files; if you must, ask the user for explicit permission first",
+        "If a file is too big to read, read it a bit at a time until you're finished",
         "Proceed with a fix only if it's the best approach."
       ]
     },
@@ -14,6 +15,7 @@
       "step": "Error Correction",
       "description": [
         "Make code changes to resolve the identified error.",
+        "If a file is too big to read, read it a bit at a time until you're finished",
         "Write only the minimal required code to deliver the correction."
       ]
     },

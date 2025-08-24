@@ -1,0 +1,151 @@
+{
+  "generated_at": "2025-08-11T21:38:23.087989",
+  "report_type": "performance_benchmark",
+  "version": "1.0",
+  "analysis": {
+    "report_id": "benchmark_20250811_213823",
+    "timestamp": "2025-08-11T21:38:23.087050",
+    "simulation_duration": 0,
+    "metrics": [
+      {
+        "metric_id": "container_throughput_teu_hour",
+        "name": "Container Throughput (TEU/hour)",
+        "category": "throughput",
+        "unit": "TEU/hour",
+        "current_value": null,
+        "performance_level": null,
+        "improvement_potential": null
+      },
+      {
+        "metric_id": "berth_utilization_rate",
+        "name": "Berth Utilization Rate",
+        "category": "utilization",
+        "unit": "%",
+        "current_value": 0,
+        "performance_level": "poor",
+        "improvement_potential": 0.0
+      },
+      {
+        "metric_id": "ship_turnaround_time",
+        "name": "Ship Turnaround Time",
+        "category": "turnaround_time",
+        "unit": "hours",
+        "current_value": 0,
+        "performance_level": "poor",
+        "improvement_potential": 0.0
+      },
+      {
+        "metric_id": "queue_waiting_time",
+        "name": "Average Queue Waiting Time",
+        "category": "waiting_time",
+        "unit": "hours",
+        "current_value": 0,
+        "performance_level": "poor",
+        "improvement_potential": 0.0
+      },
+      {
+        "metric_id": "crane_productivity",
+        "name": "Crane Productivity",
+        "category": "efficiency",
+        "unit": "moves/hour",
+        "current_value": null,
+        "performance_level": null,
+        "improvement_potential": null
+      },
+      {
+        "metric_id": "yard_utilization",
+        "name": "Container Yard Utilization",
+        "category": "utilization",
+        "unit": "%",
+        "current_value": 0.0,
+        "performance_level": "poor",
+        "improvement_potential": 0.0
+      },
+      {
+        "metric_id": "energy_efficiency",
+        "name": "Energy Efficiency",
+        "category": "environmental",
+        "unit": "kWh/TEU",
+        "current_value": 21.5,
+        "performance_level": "excellent",
+        "improvement_potential": 0.0
+      },
+      {
+        "metric_id": "cost_per_teu",
+        "name": "Cost per TEU",
+        "category": "cost_effectiveness",
+        "unit": "USD/TEU",
+        "current_value": 152.5,
+        "performance_level": "excellent",
+        "improvement_potential": 0.0
+      }
+    ],
+    "overall_score": 8.163265306122447,
+    "performance_level": "Poor",
+    "category_scores": {
+      "throughput": 0.0,
+      "efficiency": 0.0,
+      "utilization": 0.0,
+      "waiting_time": 0.0,
+      "turnaround_time": 0.0,
+      "cost_effectiveness": 100.0,
+      "environmental": 100.0
+    },
+    "recommendations": [
+      "Increase Berth Utilization Rate: Optimize berth allocation and reduce idle time",
+      "Reduce Average Queue Waiting Time: Implement predictive scheduling and improve traffic flow",
+      "Increase Container Yard Utilization: Optimize berth allocation and reduce idle time",
+      "Consider comprehensive operational review and process optimization"
+    ],
+    "historical_comparison": {
+      "trends": {
+        "berth_utilization_rate": {
+          "current_value": 0,
+          "historical_average": 64.046170613816,
+          "change_percentage": -100.0,
+          "trend": "declining"
+        },
+        "ship_turnaround_time": {
+          "current_value": 0,
+          "historical_average": 23.743873926130856,
+          "change_percentage": -100.0,
+          "trend": "declining"
+        },
+        "queue_waiting_time": {
+          "current_value": 0,
+          "historical_average": 4.394351206194698,
+          "change_percentage": -100.0,
+          "trend": "declining"
+        },
+        "yard_utilization": {
+          "current_value": 0.0,
+          "historical_average": 67.87843416561525,
+          "change_percentage": -100.0,
+          "trend": "declining"
+        },
+        "energy_efficiency": {
+          "current_value": 21.5,
+          "historical_average": 14.986096148477557,
+          "change_percentage": 43.46631562339331,
+          "trend": "improving"
+        },
+        "cost_per_teu": {
+          "current_value": 152.5,
+          "historical_average": 114.86732594328424,
+          "change_percentage": 32.76186134540722,
+          "trend": "improving"
+        }
+      },
+      "improvements": {
+        "energy_efficiency": 43.46631562339331,
+        "cost_per_teu": 32.76186134540722
+      },
+      "deteriorations": {
+        "berth_utilization_rate": -100.0,
+        "ship_turnaround_time": -100.0,
+        "queue_waiting_time": -100.0,
+        "yard_utilization": -100.0
+      }
+    }
+  }
+}

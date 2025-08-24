@@ -1,0 +1,66 @@
+{
+  "instructions": [
+    {
+      "step": "Error Diagnosis & Solution Planning",
+      "description": [
+        "Identify the reported error.",
+        "Think through and plan the optimal way to fix the error, step by step.",
+        "Add debugging output as appropriate to try and troubleshoot the error",
+        "Avoid renaming any files; if you must, ask the user for explicit permission first",
+        "Proceed with a fix only if it's the best approach."
+      ]
+    },
+    {
+      "step": "Error Correction",
+      "description": [
+        "Make code changes to resolve the identified error.",
+        "Write only the minimal required code to deliver the correction."
+      ]
+    },
+    {
+      "step": "Full File Review Post-Fix",
+      "description": [
+        "After fixing the error, review the entire file to identify and remedy:",
+        "- Duplicate declarations or duplicate code",
+        "- Syntax or indentation errors",
+        "- Non-adherence to best practices or project/user rules",
+        "- Undefined variables"
+      ]
+    },
+    {
+      "step": "Full Direcotry Review Post-Fix",
+      "description": [
+        "After fixing the error, review the entire directory to identify and remedy other instances of the same error"              
+      ]
+    },
+    {
+      "step": "Dependency Analysis & Update",
+      "description": [
+        "Check if the new or changed code has any dependencies (or if it replaced any code with dependencies).",
+        "Search across the whole folder/project for impacted or dependent files.",        
+        "Update all related dependencies accordingly."
+      ]
+    },
+    {
+      "step": "Code Minimalism",
+      "description": [
+        "Limit code changes strictly to what is needed for this error/task.",
+        "Avoid changes for any other issues, and do not add unnecessary code."
+      ]
+    },
+    {
+      "step": "Debugging Documentation",
+      "description": [
+        "Document the debugging process and insights in 'learnings_from_debugging.md' (do not create a new file; use the one in the directory).",
+        "If the file cannot be found, alert the user.",
+        "Follow the documentation format provided inside the 'How to document' section of the .md file."
+      ]
+    },
+    {
+      "step": "Project and User Rule Compliance",
+      "description": [
+        "At all times, adhere to project rules and specific user-provided rules."
+      ]
+    }
+  ]
+}

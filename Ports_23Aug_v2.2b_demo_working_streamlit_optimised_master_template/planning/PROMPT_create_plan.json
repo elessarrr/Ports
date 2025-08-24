@@ -1,0 +1,65 @@
+{
+  "instructions": [
+    {
+      "step": "Understand the Goal",
+      "description": [
+        "Review the new logic to be implemented and the business or technical reason for it.",
+        "Ask clarifying questions if any part of the request is unclear.",
+        "Confirm understanding before starting any planning."
+      ]
+    },
+    {
+      "step": "Adopt a Conservative Approach",
+      "description": [
+        "Ensure no existing functionality is broken.",
+        "Design changes so they can be easily rolled back if needed.",
+        "Avoid unnecessary changes to other working parts of the product."
+      ]
+    },
+    {
+      "step": "Implementation Strategy",
+      "description": [
+        "Plan to place all new logic/code in separate functions or modules.",
+        "Import these into the relevant parts of the application only where needed.",
+        "This isolation facilitates rollback and reduces the risk of side effects."
+      ]
+    },
+    {
+      "step": "Pre-Creation Checks",
+      "description": [
+        "Before writing any code or creating new files, search the existing directory structure.",
+        "Check if the required logic, modules, or files already exist.",
+        "If existing code can be reused or extended, prefer that over creating new code."
+      ]
+    },
+    {
+      "step": "Code Minimalism Principle",
+      "description": [
+        "Plan solutions that use the least amount of code necessary to achieve the goal.",
+        "Avoid feature creep or extra features not requested."
+      ]
+    },
+    {
+      "step": "Detailed Step-by-Step Plan in Markdown",
+      "description": [
+        "Draft a `.md` file containing a detailed, ordered list of steps to implement the change.",        
+        "Provide enough detail and explanations, but also keep the scope of each step small/atomic enough, so that a hardworking junior developer with no real-world experience can complete each step correctly.",
+        "Include context for each step, explaining 'why' as well as 'what' to do.",
+        "Do not write any actual code in the plan—focus on instructions."
+      ]
+    },
+    {
+      "step": "Project and User Rule Compliance",
+      "description": [
+        "Ensure all steps and designs respect stated project rules and the specific user-provided rules."
+      ]
+    },
+    {
+      "step": "User Confirmation",
+      "description": [
+        "Before finalizing the plan, confirm with the user that the steps meet their expectations.",
+        "Ask for clarification wherever unsure."
+      ]
+    }
+  ]
+}
