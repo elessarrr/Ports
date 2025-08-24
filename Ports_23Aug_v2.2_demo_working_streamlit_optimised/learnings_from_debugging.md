@@ -465,6 +465,47 @@ exec(dashboard_code, globals())
 4. **Error Handling**: Provide clear error messages with actual paths for debugging deployment issues
 5. **Deployment Testing**: Test deployment scenarios separately from local development
 
+---
+
+## Error 6: Streamlit Cloud Path Resolution with os.path.abspath
+
+### Symptom
+- FileNotFoundError in Streamlit Cloud deployment with duplicated path:
+  `/mount/src/ports/Ports_23Aug_v2.2_demo_working_streamlit_optimised/hk_port_digital_twin/Ports_23Aug_v2.2_demo_working_streamlit_optimised/streamlit_app.py`
+- Path duplication causing "No such file or directory" errors
+- Watchdog observer failing to schedule file monitoring
+
+### Root Cause
+The use of `os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))` for path resolution was causing issues in Streamlit Cloud environment where the path resolution behaves differently than in local development, leading to path duplication.
+
+### Resolution
+Replaced `os.path.abspath` with `pathlib.Path` for more robust cross-platform path handling:
+
+**Before:**
+```python
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+```
+
+**After:**
+```python
+from pathlib import Path
+project_root = str(Path(__file__).resolve().parents[3])
+```
+
+### Files Updated
+1. `hk_port_digital_twin/src/dashboard/streamlit_app.py`
+2. `hk_port_digital_twin/tests/test_investment_planner.py`
+3. `test_vessel_pipeline.py`
+
+### Key Learnings
+1. **pathlib vs os.path**: `pathlib.Path` provides more reliable cross-platform path handling than `os.path`
+2. **Cloud Environment Differences**: Path resolution can behave differently in cloud deployment environments
+3. **Consistent Path Handling**: Use the same path resolution approach across all files in the project
+4. **parents[] vs join()**: `Path.parents[n]` is more explicit and reliable than multiple `..` joins
+5. **Deployment Testing**: Always test path-dependent code in target deployment environment
+
+---
+
 ## How to document
 
 When documenting debugging insights, follow this format:

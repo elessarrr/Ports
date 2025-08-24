@@ -9,7 +9,9 @@ import numpy as np
 import simpy
 
 # Add the project root to the Python path to allow absolute imports
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+# Use Path for more robust path handling in cloud environments
+from pathlib import Path
+project_root = str(Path(__file__).resolve().parents[3])
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
