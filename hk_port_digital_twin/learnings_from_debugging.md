@@ -1,5 +1,20 @@
 # Learnings from Debugging and Development
 
+## `ModuleNotFoundError: No module named 'src.dashboard.cargo_statistics_tab'`
+
+### Issue Resolved
+- **Problem**: The application failed to launch on Streamlit Community Cloud with `ModuleNotFoundError: No module named 'src.dashboard.cargo_statistics_tab'` at line 36 of `app.py`, along with similar errors for `live_vessels_tab` and `ships_berths_tab`.
+- **Root Cause**: The import paths in `app.py` were pointing to the old module locations. These tab modules had been moved to the `src/dashboard/tabs/` subdirectory, but some import statements in `app.py` were not updated to reflect the new directory structure.
+- **Solution**: Updated the import paths in `app.py` to include the `tabs` subdirectory:
+  - `from src.dashboard.live_vessels_tab import render_live_vessels_tab` → `from src.dashboard.tabs.live_vessels_tab import render_live_vessels_tab`
+  - `from src.dashboard.ships_berths_tab import render_ships_berths_tab` → `from src.dashboard.tabs.ships_berths_tab import render_ships_berths_tab`
+  - The `cargo_statistics_tab` import was already corrected in a previous fix.
+
+### Key Learning
+- **Module Reorganization Impact**: When refactoring code by moving modules to different directories, all import statements across the entire codebase must be systematically updated. Missing even one import can cause deployment failures.
+- **Deployment Environment Sensitivity**: Import path errors that might not surface during local development (due to Python's module resolution behavior) become critical failures in cloud deployment environments like Streamlit Community Cloud.
+- **Systematic Import Verification**: After any module reorganization, it's essential to search the entire codebase for import statements that reference the moved modules to ensure complete consistency.
+
 ## `NameError: name 'st' is not defined`
 
 ### Issue Resolved
