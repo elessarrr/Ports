@@ -6,40 +6,39 @@ This file serves as the main entry point for Streamlit Community Cloud deploymen
 Streamlit Community Cloud expects the main app file to be named 'streamlit_app.py' 
 at the project root level.
 
-This file imports and runs the actual dashboard from the nested project structure.
+This simplified entry point directly executes the dashboard file to avoid
+path resolution issues in cloud environments.
 """
 
 import sys
 import os
 from pathlib import Path
 
-# Ensure robust path handling for both local and cloud deployment
+# Simple and robust entry point for cloud deployment
 try:
-    # Get the absolute path of the current file's directory
-    current_dir = Path(__file__).resolve().parent
+    # Get the path to the actual dashboard file
+    dashboard_path = Path(__file__).resolve().parent / "hk_port_digital_twin" / "src" / "dashboard" / "streamlit_app.py"
     
-    # Add current directory to Python path if not already present
-    if str(current_dir) not in sys.path:
-        sys.path.insert(0, str(current_dir))
+    # Verify the dashboard file exists
+    if not dashboard_path.exists():
+        raise FileNotFoundError(f"Dashboard file not found at: {dashboard_path}")
     
-    # Import the main dashboard module using absolute import
-    from hk_port_digital_twin.src.dashboard.streamlit_app import main
+    # Execute the dashboard file directly
+    with open(dashboard_path, 'r', encoding='utf-8') as f:
+        dashboard_code = f.read()
     
-    # Run the main function
-    if __name__ == "__main__":
-        main()
-    else:
-        # If imported as module, run main automatically
-        main()
+    # Execute the dashboard code in the current namespace
+    exec(dashboard_code, globals())
         
-except ImportError as e:
+except FileNotFoundError as e:
     import streamlit as st
-    st.error(f"Failed to import dashboard module: {e}")
-    st.info("Please ensure all dependencies are installed and the project structure is correct.")
+    st.error(f"Dashboard file not found: {e}")
+    st.info("Please ensure the project structure is correct.")
     st.info(f"Current working directory: {os.getcwd()}")
-    st.info(f"Python path: {sys.path[:3]}...")  # Show first 3 paths
+    st.info(f"Looking for dashboard at: {Path(__file__).resolve().parent / 'hk_port_digital_twin' / 'src' / 'dashboard' / 'streamlit_app.py'}")
 except Exception as e:
     import streamlit as st
     st.error(f"Error running dashboard: {e}")
     st.info("Please check the application logs for more details.")
     st.info(f"Current working directory: {os.getcwd()}")
+    st.info(f"Python path: {sys.path[:3]}...")  # Show first 3 paths

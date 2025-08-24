@@ -49,8 +49,75 @@ self.unified_framework = UnifiedSimulationController()
 
 ### Key Learnings
 
-1. **Class Name Verification**: Always verify that class names match exactly between import statements and instantiation calls.
-2. **Import Statement Review**: When encountering `NameError`, check both the import statements and the actual class/function names being used.
+1. **Class Name Verification**: Always verify that class names match their actual definitions, especially after refactoring.
+2. **Import vs Usage**: Ensure that imported classes are used with their correct names throughout the codebase.
+3. **Error Message Analysis**: The error message clearly indicated the undefined name, making it straightforward to identify and fix.
+
+---
+
+## Error 4: Streamlit Cloud Deployment Path Error
+
+### Symptom
+
+Streamlit Cloud deployment failed with the following error:
+
+```
+FileNotFoundError: [Errno 2] No such file or directory: '/mount/src/ports/Ports_23Aug_v2.2_demo_working_streamlit_optimised/hk_port_digital_twin/Ports_23Aug_v2.2_demo_working_streamlit_optimised/streamlit_app.py'
+```
+
+### Root Cause
+
+The error was caused by path confusion in the Streamlit Cloud environment. The original `streamlit_app.py` entry point was using complex path manipulations that worked locally but created circular path references in the cloud deployment environment. The cloud environment was looking for files in a duplicated directory structure.
+
+### Resolution
+
+The fix involved simplifying the entry point logic and making it more robust for both local and cloud deployment:
+
+**Previous Code Issues:**
+1. Used `os.chdir()` to change working directory
+2. Complex path manipulation that confused Streamlit's file watcher
+3. Conditional import logic that wasn't robust
+
+**Corrected Approach:**
+1. **Removed directory changes**: Eliminated `os.chdir()` calls that were causing path confusion
+2. **Simplified path handling**: Used `Path(__file__).resolve().parent` for robust path resolution
+3. **Direct function import**: Imported the `main` function directly instead of the module
+4. **Enhanced error reporting**: Added debugging information to help diagnose deployment issues
+
+**Key Code Changes:**
+
+```python
+# Before (problematic)
+os.chdir(str(hk_port_path))
+import src.dashboard.streamlit_app as dashboard_app
+
+# After (robust)
+current_dir = Path(__file__).resolve().parent
+from hk_port_digital_twin.src.dashboard.streamlit_app import main
+main()
+```
+
+### Key Learnings
+
+1. **Cloud vs Local Environment Differences**: Path handling that works locally may fail in cloud deployment environments due to different file system structures.
+2. **Avoid Working Directory Changes**: Using `os.chdir()` in Streamlit applications can confuse the file watcher and cause deployment issues.
+3. **Robust Path Resolution**: Use `Path(__file__).resolve().parent` for reliable path resolution across different environments.
+4. **Direct Function Imports**: Import specific functions rather than modules when possible to reduce complexity.
+5. **Enhanced Error Reporting**: Include debugging information in error handlers to help diagnose deployment issues.
+6. **Deployment Testing**: Always test path-related changes in both local and cloud environments.
+
+---
+
+## How to Document
+
+When documenting debugging processes, follow this format:
+
+1. **Symptom**: Describe the error message and behavior observed
+2. **Root Cause**: Explain what was causing the issue
+3. **Resolution**: Detail the specific changes made to fix the issue
+4. **Key Learnings**: Extract general principles and best practices
+
+This helps future developers understand not just what was fixed, but why it was fixed and how to prevent similar issues.
 3. **Code Consistency**: Maintain consistency between class definitions and their usage throughout the codebase.
 
 ---
@@ -330,6 +397,73 @@ arriving_ships = arriving_ships.sort_values('arrival_time', ascending=False, na_
 2. **Code Review**: Review existing code patterns before implementing new functionality
 3. **Documentation Reference**: Always refer to the official pandas documentation for correct parameter names
 4. **Testing**: Test new functionality thoroughly to catch parameter errors early
+
+## Error 5: Streamlit Cloud Deployment Path Duplication Error
+
+### Symptom
+
+Streamlit Cloud deployment failed with a `FileNotFoundError` showing a duplicated path structure:
+
+```
+FileNotFoundError: [Errno 2] No such file or directory: '/mount/src/ports/Ports_23Aug_v2.2_demo_working_streamlit_optimised/hk_port_digital_twin/Ports_23Aug_v2.2_demo_working_streamlit_optimised/streamlit_app.py'
+```
+
+The error shows the project directory name (`Ports_23Aug_v2.2_demo_working_streamlit_optimised`) appearing twice in the path, creating a circular reference that doesn't exist.
+
+### Root Cause
+
+The issue was caused by complex path manipulation in the entry point `streamlit_app.py` that worked locally but failed in Streamlit Cloud's deployment environment. The original code attempted to:
+
+1. Add the current directory to `sys.path`
+2. Import the dashboard module using absolute imports
+3. Handle both local and cloud deployment scenarios
+
+However, Streamlit Cloud's path resolution mechanism interpreted these manipulations differently, leading to the duplicated path structure.
+
+### Resolution
+
+The solution involved simplifying the entry point to use direct file execution instead of complex import mechanisms:
+
+**Original Complex Approach:**
+```python
+# Get the absolute path of the current file's directory
+current_dir = Path(__file__).resolve().parent
+
+# Add current directory to Python path if not already present
+if str(current_dir) not in sys.path:
+    sys.path.insert(0, str(current_dir))
+
+# Import the main dashboard module using absolute import
+from hk_port_digital_twin.src.dashboard.streamlit_app import main
+
+# Run the main function
+main()
+```
+
+**Simplified Direct Execution:**
+```python
+# Get the path to the actual dashboard file
+dashboard_path = Path(__file__).resolve().parent / "hk_port_digital_twin" / "src" / "dashboard" / "streamlit_app.py"
+
+# Verify the dashboard file exists
+if not dashboard_path.exists():
+    raise FileNotFoundError(f"Dashboard file not found at: {dashboard_path}")
+
+# Execute the dashboard file directly
+with open(dashboard_path, 'r', encoding='utf-8') as f:
+    dashboard_code = f.read()
+
+# Execute the dashboard code in the current namespace
+exec(dashboard_code, globals())
+```
+
+### Key Learnings
+
+1. **Cloud vs Local Environment Differences**: Path resolution can behave differently between local development and cloud deployment environments
+2. **Simplicity Over Complexity**: Direct file execution is more reliable than complex import mechanisms for entry points
+3. **Path Verification**: Always verify file existence before attempting to execute or import
+4. **Error Handling**: Provide clear error messages with actual paths for debugging deployment issues
+5. **Deployment Testing**: Test deployment scenarios separately from local development
 
 ## How to document
 
