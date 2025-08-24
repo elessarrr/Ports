@@ -27,11 +27,11 @@ from enum import Enum
 
 # Import existing optimization modules
 import sys
-import os
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, os.path.join(parent_dir, 'ai'))
-sys.path.insert(0, parent_dir)
+from pathlib import Path
+current_dir = Path(__file__).resolve().parent
+parent_dir = current_dir.parent
+sys.path.insert(0, str(parent_dir / 'ai'))
+sys.path.insert(0, str(parent_dir))
 
 try:
     from optimization import BerthAllocationOptimizer, Ship, Berth, OptimizationResult

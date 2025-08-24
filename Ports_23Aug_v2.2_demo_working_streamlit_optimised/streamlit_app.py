@@ -31,8 +31,19 @@ try:
     exec_globals = globals().copy()
     exec_globals['__file__'] = str(dashboard_path)
     
-    # Execute the dashboard code with the correct context
-    exec(dashboard_code, exec_globals)
+    # Pre-calculate the correct project root to avoid path duplication issues
+    # In cloud environments, the path calculation can get confused
+    project_root = str(Path(__file__).resolve().parent)
+    
+    # Modify the dashboard code to use our pre-calculated project root
+    # Replace the problematic path calculation with our correct one
+    modified_dashboard_code = dashboard_code.replace(
+        'project_root = str(Path(__file__).resolve().parents[3])',
+        f'project_root = "{project_root}"'
+    )
+    
+    # Execute the modified dashboard code with the correct context
+    exec(modified_dashboard_code, exec_globals)
         
 except FileNotFoundError as e:
     import streamlit as st

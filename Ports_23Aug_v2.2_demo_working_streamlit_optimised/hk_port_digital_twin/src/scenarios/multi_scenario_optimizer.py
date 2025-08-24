@@ -51,17 +51,17 @@ class OptimizationResult:
 
 # Import existing modules
 import sys
-import os
+from pathlib import Path
 
 # Add parent directories to path for imports
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-project_root = os.path.dirname(parent_dir)
-sys.path.insert(0, project_root)
-sys.path.insert(0, parent_dir)
-sys.path.insert(0, os.path.join(parent_dir, 'ai'))
-sys.path.insert(0, os.path.join(parent_dir, 'utils'))
-sys.path.insert(0, current_dir)
+current_dir = Path(__file__).resolve().parent
+parent_dir = current_dir.parent
+project_root = parent_dir.parent
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(parent_dir))
+sys.path.insert(0, str(parent_dir / 'ai'))
+sys.path.insert(0, str(parent_dir / 'utils'))
+sys.path.insert(0, str(current_dir))
 
 try:
     from optimization import BerthAllocationOptimizer, Ship, Berth, OptimizationResult
