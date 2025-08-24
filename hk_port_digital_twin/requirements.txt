@@ -6,3 +6,4 @@ requests
 schedule
 python-dotenv
 simpy
+scipy
