@@ -106,6 +106,60 @@ Created the missing `scenario_comparison.py` module with the required `create_sc
 
 ---
 
+## Error 5: `ModuleNotFoundError: No module named 'simpy'`
+
+### Symptom
+
+The Streamlit application failed to deploy on Streamlit Community Cloud with the following error:
+
+```
+ModuleNotFoundError: No module named 'simpy'
+Traceback:
+File "/mount/src/ports/hk_port_digital_twin/app.py", line 16, in <module>
+  import simpy
+```
+
+### Root Cause
+
+The error was caused by a missing dependency. The `simpy` library, which is required for the simulation components of the application, was not listed in the `requirements.txt` file. Streamlit Community Cloud uses this file to install all necessary packages, and since `simpy` was missing, the application crashed on startup.
+
+### Resolution
+
+The fix involved adding `simpy` to the `requirements.txt` file.
+
+**Incorrect `requirements.txt`:**
+```
+streamlit
+pandas
+plotly
+watchdog
+requests
+schedule
+python-dotenv
+```
+
+**Corrected `requirements.txt`:**
+```
+streamlit
+pandas
+plotly
+watchdog
+requests
+schedule
+python-dotenv
+simpy
+```
+
+This change ensures that `simpy` is installed as a dependency when the application is deployed, resolving the `ModuleNotFoundError`.
+
+### Key Learnings
+
+1.  **Dependency Management**: Always ensure that all required libraries are listed in the `requirements.txt` file.
+2.  **Deployment Environment**: Be aware that deployment environments like Streamlit Community Cloud rely on the `requirements.txt` file to set up the environment.
+3.  **Local vs. Remote**: A library might be installed locally, but if it's not in `requirements.txt`, it won't be available in the deployed application.
+
+---
+
 ## Summary
 
 Successfully implemented scenario-dependent performance analytics in the Hong Kong Port Digital Twin dashboard with **distinct, non-overlapping parameter ranges**. The system now dynamically changes analytics based on the selected scenario (Peak Season, Normal Operations, Low Season), providing more realistic and contextually relevant data visualization.
