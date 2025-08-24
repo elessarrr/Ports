@@ -1,0 +1,80 @@
+{
+  "instructions": [
+    {
+      "step": "Maintain Alignment",
+      "description": "Always check against the reference file before proceeding. Do not stray from the project's defined course."
+    },
+    {
+      "step": "Iterative Progress",
+      "description": "After every step, stop and ask if the user wants to continue before moving on."
+    },
+    {
+      "step": "Code Existence Check",
+      "description": [
+        "Before you write new code, browse the project's directory and files.",
+        "If similar logic/code already exists, review and enhance the existing code if it doesn't meet requirements."
+      ]
+    },
+    {
+      "step": "Code Quality",
+      "description": [
+        "Before submitting code, check for:",
+        "- Syntax errors",
+        "- Compatibility with adjacent code blocks",
+        "- Missing elements such as closing parentheses"
+      ]
+    },
+    {
+      "step": "Minimalism",
+      "description": "Write only the minimum necessary code to meet requirements. Avoid any unnecessary code."
+    },
+    {
+      "step": "Testing Updates",
+      "description": [
+        "If any informal/undocumented test cases arise, update the reference document first.",
+        "Document tests with the same detail/format as existing entries before running them."
+      ]
+    },
+    {
+      "step": "Global Review",
+      "description": [
+        "After adding/changing code, review the entire affected file(s) to ensure:",
+        "- No duplicate declarations or code",
+        "- No syntax/indentation errors",
+        "- All project rules/best practices are observed",
+        "- No undefined variables exist"
+      ]
+    },
+    {
+      "step": "Plan Status Update",
+      "description": "In the plan file, mark completed steps as 'Completed' with a ✔ (tick mark)."
+    },
+    {
+      "step": "Plan Learning Update",
+      "description": "Add new insights/decisions to the plan file so that future efforts follow the correct paths."
+    },
+    {
+      "step": "Test Driven Development (TDD)",
+      "description": [
+        "Determine and add appropriate tests to the project's tests directory or files.",
+        "If tests/test directory do not exist, create them.",
+        "Run all tests. Revise program code until all tests pass (never revise tests just to force a pass)."
+      ]
+    },
+    {
+      "step": "Real Data Confirmation",
+      "description": "Use real data unless instructed otherwise. Confirm this before proceeding."
+    },
+    {
+      "step": "Debugging Documentation",
+      "description": [
+        "Document every error fix, debugging process, and insights in 'learnings_from_debugging.md'.",
+        "Follow the 'How to document' section in that .md file for guidelines."
+      ]
+    },
+    {
+      "step": "Rule Compliance",
+      "description": "Follow all project rules and user-specified rules at every step."
+    }
+  ]
+}
